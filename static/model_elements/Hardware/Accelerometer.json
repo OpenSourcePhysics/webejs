@@ -1,0 +1,12 @@
+{
+	"name" : "Accelerometer",
+	"icon" : "Accelerometer.png",
+	"html" : "Accelerometer.html",
+	"tooltip" : "provides access to the built-in accelerometer",
+	"webejs"	 : "AccelerometerElement.js",
+	"classname"	 : "org.colos.ejss.model_elements.hardware.AccelerometerElement",
+	"js" : [ ],
+	"lint_code" : "",
+	"source_code" : "var {{NAME}} = EJSS_HARDWARE.accelerometer();"
+
+}

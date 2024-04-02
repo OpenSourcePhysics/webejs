@@ -1,0 +1,11 @@
+{
+	"name" : "Gyroscope",
+	"icon" : "Gyroscope.png",
+	"html" : "Gyroscope.html",
+	"tooltip" : "provides access to the built-in gyroscope",
+	"webejs"	 : "GyroscopeElement.js",
+	"classname"	 : "org.colos.ejss.model_elements.hardware.GyroscopeElement",
+	"js" : [ ],
+	"lint_code" : "",
+	"source_code" : "var {{NAME}} = EJSS_HARDWARE.gyroscope();"
+}

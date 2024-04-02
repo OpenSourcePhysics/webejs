@@ -1,0 +1,11 @@
+{
+	"name" : "MathJS",
+	"icon" : "MathJS.png",
+	"html" : "MathJS.html",
+	"webejs"	 : "MathJSElement.js",
+	"tooltip" : "provides extensive math library for JavaScript",
+	"classname"	 : "org.colos.ejss.model_elements.numerics.MathJSJavascriptElement",
+	"js" : [ "math-3.16.4.min.js"],
+	"lint_code" : "",
+	"source_code" : ""
+}
