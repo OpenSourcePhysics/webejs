@@ -6508,8 +6508,10 @@ WebEJS_GUI.optionsSimulationPanel = function() {
 		}
 		// Create and show the jsPanel
 		const options = {
+      content : _GUI_FRAGMENT,
+      /*
 	    contentAjax: {
-	        url: '/static/fragments/SimulationOptions.html',
+	        //url: '/static/fragments/SimulationOptions.html',
 	        done: function (xhr, panel) {
             	panel.contentRemove();
            		panel.content.append(jsPanel.strToHtml(xhr.responseText));
@@ -6518,6 +6520,7 @@ WebEJS_GUI.optionsSimulationPanel = function() {
 						sMainRefreshTooltips();
 	        }
 	    },
+      */
 	    onbeforeclose: function(panel) {
 				collectValues();
 				mPanel = null;
@@ -6529,8 +6532,13 @@ WebEJS_GUI.optionsSimulationPanel = function() {
 			},
 			footerToolbar: 
 				'<button type="button" id="mSimulationOptionsEditorDoneButton" class="sTranslatable btn btn-primary float-left">Done</button>',
-				callback : function(panel) {
-				}
+			callback : function(panel) {
+        displayValues(mOptions);
+        $('#mSimulationOptionsEditorDoneButton').click(function() { mPanel.close(); 
+        }
+      );
+     sMainRefreshTooltips();
+}
 		};
 		mPanel = WebEJS_TOOLS.createJSPanel(sMainResources.getString("Simulation options"), options);
 		sMainGUI.setSimulationOptionsRadio(true);
@@ -6945,11 +6953,311 @@ WebEJS_GUI.optionsSimulationPanel = function() {
 		mOptions['UseInterpreter'] = $('#mSimulationOptionsEditorParse').is(":checked") ? "true" : "false";
 		mOptions['UseDeltaForODE'] = $('#mSimulationOptionsEditorUseDelta').is(":checked") ? "true" : "false";
 	}	
-	
-	return self;
-}
 
-/*
+  const _GUI_FRAGMENT = `
+	<div class="sMainSimulationOptionsDialog dialog-sm">
+				
+				<!-- begin tab headers -->
+				<ul class="nav nav-tabs" role="tablist">
+			  	<li class="nav-item" role="presentation">
+	     			<button class="sTranslatable nav-link active" id="mSimulationOptionsEditorMetadataTab" 
+			 		  		data-bs-toggle="tab" data-bs-target="#mSimulationOptionsEditorMetadataDiv"  
+	     			  	type="button" role="tab" aria-controls="mSimulationOptionsEditorMetadataDiv" aria-selected="true">
+	     			  	Metadata
+	     			 </button>
+	    		</li>
+			  	<li class="nav-item" role="presentation">
+	     			<button class="sTranslatable nav-link " id="mSimulationOptionsEditorRunningTab" 
+						 		data-bs-toggle="tab" data-bs-target="#mSimulationOptionsEditorRunningDiv"  
+	   					 	type="button" role="tab" aria-controls="mSimulationOptionsEditorRunningDiv" aria-selected="false">
+     					 Run options
+	     			</button>
+	    		</li>
+			  	<li class="nav-item" role="presentation">
+						<button class="sTranslatable nav-link" id="mSimulationOptionsEditorExportTab" 
+								data-bs-toggle="tab" data-bs-target="#mSimulationOptionsEditorExportDiv"  
+								type="button" role="tab" aria-controls="mSimulationOptionsEditorExportDiv" aria-selected="false">
+							Export options
+						</button>
+				 </li>
+				 <li class="nav-item" role="presentation">
+	     			<button class="sTranslatable nav-link" id="mSimulationOptionsEditorEditTab" 
+			 		  		data-bs-toggle="tab" data-bs-target="#mSimulationOptionsEditorEditDiv"  
+	     			  	type="button" role="tab" aria-controls="mSimulationOptionsEditorEditDiv" aria-selected="false">
+	     			  Edit options
+	     			</button>
+	    		</li>
+				</ul> 
+				<!-- end tab headers -->
+	     			
+				<!-- begin tab content -->
+				<div class="tab-content">
+			 		  	
+			 		<!-- begin METADATA content -->
+			 		<div class="tab-pane fade show active" id="mSimulationOptionsEditorMetadataDiv" 
+			 			   role="tabpanel" aria-labelledby="mSimulationOptionsEditorMetadataTab">
+			 			  			
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsTitleLabel" class="sTranslatable input-group-text">Title</span>
+  						<input id="mSimulationOptionsTitle" type="text" class="form-control" placeholder="Enter title here" 
+  										aria-label="Title" aria-describedby="mSimulationOptionsTitleLabel">
+						</div>
+
+						<div class="mt-2 input-group">
+						  <span class="sTranslatable input-group-text">Author</span>
+					    <select id="mSimulationOptionsAuthor" class="form-select"></select>
+						  <span id="mSimulationOptionsAuthorAdd" 		class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Add">
+						  	<i class="bi bi-clipboard-plus" style="color: black;"></i>
+						  </span>
+						  <span id="mSimulationOptionsAuthorEdit" 	class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Edit">
+						  	<i class="bi bi-clipboard-data" style="color: black;"></i>
+						  </span>
+						  <span id="mSimulationOptionsAuthorDelete" class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Delete">
+						  	<i class="bi bi-clipboard-x" style="color: black;"></i>
+						  </span>
+						</div>
+
+						<div class="mt-2">
+							<span id="mSimulationOptionsAuthorLogoGallery" class="btn-group btn-group-sm" role="group" aria-label="AuthorLogoGallery">
+							</span>
+        		</div>
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsKeywordsLabel" class="sTranslatable input-group-text">Keywords</span>
+  						<input id="mSimulationOptionsKeywords" type="text" class="form-control" placeholder="Enter keywords here" 
+  										aria-label="Keywords" aria-describedby="mSimulationOptionsKeywordsLabel">
+						</div>
+						        								
+						<!-- div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsAbstractLabel" class="sTranslatable input-group-text">Abstract</span>
+  						<input id="mSimulationOptionsAbstract" type="text" class="form-control" placeholder="Enter abstract here" 
+  										aria-label="Abstract" aria-describedby="mSimulationOptionsAbstractLabel">
+						</div -->
+
+						<div class="mt-2 form-floating">
+						  <textarea  id="mSimulationOptionsAbstract" class="form-control" placeholder="Enter abstract here"style="height: 100px"></textarea>
+						  <label class="sTranslatable" for="mSimulationOptionsAbstract">Comments</label>
+						</div>
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsCopyrightLabel" class="sTranslatable input-group-text">Copyright</span>
+  						<input id="mSimulationOptionsCopyright" type="text" class="form-control" placeholder="Enter copyright here" 
+  										aria-label="Copyright" aria-describedby="mSimulationOptionsCopyrightLabel">
+						</div>
+        							
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsLevelLabel" class="sTranslatable input-group-text">Level</span>
+  						<input id="mSimulationOptionsLevel" type="text" class="form-control" placeholder="Enter level here" 
+  										aria-label="Level" aria-describedby="mSimulationOptionsLevelLabel">
+						</div>
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsLanguagesLabel" class="sTranslatable input-group-text">Languages</span>
+  						<input id="mSimulationOptionsLanguages" type="text" class="form-control" placeholder="Enter languages here" 
+  										aria-label="Languages" aria-describedby="mSimulationOptionsLanguagesLabel">
+						</div>
+
+						<div class="mt-2 input-group">
+						  <span class="sTranslatable input-group-text">Logo</span>
+					    <select id="mSimulationOptionsLogo" class="form-select"></select>
+						  <span id="mSimulationOptionsLogoAdd" 		class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Add">
+						  	<i class="bi bi-clipboard-plus" style="color: black;"></i>
+						  </span>
+						  <span id="mSimulationOptionsLogoDelete" class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Delete">
+						  	<i class="bi bi-clipboard-x" style="color: black;"></i>
+						  </span>
+						</div>
+
+						<div class="mt-2">
+							<span id="mSimulationOptionsLogoGallery" class="btn-group btn-group-sm" role="group" aria-label="SimulationLogoGallery">
+							</span>
+        		</div>
+
+			 		</div>
+			 		<!-- end METADATA content -->
+
+					<!-- begging RUNNING content -->
+					<div class="tab-pane fade show " id="mSimulationOptionsEditorRunningDiv" 
+			 			  	role="tabpanel" aria-labelledby="mSimulationOptionsEditorRunningTab">
+			 			  	
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" checked 
+								 name="mSimulationOptionsEditorMustPause" id="mSimulationOptionsEditorMustPause">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsEditorMustPause">
+								The simulation must pause if the page looses focus
+							</label>
+				    </div>			 			  	
+
+						<hr>
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsModelTabLabel" class="sTranslatable input-group-text">Simulation Tab</span>
+  						<input id="mSimulationOptionsModelTab" type="text" class="form-control" placeholder="Enter tab number here" 
+  										aria-label="ModelTab" aria-describedby="mSimulationOptionsModelTabLabel">
+						</div>
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsModelTabTitleLabel" class="sTranslatable input-group-text">Simulation Tab Title</span>
+  						<input id="mSimulationOptionsModelTabTitle" type="text" class="form-control" placeholder="Enter tab title here" 
+  										aria-label="ModelTabTitle" aria-describedby="mSimulationOptionsModelTabTitleLabel">
+						</div>
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsModelNameLabel" class="sTranslatable input-group-text">Simulation Name</span>
+  						<input id="mSimulationOptionsModelName" type="text" class="form-control" placeholder="Enter simulation name here" 
+  										aria-label="ModelName" aria-describedby="mSimulationOptionsModelNameLabel">
+						</div>
+												
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" checked 
+								 name="mSimulationOptionsFixedNavigationBar" id="mSimulationOptionsFixedNavigationBar">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsFixedNavigationBar">
+								EJS Reader's navigation bar ignores double-clicks
+							</label>
+				    </div>			 			  	
+						<hr>
+
+						<div class="mt-2 input-group">
+						  <span  id="mSimulationOptionsCSSLabel" class="sTranslatable input-group-text">CSS</span>
+  						<input id="mSimulationOptionsCSS" type="text" class="form-control" readonly 
+  										aria-label="Languages" aria-describedby="mSimulationOptionsCSSLabel">
+						  <span id="mSimulationOptionsCSSEdit" 		class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Edit">
+						  	<i class="bi bi-clipboard-data" style="color: black;"></i>
+						  </span>
+						  <span id="mSimulationOptionsCSSDelete" class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Delete">
+						  	<i class="bi bi-clipboard-x" style="color: black;"></i>
+						  </span>
+						</div>
+
+						<div class="mt-2 input-group">
+						  <span class="sTranslatable input-group-text">User files</span>
+					    <select id="mSimulationOptionsUserFiles" class="form-select"></select>
+						  <span id="mSimulationOptionsUserFilesAdd" 		class="input-group-text"
+        						data-bs-target="#mFileChooserModal" data-bs-toggle="modal" data-bs-dismiss="modal"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Add">
+						  	<i class="bi bi-clipboard-plus" style="color: black;"></i>
+						  </span>
+						  <span id="mSimulationOptionsUserFilesDelete" class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Delete">
+						  	<i class="bi bi-clipboard-x" style="color: black;"></i>
+						  </span>
+						</div>
+											 	
+						<div class="mt-2 input-group">
+						  <span class="sTranslatable input-group-text">Files required</span>
+					    <select id="mSimulationOptionsDetectedFiles" class="form-select"></select>
+						  <span id="mSimulationOptionsDetectedFilesRefresh" class="input-group-text"
+						  			data-bs-toggle="tooltip" data-bs-placement="bottom" title="Refresh">
+						  	<i class="bi bi-clipboard-data" style="color: black;"></i>
+						  </span>
+						</div>
+						 
+						<hr>
+
+						<div class="mt-2 form-floating">
+						  <textarea  id="mSimulationOptionsHtmlHead" class="form-control" placeholder="Enter html head here" style="height: 100px"></textarea>
+						  <label class="sTranslatable" for="mSimulationOptionsHtmlHead">HTML head</label>
+						</div>
+
+			 		</div>
+			 		<!-- end RUNNING content -->
+
+					<!-- begin EXPORT content -->
+					<div class="tab-pane fade show" id="mSimulationOptionsEditorExportDiv" role="tabpanel"
+						aria-labelledby="mSimulationOptionsEditorExportTab">
+					
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" checked 
+								 name="mSimulationOptionsSaveAsXML" id="mSimulationOptionsSaveAsXML">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsSaveAsXML">
+								Save the source file in EJS 6 format rather than WebEJS format
+							</label>
+				    </div>			 			  	
+					
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" checked 
+								 name="mSimulationOptionsIncludeSource" id="mSimulationOptionsIncludeSource">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsIncludeSource">
+								Include the source file in the complete simulation ZIP
+							</label>
+				    </div>			 			  	
+
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" checked 
+								 name="mSimulationOptionsIncludeLibrary" id="mSimulationOptionsIncludeLibrary">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsIncludeLibrary">
+								Include all EJS libraries when exporting the complete model's ZIP<br><br>
+								<small>
+									The model’s ZIP file will be smaller if the EJS libraries are excluded 
+									because the EJS libraries will be downloaded from the Internet when the 
+									model’s HTML page is run. This is fast and the files are cached in most 
+									browsers. Include the EJS libraries if you intend to run the HTML page 
+									without an internet connection.<br><br>
+									Note that EJS 6 uses an XML file to describe the model whereas WebEJS uses a JSON file.
+									New WebEJS options may not be available if the model is exported in EJS 6 format.
+
+								</small>
+							</label>
+				    </div>			 			  	
+
+						<!--div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" name="mSimulationOptionsUglifyJS"
+								id="mSimulationOptionsUglifyJS">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsUglifyJS">
+								Uglify the Javacript code in the generated model
+							</label>
+						</div-->
+										
+					</div>
+					<!-- end EXPORT content -->
+		 
+				 	<!-- begin EDITION content -->
+			 		<div class="tab-pane fade show" id="mSimulationOptionsEditorEditDiv" 
+			 			   role="tabpanel" aria-labelledby="mSimulationOptionsEditorEditTab">
+
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" 
+								 name="mSimulationOptionsEditorFullModel" id="mSimulationOptionsEditorFullModel">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsEditorFullModel">
+								Show full model in the preview area	on load						
+							</label>							
+				 		</div>	
+				 		
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" 
+								 name="mSimulationOptionsEditorParse" id="mSimulationOptionsEditorParse">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsEditorParse">
+								Parse custom method with an interpreter
+							</label>							
+				 		</div>	
+
+						<div class="form-check mt-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" 
+								 name="mSimulationOptionsEditorUseDelta" id="mSimulationOptionsEditorUseDelta">
+							<label class="sTranslatable form-check-label" for="mSimulationOptionsEditorUseDelta">
+								Use &#916; for ODEs
+							</label>							
+				 		</div>			 	
+				 		
+			 		</div>			 	
+				 	<!-- end EDITION content -->
+	
+				</div>
+				<!-- end tab content -->
+	
+	</div>
+  `;
+
+  return self;
+}/*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the Web EJS authoring and simulation tool
  */
