@@ -9864,6 +9864,196 @@ WebEJS_RESOURCES.main = function(locale) {
 	return self;
 	
 }
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+* Creates a form to ask for a new name
+*/
+WebEJS_GUI.confirmationForm = function() {
+	var self = {};
+  
+  const _HTML = `
+  <div class="modal fade" id="mConfirmationFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mConfirmationFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mConfirmationFormTitle" class="sTranslatable text-primary modal-title">Confirmation</h5>
+      		<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+
+    	<!------------------  end modal header --------------->
+
+			<div id="mConfirmationFormMessage" class="modal-body">
+				<p>Do you really want to do this?</p>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<button type="button" id="mConfirmationFormCloseButton" class="btn btn-secondary me-auto">Oops! Please cancel</button>
+				<button type="button" id="mConfirmationFormOkButton" 		class="btn btn-primary">Confirm</button>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+	var mModal = new bootstrap.Modal(document.getElementById('mConfirmationFormModal'))
+  $('#mConfirmationFormLogo').attr("src",sMainEjsLogo);
+	var mAcceptListener;
+	var mRejectListener;
+	var mAccepted = false;
+
+	$("#mConfirmationFormModal").on("hidden.bs.modal", function () {
+		if (mAccepted) mAcceptListener();
+		else if (mRejectListener) mRejectListener();
+	});
+	
+	$('#mConfirmationFormCloseButton').click(function() {
+		mModal.hide();
+	});
+	
+	$('#mConfirmationFormOkButton').click(function() {
+		mAccepted = true;
+		mModal.hide();
+	});
+
+
+	self.showWarning = function(title, questionStr, doItStr, onAccept, onReject) { // listener}, text, message, title) {
+		const questionHtml = '<p>'+sMainResources.getString(questionStr)+'</p>';
+		displayHtml(title, "text-danger", questionHtml, doItStr, onAccept, onReject);
+	}
+
+	self.show = function(title, questionStr, doItStr, onAccept, onReject) { // listener}, text, message, title) {
+		const questionHtml = '<p>'+sMainResources.getString(questionStr)+'</p>';
+		displayHtml(title, "text-primary", questionHtml, doItStr, onAccept, onReject);
+	}
+
+	self.showHtml = function(title, questionHtml, doItStr, onAccept, onReject) { // listener, text, message, title) {
+		displayHtml(title, "text-primary", questionHtml, doItStr, onAccept, onReject);
+	}
+
+	function displayHtml(title, titleClass, questionHtml, doItStr, onAccept, onReject) { // listener, text, message, title) {
+		$('#mConfirmationFormTitle').text(title);
+		$('#mConfirmationFormTitle').removeClass(["text-primary","text-danger"]).addClass(titleClass);
+		$('#mConfirmationFormMessage').html(questionHtml);
+		$('#mConfirmationFormOkButton').text(sMainResources.getString(doItStr));
+		mAcceptListener = onAccept;
+		mRejectListener = onReject;
+		mAccepted = false;
+		mModal.show();
+	}
+
+
+	return self;
+}var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * Creates a form to ask for a new name
+*/
+WebEJS_GUI.customElementForm = function() {
+ var self = {};
+
+ const _HTML = `
+<div class="modal fade" id="mCustomElementFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mCustomElementFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 class="sTranslatable text-primary modal-title">Add custom element</h5>
+				</img>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+				<div class="mb-2">
+					<label id="mCustomElementFormNameLabel" for="mCustomElementFormNameValue" class="sTranslatable form-label form-label-sm">Name</label>
+					<input type="text" class="form-control form-control-sm" name="mCustomElementFormNameValue" id="mCustomElementFormNameValue"
+						placeholder="Enter name here" >
+				</div>
+	       <div class="input-group mb-3">
+	         <label class="input-group-text sTranslatable" for="mCustomElementFormIconField" class="form-label">Click to choose a (24x24) icon</label>
+	         <label class="input-group-text bg-white" id="mCustomElementFormIconButton">
+	           <img id="mCustomElementFormIconImage" width="24" height="24">
+	         </label>
+         <input class="form-control d-none" accept="image/*"  id="mCustomElementFormIconField" type="file">
+       </div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<button type="button" id="mCustomElementFormCancelButton" class="sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Cancel</button>
+				<button type="button" id="mCustomElementFormOkButton" class="sTranslatable btn btn-primary float-left">OK</button>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`
+
+  $("body").append($(_HTML));
+
+  var mModal = new bootstrap.Modal(document.getElementById('mCustomElementFormModal'))
+  $('#mCustomElementFormLogo').attr("src", sMainEjsLogo);
+  var mListener;
+
+  $('#mCustomElementFormIconField').change(function (event) {
+    $('#mCustomElementFormIconImage').attr("src", URL.createObjectURL(event.target.files[0]));
+  });
+
+  $('#mCustomElementFormCancelButton').click(function () {
+    mModal.hide();
+  });
+
+  $('#mCustomElementFormOkButton').click(function () {
+    var name = $('#mCustomElementFormNameValue').val().trim();
+    if (name == "" || name == null) {
+      alert("Name field is required!");
+      return;
+    }
+    var icon = $('#mCustomElementFormIconField').val().trim();
+    if (icon == "" || icon == null) {
+      alert("An icon is required!");
+      return;
+    }
+    mModal.hide();
+    if (mListener) mListener(name, WebEJS_TOOLS.getBase64("mCustomElementFormIconImage"));
+  });
+
+  self.show = function (listener) {
+    //$('#mCustomElementFormNameValue').val(name); 
+    mListener = listener;
+    mModal.show();
+  }
+
+  return self;
+}
 /*
  * Copyright (C) 2023 Francisco Esquembre
  * 2023 08 This code is adapted from the IODA graphic data analysis tool
@@ -11068,64 +11258,6 @@ WebEJS_GUI.filenameForm = function(mTranslator) {
 	return self;
 }
 /*
-WebEJS_GUI.chooseFromListForm = function(mTranslator) {
-	var self = {};
-	var mModalID = "webEJSFilenameFormModal";
-
-	const mTranslateAll = WebEJS_GUI.getTranslateAll(mTranslator);
-
-	const bodyHtml = `
-		<div class="input-group mb-3">
-			<span  id="#{ID}-label" class="sTranslatable input-group-text">Choose from the list</span>
-			<input id="#{ID}-name"  type="text" class="filename_input form-control" 
-				placeholder="New name here" aria-label="Folder name" aria-describedby="#{ID}-label">
-		</div>`
-		.replace( /#\{ID\}/g,   mModalID );
-
-	const footerHtml = `
-		<button type="button" class="ok_button sTranslatable btn btn-primary">Load</button>
-		`;
-
-	var MODAL_HTML = WebEJS_GUI.MODAL_TEMPLATE
-		.replace( /#\{ID\}/g,   mModalID )
-		.replace( /#\{TITLE\}/g,  'Choose ZIP filename' )
-		.replace( /#\{BODY_HTML\}/g,  bodyHtml )
-		.replace( /#\{FOOTER_HTML\}/g,  footerHtml )
-		;
-	
-	$('body').append($(MODAL_HTML) );
-	const mModal   = new bootstrap.Modal(document.getElementById(mModalID));
-	
-	$('#'+mModalID).on('show.bs.modal', function (event) { mTranslateAll('#'+mModalID); });
-
-  // --------------------
-  // Variables
-  // --------------------
-
-	var mListener;
-
-	$('#'+mModalID+' .cancel_button').click(function() {
-		mModal.hide();
-	});
-
-	
-	$('#'+mModalID+' .ok_button').click(function() {
-		const filename = $('#'+mModalID+' .filename_input').val().trim();
-		if ( filename == "" || filename == null) return;
-		mModal.hide();
-		if (mListener) mListener(filename);
-	});
-
-	
-	self.show = function(filename, listener) {
-		$('#'+mModalID+' .filename_input').val(filename);
-		mListener = listener;
-		mModal.show();
-	}
-	
-	return self;
-}
-*//*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the Web EJS authoring and simulation tool
  */
