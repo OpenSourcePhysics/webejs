@@ -2809,7 +2809,234 @@ WebEJS_GUI.main = function() {
  */
 WebEJS_GUI.optionsWebEJSPanel = function() {
 	var self = {};
- 
+  
+  const _HTML = `
+  <div class="modal modal-dialog-scrollable fade" id="sMainWebEJSOptionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img  id="mWebEJSOptionsEditorLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 class="sTranslatable text-primary modal-title">WebEJS options</h5>
+				</img>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+    	<!------------------  end modal header --------------->
+      	
+			<div class="modal-body">
+			
+				<!-- begin tab headers -->
+				<ul class="nav nav-tabs" id="mWebEJSOptionsEditorTabs" role="tablist">
+			  	<li class="nav-item" role="presentation">
+	     			<button class="sTranslatable nav-link active" id="mWebEJSOptionsEditorAspectTab" 
+			 		  		data-bs-toggle="tab" data-bs-target="#mWebEJSOptionsEditorAspectDiv"  
+	     			  	type="button" role="tab" aria-controls="mWebEJSOptionsEditorAspectDiv" aria-selected="true">
+	     			  	Aspect
+	     			 </button>
+	    		</li>
+			  	<!-- li class="nav-item" role="presentation">
+	     			<button class="sTranslatable nav-link " id="mWebEJSOptionsEditorRunningTab" 
+						 		data-bs-toggle="tab" data-bs-target="#mWebEJSOptionsEditorRunningDiv"  
+	   					 	type="button" role="tab" aria-controls="mWebEJSOptionsEditorRunningDiv" aria-selected="false">
+     					 Running
+	     			</button>
+	    		</li>
+			  	<li class="nav-item" role="presentation">
+	     			<button class="sTranslatable nav-link" id="mWebEJSOptionsEditorExportTab" 
+			 		  		data-bs-toggle="tab" data-bs-target="#mWebEJSOptionsEditorExportDiv"  
+	     			  	type="button" role="tab" aria-controls="mWebEJSOptionsEditorExportDiv" aria-selected="false">
+	     			  Export
+	     			</button>
+	    		</li>
+			  	<li class="nav-item" role="presentation">
+	     			<button class="sTranslatable nav-link" id="mWebEJSOptionsEditorDigitalLibrariesTab" 
+			 			 		data-bs-toggle="tab" data-bs-target="#mWebEJSOptionsEditorDigitalLibrariesDiv"  
+	     			  	type="button" role="tab" aria-controls="mWebEJSOptionsEditorDigitalLibrariesDiv" aria-selected="false">
+	     			  DL
+	  				</button>
+	    			</li-->
+			 		<li class="nav-item" role="presentation">
+	    			<button class="sTranslatable nav-link" id="mWebEJSOptionsEditorAuthorTab" 
+						  	data-bs-toggle="tab" data-bs-target="#mWebEJSOptionsEditorAuthorDiv"  
+	     				  type="button" role="tab" aria-controls="mWebEJSOptionsEditorAuthorDiv" aria-selected="false">
+	   					 Author
+	   				</button>
+  				</li>
+				</ul> 
+				<!-- end tab headers -->
+	     			
+				<!-- begin tab content -->
+				<div class="tab-content" id="mWebEJSOptionsEditorTabsContent">
+			 		  
+					<div class="tab-pane fade show " id="mWebEJSOptionsEditorRunningDiv" 
+			 			  	role="tabpanel" aria-labelledby="mWebEJSOptionsEditorRunningTab">
+				 				
+			 		</div>
+			 		  	
+			 		<div class="tab-pane fade show" id="mWebEJSOptionsEditorExportDiv" 
+			 			   role="tabpanel" aria-labelledby="mWebEJSOptionsEditorExportTab">
+							
+			 		</div>
+			 		  	
+			 		<!-- begin ASPECT content -->
+			 		<div class="tab-pane fade show active" id="mWebEJSOptionsEditorAspectDiv" 
+			 			   role="tabpanel" aria-labelledby="mWebEJSOptionsEditorAspectTab">
+			 			  			
+							<div class="mb-2 input-group">
+								<span class="sTranslatable input-group-text">Language</span>
+								<select id="mWebEJSOptionsEditorLanguage" class="form-select">
+									<option selected value="en">English</option>
+									<option value="es">Español</option>
+								</select>
+							</div>
+
+			 			<div class="input-group-text form-check mb-2" id="mWebEJSOptionsEditorShowPanel">
+					  	<span class="form-check form-check-inline">
+								<label class="inline sTranslatable">Panel at start-up:</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" checked 
+					 				name="mWebEJSOptionsEditorShowPanel" id="mWebEJSOptionsEditorShowPanelDescription" value="Description">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowPanelDescription">Description</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" 
+					 				name="mWebEJSOptionsEditorShowPanel" id="mWebEJSOptionsEditorShowPanelModel" value="Model">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowPanelModel">Model</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" 
+					 				name="mWebEJSOptionsEditorShowPanel" id="mWebEJSOptionsEditorShowPanelView" value="View">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowPanelView">View</label>
+					  	</span>
+						</div>
+
+					<!-----------------------------
+					   Preview options
+					  ---------------------------->
+						<div class="form-check mt-2 mb-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" checked 
+								 name="mWebEJSOptionsEditorShowPreview" id="mWebEJSOptionsEditorShowPreview">
+							<label class="sTranslatable form-check-label" for="mWebEJSOptionsEditorShowPreview">
+								Show preview at start up
+							</label>
+						</div>
+						<div class="input-group-text form-check mb-2" id="mWebEJSOptionsEditorShowPreviewSize">
+					  	<span class="form-check form-check-inline">
+								<label class="inline sTranslatable">Preview size:</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" 
+					 				name="mWebEJSOptionsEditorShowPreviewSize" id="mWebEJSOptionsEditorShowPreviewSizeSmall" value="small">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowPreviewSizeSmall">Small</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" checked 
+					 				name="mWebEJSOptionsEditorShowPreviewSize" id="mWebEJSOptionsEditorShowPreviewSizeMedium" value="medium">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowPreviewSizeMedium">Medium</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" 
+					 			  name="mWebEJSOptionsEditorShowPreviewSize" id="mWebEJSOptionsEditorShowPreviewSizeLarge" value="large">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowPreviewSizeLarge">Large</label>
+					  	</span>
+						</div>
+					<!-----------------------------
+					   Output options
+					  ---------------------------->
+						<div class="form-check mb-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" checked 
+								 name="mWebEJSOptionsEditorShowOutput" id="mWebEJSOptionsEditorShowOutput">
+							<label class="sTranslatable form-check-label" for="mWebEJSOptionsEditorShowOutput">
+								Show Output at start up
+							</label>
+						</div>
+						<div class="input-group-text form-check mb-2" id="mWebEJSOptionsEditorShowOutputSize">
+					  	<span class="form-check form-check-inline">
+								<label class="inline sTranslatable">Output size:</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" 
+					 				name="mWebEJSOptionsEditorShowOutputSize" id="mWebEJSOptionsEditorShowOutputSizeSmall" value="small">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowOutputSizeSmall">Small</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" checked 
+					 				name="mWebEJSOptionsEditorShowOutputSize" id="mWebEJSOptionsEditorShowOutputSizeMedium" value="medium">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowOutputSizeMedium">Medium</label>
+					  	</span>
+					  	<span class="form-check form-check-inline">
+					  		<input class="form-check-input" type="radio" 
+					 			  name="mWebEJSOptionsEditorShowOutputSize" id="mWebEJSOptionsEditorShowOutputSizeLarge" value="large">
+					  		<label class="form-check-label sTranslatable" for="mWebEJSOptionsEditorShowOutputSizeLarge">Large</label>
+					  	</span>
+						</div>
+
+					<!-----------------------------
+					   Other options
+					  ---------------------------->
+						<div class="form-check mt-2 mb-2 mx-3">
+							<input class="form-check-input" type="checkbox" value="" 
+								 name="mWebEJSOptionsEditorShorterLabels" id="mWebEJSOptionsEditorShorterLabels">
+							<label class="sTranslatable form-check-label" for="mWebEJSOptionsEditorShorterLabels">
+								Use short labels
+							</label>
+				    </div>
+																
+			 		</div>
+			 		<!-- end ASPECT content -->
+			 		
+			 		<div class="tab-pane fade show" id="mWebEJSOptionsEditorDigitalLibrariesDiv" 
+			 			   role="tabpanel" aria-labelledby="mWebEJSOptionsEditorDigitalLibrariesTab">
+			 		</div>
+	
+				 		<!-- begin AUTHOR content -->
+			 		<div class="tab-pane fade show" id="mWebEJSOptionsEditorAuthorDiv" 
+			 			   role="tabpanel" aria-labelledby="mWebEJSOptionsEditorAuthorTab">
+			 			   
+			 			<div class="mb-2">
+          		<label for="mWebEJSOptionsEditorAuthorNameValue" class="sTranslatable form-label form-label-sm">Name</label>
+          		<input type="text" class="form-control form-control-sm" name="mWebEJSOptionsEditorAuthorNameValue" id="mWebEJSOptionsEditorAuthorNameValue"
+            		placeholder="Enter your name here" >
+        		</div>
+			 			<div class="mb-2">
+          		<label for="mWebEJSOptionsEditorAuthorAffiliationValue" class="sTranslatable form-label form-label-sm">Affiliation</label>
+          		<input type="text" class="form-control form-control-sm" name="mWebEJSOptionsEditorAuthorAffiliationValue" id="mWebEJSOptionsEditorAuthorAffiliationValue"
+            		placeholder="Enter your affiliation here" >
+        		</div>
+			 			<div class="mb-2">
+          		<label for="mWebEJSOptionsEditorAuthorContactValue" class="sTranslatable form-label form-label-sm">Contact</label>
+						  <textarea class="form-control" id="mWebEJSOptionsEditorAuthorContactValue" rows="5"></textarea>
+        		</div>
+			 			   
+			 		</div>
+						
+				</div>
+				<!-- end tab content -->
+					
+			</div>
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<button type="button" id="mWebEJSOptionsEditorCancelButton" class="sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Done</button>
+				<button type="button" id="mWebEJSOptionsEditorSaveButton" class="sTranslatable btn btn-primary float-left">Save as browser cookies</button>
+			</div>
+	    <!------------------  end modal footer --------------->
+		
+		</div>
+		<!------------------  end modal content --------------->
+
+			
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
 	var mModal = new bootstrap.Modal(document.getElementById('sMainWebEJSOptionsModal'))
   $('#mWebEJSOptionsEditorLogo').attr("src",sMainEjsLogo);
 
@@ -9864,196 +10091,6 @@ WebEJS_RESOURCES.main = function(locale) {
 	return self;
 	
 }
-var WebEJS_GUI = WebEJS_GUI || {};
-
-/**
-* Creates a form to ask for a new name
-*/
-WebEJS_GUI.confirmationForm = function() {
-	var self = {};
-  
-  const _HTML = `
-  <div class="modal fade" id="mConfirmationFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-		
-	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-		
-		<div class="modal-content">
-      	
-			<div class="modal-header bg-light text-dark">
-    		<img id="mConfirmationFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
-      		<h5 id="mConfirmationFormTitle" class="sTranslatable text-primary modal-title">Confirmation</h5>
-      		<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-    	</div>  
-
-
-    	<!------------------  end modal header --------------->
-
-			<div id="mConfirmationFormMessage" class="modal-body">
-				<p>Do you really want to do this?</p>
-			</div>
-      	
-    	<!------------------  end modal body --------------->
-		
-			<div class="modal-footer">
-				<button type="button" id="mConfirmationFormCloseButton" class="btn btn-secondary me-auto">Oops! Please cancel</button>
-				<button type="button" id="mConfirmationFormOkButton" 		class="btn btn-primary">Confirm</button>
-			</div>
-
-    	<!------------------  end modal footer --------------->
-
-		</div>
-		<!------------------  end modal content --------------->
-		
-	</div>	
-	<!------------------  end modal-dialog --------------->
-
-</div>
-<!------------------  end modal --------------->
-`;
-
-  $( "body" ).append( $(_HTML) );
-	var mModal = new bootstrap.Modal(document.getElementById('mConfirmationFormModal'))
-  $('#mConfirmationFormLogo').attr("src",sMainEjsLogo);
-	var mAcceptListener;
-	var mRejectListener;
-	var mAccepted = false;
-
-	$("#mConfirmationFormModal").on("hidden.bs.modal", function () {
-		if (mAccepted) mAcceptListener();
-		else if (mRejectListener) mRejectListener();
-	});
-	
-	$('#mConfirmationFormCloseButton').click(function() {
-		mModal.hide();
-	});
-	
-	$('#mConfirmationFormOkButton').click(function() {
-		mAccepted = true;
-		mModal.hide();
-	});
-
-
-	self.showWarning = function(title, questionStr, doItStr, onAccept, onReject) { // listener}, text, message, title) {
-		const questionHtml = '<p>'+sMainResources.getString(questionStr)+'</p>';
-		displayHtml(title, "text-danger", questionHtml, doItStr, onAccept, onReject);
-	}
-
-	self.show = function(title, questionStr, doItStr, onAccept, onReject) { // listener}, text, message, title) {
-		const questionHtml = '<p>'+sMainResources.getString(questionStr)+'</p>';
-		displayHtml(title, "text-primary", questionHtml, doItStr, onAccept, onReject);
-	}
-
-	self.showHtml = function(title, questionHtml, doItStr, onAccept, onReject) { // listener, text, message, title) {
-		displayHtml(title, "text-primary", questionHtml, doItStr, onAccept, onReject);
-	}
-
-	function displayHtml(title, titleClass, questionHtml, doItStr, onAccept, onReject) { // listener, text, message, title) {
-		$('#mConfirmationFormTitle').text(title);
-		$('#mConfirmationFormTitle').removeClass(["text-primary","text-danger"]).addClass(titleClass);
-		$('#mConfirmationFormMessage').html(questionHtml);
-		$('#mConfirmationFormOkButton').text(sMainResources.getString(doItStr));
-		mAcceptListener = onAccept;
-		mRejectListener = onReject;
-		mAccepted = false;
-		mModal.show();
-	}
-
-
-	return self;
-}var WebEJS_GUI = WebEJS_GUI || {};
-
-/**
- * Creates a form to ask for a new name
-*/
-WebEJS_GUI.customElementForm = function() {
- var self = {};
-
- const _HTML = `
-<div class="modal fade" id="mCustomElementFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-		
-	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-		
-		<div class="modal-content">
-      	
-			<div class="modal-header bg-light text-dark">
-    		<img id="mCustomElementFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
-      		<h5 class="sTranslatable text-primary modal-title">Add custom element</h5>
-				</img>
-      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-    	</div>  
-    	<!------------------  end modal header --------------->
-
-			<div class="modal-body">
-				<div class="mb-2">
-					<label id="mCustomElementFormNameLabel" for="mCustomElementFormNameValue" class="sTranslatable form-label form-label-sm">Name</label>
-					<input type="text" class="form-control form-control-sm" name="mCustomElementFormNameValue" id="mCustomElementFormNameValue"
-						placeholder="Enter name here" >
-				</div>
-	       <div class="input-group mb-3">
-	         <label class="input-group-text sTranslatable" for="mCustomElementFormIconField" class="form-label">Click to choose a (24x24) icon</label>
-	         <label class="input-group-text bg-white" id="mCustomElementFormIconButton">
-	           <img id="mCustomElementFormIconImage" width="24" height="24">
-	         </label>
-         <input class="form-control d-none" accept="image/*"  id="mCustomElementFormIconField" type="file">
-       </div>
-			</div>
-      	
-    	<!------------------  end modal body --------------->
-		
-			<div class="modal-footer">
-				<button type="button" id="mCustomElementFormCancelButton" class="sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Cancel</button>
-				<button type="button" id="mCustomElementFormOkButton" class="sTranslatable btn btn-primary float-left">OK</button>
-			</div>
-
-    	<!------------------  end modal footer --------------->
-
-		</div>
-		<!------------------  end modal content --------------->
-		
-	</div>	
-	<!------------------  end modal-dialog --------------->
-
-</div>
-<!------------------  end modal --------------->
-`
-
-  $("body").append($(_HTML));
-
-  var mModal = new bootstrap.Modal(document.getElementById('mCustomElementFormModal'))
-  $('#mCustomElementFormLogo').attr("src", sMainEjsLogo);
-  var mListener;
-
-  $('#mCustomElementFormIconField').change(function (event) {
-    $('#mCustomElementFormIconImage').attr("src", URL.createObjectURL(event.target.files[0]));
-  });
-
-  $('#mCustomElementFormCancelButton').click(function () {
-    mModal.hide();
-  });
-
-  $('#mCustomElementFormOkButton').click(function () {
-    var name = $('#mCustomElementFormNameValue').val().trim();
-    if (name == "" || name == null) {
-      alert("Name field is required!");
-      return;
-    }
-    var icon = $('#mCustomElementFormIconField').val().trim();
-    if (icon == "" || icon == null) {
-      alert("An icon is required!");
-      return;
-    }
-    mModal.hide();
-    if (mListener) mListener(name, WebEJS_TOOLS.getBase64("mCustomElementFormIconImage"));
-  });
-
-  self.show = function (listener) {
-    //$('#mCustomElementFormNameValue').val(name); 
-    mListener = listener;
-    mModal.show();
-  }
-
-  return self;
-}
 /*
  * Copyright (C) 2023 Francisco Esquembre
  * 2023 08 This code is adapted from the IODA graphic data analysis tool
@@ -11257,6 +11294,859 @@ WebEJS_GUI.filenameForm = function(mTranslator) {
 	
 	return self;
 }
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+* Creates a form to ask for a new name
+*/
+WebEJS_GUI.confirmationForm = function() {
+	var self = {};
+  
+  const _HTML = `
+  <div class="modal fade" id="mConfirmationFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mConfirmationFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mConfirmationFormTitle" class="sTranslatable text-primary modal-title">Confirmation</h5>
+      		<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+
+    	<!------------------  end modal header --------------->
+
+			<div id="mConfirmationFormMessage" class="modal-body">
+				<p>Do you really want to do this?</p>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<button type="button" id="mConfirmationFormCloseButton" class="btn btn-secondary me-auto">Oops! Please cancel</button>
+				<button type="button" id="mConfirmationFormOkButton" 		class="btn btn-primary">Confirm</button>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+	var mModal = new bootstrap.Modal(document.getElementById('mConfirmationFormModal'))
+  $('#mConfirmationFormLogo').attr("src",sMainEjsLogo);
+	var mAcceptListener;
+	var mRejectListener;
+	var mAccepted = false;
+
+	$("#mConfirmationFormModal").on("hidden.bs.modal", function () {
+		if (mAccepted) mAcceptListener();
+		else if (mRejectListener) mRejectListener();
+	});
+	
+	$('#mConfirmationFormCloseButton').click(function() {
+		mModal.hide();
+	});
+	
+	$('#mConfirmationFormOkButton').click(function() {
+		mAccepted = true;
+		mModal.hide();
+	});
+
+
+	self.showWarning = function(title, questionStr, doItStr, onAccept, onReject) { // listener}, text, message, title) {
+		const questionHtml = '<p>'+sMainResources.getString(questionStr)+'</p>';
+		displayHtml(title, "text-danger", questionHtml, doItStr, onAccept, onReject);
+	}
+
+	self.show = function(title, questionStr, doItStr, onAccept, onReject) { // listener}, text, message, title) {
+		const questionHtml = '<p>'+sMainResources.getString(questionStr)+'</p>';
+		displayHtml(title, "text-primary", questionHtml, doItStr, onAccept, onReject);
+	}
+
+	self.showHtml = function(title, questionHtml, doItStr, onAccept, onReject) { // listener, text, message, title) {
+		displayHtml(title, "text-primary", questionHtml, doItStr, onAccept, onReject);
+	}
+
+	function displayHtml(title, titleClass, questionHtml, doItStr, onAccept, onReject) { // listener, text, message, title) {
+		$('#mConfirmationFormTitle').text(title);
+		$('#mConfirmationFormTitle').removeClass(["text-primary","text-danger"]).addClass(titleClass);
+		$('#mConfirmationFormMessage').html(questionHtml);
+		$('#mConfirmationFormOkButton').text(sMainResources.getString(doItStr));
+		mAcceptListener = onAccept;
+		mRejectListener = onReject;
+		mAccepted = false;
+		mModal.show();
+	}
+
+
+	return self;
+}var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * Creates a form to ask for a new name
+*/
+WebEJS_GUI.customElementForm = function() {
+ var self = {};
+
+ const _HTML = `
+<div class="modal fade" id="mCustomElementFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mCustomElementFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 class="sTranslatable text-primary modal-title">Add custom element</h5>
+				</img>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+				<div class="mb-2">
+					<label id="mCustomElementFormNameLabel" for="mCustomElementFormNameValue" class="sTranslatable form-label form-label-sm">Name</label>
+					<input type="text" class="form-control form-control-sm" name="mCustomElementFormNameValue" id="mCustomElementFormNameValue"
+						placeholder="Enter name here" >
+				</div>
+	       <div class="input-group mb-3">
+	         <label class="input-group-text sTranslatable" for="mCustomElementFormIconField" class="form-label">Click to choose a (24x24) icon</label>
+	         <label class="input-group-text bg-white" id="mCustomElementFormIconButton">
+	           <img id="mCustomElementFormIconImage" width="24" height="24">
+	         </label>
+         <input class="form-control d-none" accept="image/*"  id="mCustomElementFormIconField" type="file">
+       </div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<button type="button" id="mCustomElementFormCancelButton" class="sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Cancel</button>
+				<button type="button" id="mCustomElementFormOkButton" class="sTranslatable btn btn-primary float-left">OK</button>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`
+
+  $("body").append($(_HTML));
+
+  var mModal = new bootstrap.Modal(document.getElementById('mCustomElementFormModal'))
+  $('#mCustomElementFormLogo').attr("src", sMainEjsLogo);
+  var mListener;
+
+  $('#mCustomElementFormIconField').change(function (event) {
+    $('#mCustomElementFormIconImage').attr("src", URL.createObjectURL(event.target.files[0]));
+  });
+
+  $('#mCustomElementFormCancelButton').click(function () {
+    mModal.hide();
+  });
+
+  $('#mCustomElementFormOkButton').click(function () {
+    var name = $('#mCustomElementFormNameValue').val().trim();
+    if (name == "" || name == null) {
+      alert("Name field is required!");
+      return;
+    }
+    var icon = $('#mCustomElementFormIconField').val().trim();
+    if (icon == "" || icon == null) {
+      alert("An icon is required!");
+      return;
+    }
+    mModal.hide();
+    if (mListener) mListener(name, WebEJS_TOOLS.getBase64("mCustomElementFormIconImage"));
+  });
+
+  self.show = function (listener) {
+    //$('#mCustomElementFormNameValue').val(name); 
+    mListener = listener;
+    mModal.show();
+  }
+
+  return self;
+}
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+	* Creates a form to ask for a new name
+ */
+WebEJS_GUI.inputForm = function() {
+	var self = {};
+
+  const _HTML = `
+  <div class="modal fade" id="mInputFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+      
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      
+      <div class="modal-content">
+          
+        <div class="modal-header bg-light text-dark">
+          <img id="mInputFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+            <h5 id="mInputFormTitle" class="sTranslatable text-primary modal-title">Input</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>  
+        <!------------------  end modal header --------------->
+  
+        <div class="modal-body">
+          <div id="mInputFormInputDiv" class="mb-2">
+            <label id="mInputFormInputLabel" for="mInputFormInput" class="sTranslatable form-label">Value</label>
+            <input type="text" class="form-control" name="mInputFormInput" id="mInputFormInput"
+              placeholder="Enter value here" >
+          </div>
+          <div id="mInputFormAreaDiv" class="mb-2 d-none">
+            <label     id="mInputFormAreaLabel" for="mInputFormArea" class="sTranslatable form-label">Value</label>
+            <textarea  id="mInputFormArea" name="mInputFormInput"    class="form-control" style="height: 100px"></textarea>
+          </div>
+        </div>
+          
+        <!------------------  end modal body --------------->
+      
+        <div class="modal-footer">
+          <button type="button" id="mInputFormCancelButton" class="sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Cancel</button>
+          <button type="button" id="mInputFormOkButton" class="sTranslatable btn btn-primary float-left">OK</button>
+        </div>
+  
+        <!------------------  end modal footer --------------->
+  
+      </div>
+      <!------------------  end modal content --------------->
+      
+    </div>	
+    <!------------------  end modal-dialog --------------->
+  
+  </div>
+  <!------------------  end modal --------------->
+  `;
+
+  $( "body" ).append( $(_HTML) );  
+  var mModal = new bootstrap.Modal(document.getElementById('mInputFormModal'));
+  $('#mInputFormLogo').attr("src",sMainEjsLogo);
+	var mValueField;
+	var mListener;
+	var returnEmptyValue=false;
+
+	$('#mInputFormCancelButton').click(function() {
+		mModal.hide();
+	});
+
+  $('#mInputFormInput').change(function() {
+    mModal.hide();
+    var value = $('#mInputFormInput').val().trim(); 
+    if (!mAcceptEmptyValue) {
+	    if ( value == "" || value == null) return;
+    } 
+    if (mListener) mListener(value);
+  });
+  
+  $('#mInputFormArea').change(function() {
+	  mModal.hide();
+	  var value = $('#mInputFormArea').val().trim(); 
+	  if (!mAcceptEmptyValue) {
+		  if ( value == "" || value == null) return;
+	  } 
+	  if (mListener) mListener(value);
+	});
+
+	
+	$('#mInputFormOkButton').click(function() {
+		mModal.hide();
+		var value = mValueField.val().trim(); 
+	  if (!mAcceptEmptyValue) {
+		  if ( value == "" || value == null) return;
+	  } 
+		if (mListener) mListener(value);
+	});
+	
+	self.show = function(title, label, value, listener, acceptEmptyValue) {
+    $('#mInputFormInputDiv').removeClass("d-none");
+    $('#mInputFormAreaDiv').addClass("d-none");
+    $('#mInputFormTitle').text(sMainResources.getString(title));
+    $('#mInputFormInputLabel').text(sMainResources.getString(label));
+    mValueField = $('#mInputFormInput');
+    mValueField.val(value); 
+		mListener = listener;
+		mAcceptEmptyValue = acceptEmptyValue;
+		mModal.show();
+	}
+
+	self.showArea = function(title, label, value, listener, acceptEmptyValue) {
+	    $('#mInputFormInputDiv').addClass("d-none");
+	    $('#mInputFormAreaDiv').removeClass("d-none");
+	    $('#mInputFormTitle').text(sMainResources.getString(title));
+	    $('#mInputFormAreaLabel').text(sMainResources.getString(label));
+	    mValueField = $('#mInputFormArea');
+	    mValueField.val(value); 
+			mListener = listener;
+			mAcceptEmptyValue = acceptEmptyValue;
+			mModal.show();
+		}
+
+	return self;
+}var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * Creates a form to ask for a new name
+ */
+WebEJS_GUI.messageForm = function() {
+  var self = {};
+  var mTemporalCanShow = true;
+  var mIsVisible = false;
+  var mListener = null;
+
+  const _HTML = `
+<div class="modal fade" id="mMessageFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mMessageFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mMessageFormTitle" class="text-primary modal-title">WebEJS Message</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+				<div class="mb-2">
+		    	<div id="mMessageFormText" class="modal-body">
+		      	<p>Message from WebEJS</p>
+		    	</div>
+				</div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<button type="button" id="mMessageFormCloseButton" class="sTranslatable btn btn-primary float-left">Close</button>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+  var myModalEl = document.getElementById('mMessageFormModal');
+
+  var mModal = new bootstrap.Modal(myModalEl);
+  $('#mMessageFormLogo').attr("src",sMainEjsLogo);
+
+  myModalEl.addEventListener('shown.bs.modal', function (event) {
+    mIsVisible = true;
+  });
+
+  myModalEl.addEventListener('hidden.bs.modal', function (event) {
+    mIsVisible = false;
+	if (mListener) mListener();
+	mListener = null;
+	});
+ 
+  $('#mMessageFormCloseButton').click(function() {
+    mModal.hide();
+  });
+
+
+  self.hide = function() {
+	 if (mIsVisible) mModal.hide();
+   else window.setTimeout(function() { mModal.hide(); }, 500); 
+  }
+
+  self.show = function(title, firstLine, secondLine) {
+ 	displayText(title, "text-primary", sMainResources.getString(firstLine), sMainResources.getString(secondLine));
+  }
+
+  self.showTemporal = function(title, firstLine, secondLine) {
+    displayText(title, "text-primary", firstLine, sMainResources.getString(secondLine));
+  }
+
+  self.showRaw = function(title, firstLine, secondLine) {
+ 	displayText(title, "text-primary", firstLine, sMainResources.getString(secondLine));
+  }
+
+  self.showAllRaw = function(title, html) {
+    $('#mMessageFormTitle').text(title);
+    $('#mMessageFormTitle').removeClass("text-danger").addClass("text-primary");
+    $('#mMessageFormText').html(html);
+    mModal.show();
+  }
+
+	self.showWarning = function(title, firstLine, secondLine, listener) {
+		mListener = listener;
+		displayText(title, "text-danger", sMainResources.getString(firstLine), sMainResources.getString(secondLine));
+	}
+
+	self.showWarningRaw = function(title, firstLine, secondLine) {
+		displayText(title, "text-danger", firstLine, sMainResources.getString(secondLine));
+	}
+
+	self.showHTML = function(title, html) {
+		displayHTML(title,"text-primary",html);
+	}
+
+	self.showWarningHTML = function(title, html) {
+		displayHTML(title,"text-danger",html);
+	}
+	
+	function displayText(title, titleClass, firstLine, secondLine) {
+		var html = '<p>'+firstLine+'</p>';
+		if (secondLine) html += '<p class="'+titleClass+'"><small>'+secondLine+'<small></p>';
+		displayHTML(title,titleClass, html);
+	}
+	
+	function displayHTML(title, titleClass, html) {
+		$('#mMessageFormTitle').text(sMainResources.getString(title));
+		$('#mMessageFormTitle').removeClass(["text-primary","text-danger"]).addClass(titleClass);
+	  $('#mMessageFormText').html(html);
+	  mModal.show();
+	}
+
+ return self;
+}
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+* Creates a form to ask for a new name
+*/
+WebEJS_GUI.responseForm = function() {
+	var self = {};
+
+  const _HTML = `
+<div class="modal fade" id="mResponseFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mResponseFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      	<h5 id="mResponseFormTitle" class="sTranslatable text-primary modal-title">Response</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+
+    	<!------------------  end modal header --------------->
+
+			<div id="mResponseFormMessage" class="modal-body">
+				<p>Do you really want to do this?</p>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<button type="button" id="mResponseFormCloseButton" class="btn btn-secondary me-auto">Oops! Please cancel</button>
+				<button type="button" id="mResponseFormOkButton" 		class="btn btn-primary">Confirm</button>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+	var mModal = new bootstrap.Modal(document.getElementById('mResponseFormModal'))
+  $('#mResponseFormLogo').attr("src",sMainEjsLogo);
+	var mAcceptListener;
+	var mRejectListener;
+	var mAccepted = false;
+
+	$("#mResponseFormModal").on("hidden.bs.modal", function () {
+		if (mAccepted) mAcceptListener();
+		else if (mRejectListener) mRejectListener();
+	});
+	
+	$('#mResponseFormCloseButton').click(function() {
+		mModal.hide();
+	});
+	
+	$('#mResponseFormOkButton').click(function() {
+		mAccepted = true;
+		mModal.hide();
+	});
+	
+	self.show = function(title, response, doItStr, onAccept, onReject) { // listener}, text, message, title) {
+		$('#mResponseFormTitle').text(title);
+		$('#mResponseFormMessage').html(response);
+		$('#mResponseFormOkButton').text(sMainResources.getString(doItStr));
+		mAcceptListener = onAccept;
+		mRejectListener = onReject;
+		mAccepted = false;
+		mModal.show();
+	}
+	
+	return self;
+}
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * Offers a list of options of the form
+				var options = [
+					{ name : "_isPlaying()", value : "%_isPlaying%", description : "is playing" },
+					{ name : "_isPaused()", value : "%_isPaused%", description : "is paused" }
+				];
+ * from which the user select its 'value' for inclusion in the editor.
+ * If value is not present, the name is used, instead
+ */
+WebEJS_GUI.selectChoiceForm = function() {
+	var self = {};
+	const selectedClass = "border border-dark rounded";
+	const selectedClassShort = "border";
+
+  const _HTML = `
+<div class="modal fade" id="mSelectChoiceFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div id= "mSelectChoiceFormModalDiv" class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mSelectChoiceFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mSelectChoiceFormTitle" class="sTranslatable text-primary modal-title">Select one</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+				<div id="mSelectChoiceFormList" class="list-group">
+				</div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+	
+			<div class="modal-footer">
+				<span class="flex flex-grow input-group input-group-sm mt-1"> 
+				  <span class="sTranslatable input-group-text">Value</span> 
+					   <input id="mSelectChoiceFormValue"  type="text" class="flex flex-grow form-control"   
+						 placeholder="<Type in or click on an option>" aria-label="Value"   
+							spellcheck="off" autocorrect="off" autocapitalize="none" autocomplete="off" 
+							value=""> 
+					 <button id= "mSelectChoiceFormCancelButton" class="sTranslatable btn btn-outline-secondary me-auto" type="button">Cancel</button>
+					 <button id= "mSelectChoiceFormOkButton"     class="sTranslatable btn btn-outline-primary "  type="button">OK</button> 
+				 </span>
+
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+
+	var mModal = new bootstrap.Modal(document.getElementById('mSelectChoiceFormModal'))
+  $('#mSelectChoiceFormLogo').attr("src",sMainEjsLogo);
+
+	var mCurrentChoice;
+	var mListener;
+
+	function getHtml(options, currentValue){
+		var html = '';
+    var strippedValue = currentValue;
+    if (strippedValue.startsWith('"')) strippedValue = strippedValue.substring(1,strippedValue.length-1);
+    if (options.length<=0) {
+      html += '<div class="m-1 text-secondary">'+sLocaleFor('(No choices available)')+'</div>';
+    }
+		else for (var index=0; index<options.length; index++) {
+			const option = options[index];
+			const styleClass = ('style' in option) ? option.style : 'text-primary';
+			if (!('value' in option)) option.value = option.name;
+			var bgTag = '';
+			if (option.value==currentValue) bgTag = selectedClass;
+			else if ('old_names' in option && strippedValue.length>0) {
+				if (option['old_names'].indexOf(strippedValue)>=0) bgTag = selectedClass;
+			} 
+			html += 
+					'<button type="button" class="p-0 list-group-item list-group-item-action cSelectChoiceFormOptionChosen '+bgTag+'"'+
+						' data-index="'+index+'" >'+
+						(('icon' in option) ? option.icon : '') +
+						'<span class="ps-1 cSelectChoiceFormOptionName '+styleClass+'"></span>'+
+						(('description' in option) ? ' : '+ option.description : '')+
+					'</button>';
+		}			
+		return html;
+	}
+
+	self.show = function(title, options, currentValue, listener, modalClass, disableInput)  {
+		mListener = listener;
+		
+		$("#mSelectChoiceFormModalDiv").removeClass('modal-sm modal-lg modal-xl');
+		if (modalClass) $("#mSelectChoiceFormModalDiv").addClass(modalClass);
+
+		$('#mSelectChoiceFormTitle').text(sMainResources.getString(title));
+		$('#mSelectChoiceFormList').html(getHtml(options,currentValue));
+		$('#mSelectChoiceFormValue').val(currentValue);
+		if (disableInput) $('#mSelectChoiceFormValue').attr('readonly', true);
+		else $('#mSelectChoiceFormValue').attr('readonly', false);
+
+		const selected = $('#mSelectChoiceFormList .'+selectedClassShort);
+		if (selected.length>0) mCurrentChoice = selected.first();
+		else mCurrentChoice = null;
+		
+		$('#mSelectChoiceFormModal .cSelectChoiceFormOptionChosen').click((event)=>{
+			if (mCurrentChoice) mCurrentChoice.removeClass(selectedClass);
+			mCurrentChoice = $( event.target ).closest('.cSelectChoiceFormOptionChosen');
+			mCurrentChoice.addClass(selectedClass);
+			var choice = options[mCurrentChoice.data('index')].value;
+			$('#mSelectChoiceFormValue').val(choice);
+		});		
+		
+		$('#mSelectChoiceFormModal .cSelectChoiceFormOptionChosen').dblclick((event)=>{
+			mModal.hide();
+			const index = $( event.target ).closest('.cSelectChoiceFormOptionChosen').data('index');
+			mListener(options[index].value);
+		});		
+
+		$('#mSelectChoiceFormModal .cSelectChoiceFormOptionName').each(function() {
+			const index = $( this ).closest('.cSelectChoiceFormOptionChosen').data('index');
+		  $(this).text(options[index].name);
+		});
+
+		mModal.show(); 
+	}
+
+	$('#mSelectChoiceFormValue').change((event)=>{
+		mModal.hide();
+		mListener($('#mSelectChoiceFormValue').val().trim());
+	});		
+
+	$('#mSelectChoiceFormOkButton').click((event)=>{
+		mModal.hide();
+		mListener($('#mSelectChoiceFormValue').val().trim());
+	});		
+	
+	$('#mSelectChoiceFormCancelButton').click((event)=>{
+		mModal.hide();
+	});		
+
+	return self;
+}
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * Offfers a list of options of the form
+ *		[{ 'name' : "_play()",  'description' : "Play the simulation"},...]
+ * from which the user select its 'name' for inclusion in the editor
+ */
+WebEJS_GUI.selectCodeForm = function() {
+	var self = {};
+
+  const _HTML = `
+<div class="modal fade" id="mSelectCodeFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mSelectCodeFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mSelectCodeFormTitle" class="sTranslatable text-primary modal-title">Select code</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+				<div id="mSelectCodeFormList" class="list-group">
+				</div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+	
+			<div class="modal-footer">
+				<span class="flex flex-grow input-group input-group-sm mt-1"> 
+				  <span class="sTranslatable input-group-text">Method</span> 
+					   <input id="mSelectCodeFormValue"  type="text" class="flex flex-grow form-control"   
+						 placeholder="<Type in or click on a method>" aria-label="Variable"   
+						 value=""> 
+					 <button id= "mSelectCodeFormCancelButton" class="sTranslatable btn btn-outline-secondary me-auto" type="button">Cancel</button>
+					 <button id= "mSelectCodeFormOkButton"     class="sTranslatable btn btn-outline-primary "  type="button">OK</button> 
+				 </span>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+	var mModal = new bootstrap.Modal(document.getElementById('mSelectCodeFormModal'))
+  $('#mSelectCodeFormLogo').attr("src",sMainEjsLogo);
+
+	var mCodeEditor;
+	var mTarget;
+	
+	$('#mSelectCodeFormOkButton').click((event)=>{
+		mModal.hide();
+		const value = $('#mSelectCodeFormValue').val().trim();
+		if (value.length>0) {
+			mCodeEditor.session.insert(mCodeEditor.getCursorPosition(), value);
+			mTarget.reportableChange();
+		}
+	});		
+	
+	$('#mSelectCodeFormCancelButton').click((event)=>{
+		mModal.hide();
+	});		
+
+	self.show = function(title, codeOptions, codeEditor, target) {
+		mCodeEditor = codeEditor;
+		mTarget = target;
+		
+		$('#mSelectCodeFormTitle').text(sMainResources.getString(title));
+		$('#mSelectCodeFormValue').val("");
+		
+		var html = '';
+		for (var i in codeOptions) {
+			const option = codeOptions[i];
+			html += 
+					'<button type="button" class="p-0 list-group-item list-group-item-action cSelectCodeFormOptionChosen"'+
+						' data-value="'+option.name+'" >'+
+						'<span class="sModelBtn">'+option.name+'</span> : '+ option.description+
+					'</button>';
+		}			
+		$('#mSelectCodeFormList').html(html);
+
+		$('#mSelectCodeFormModal .cSelectCodeFormOptionChosen').click((event)=>{
+			var value = $( event.target ).closest('.cSelectCodeFormOptionChosen').data('value');
+			$('#mSelectCodeFormValue').val(value);
+		});		
+		$('#mSelectCodeFormModal .cSelectCodeFormOptionChosen').dblclick((event)=>{
+			var value = $( event.target ).closest('.cSelectCodeFormOptionChosen').data('value');
+			mCodeEditor.session.insert(mCodeEditor.getCursorPosition(), value);
+			mTarget.reportableChange();
+			mModal.hide();
+		});		
+
+		mModal.show(); 
+	}
+
+	return self;
+}
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+* Creates a form to ask for a new name
+*/
+WebEJS_GUI.YesNoCancelForm = function() {
+  var self = {};
+
+  const _HTML = `
+<div class="modal fade" id="mYesNoCancelFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mYesNoCancelFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mYesNoCancelFormTitle" class="sTranslatable text-primary modal-title">Confirmation</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+				<div class="mb-2">
+					<p id="mYesNoCancelFormLine1">Filename</p>
+					<div id="mYesNoCancelFormLine2">Do you ...?</div>
+				</div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+		
+			<div id="YesNoCancelFormFooter" class="modal-footer">
+				<button type="button" class="sTranslatable btn btn-secondary me-auto" data-answer="CANCEL" data-dismiss="modal">Oops! Please cancel</button>
+				<button type="button" class="sTranslatable btn btn-warning"   data-answer="NO" 		 data-dismiss="modal">No, thank you</button>
+				<button type="button" class="sTranslatable btn btn-primary" 	data-answer="YES"		 data-dismiss="modal">Yes, please</button>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $("body").append($(_HTML));
+  var mModal = new bootstrap.Modal(document.getElementById('mYesNoCancelFormModal'))
+  $('#mYesNoCancelFormLogo').attr("src", sMainEjsLogo);
+  var mListener;
+
+  $("#YesNoCancelFormFooter button").click((event) => {
+    var answer = $(event.target).data('answer');
+    mModal.hide();
+    if (mListener) mListener(answer);
+  });
+
+  self.show = function (title, plainLine, translatableLine, listener) {
+    if (title) $('#mYesNoCancelFormTitle').text(sMainResources.getString(title));
+    if (plainLine) {
+      $('#mYesNoCancelFormLine1').text(plainLine);
+      $('#mYesNoCancelFormLine1').show();
+    }
+    else $('#mYesNoCancelFormLine1').hide();
+    if (translatableLine) {
+      $('#mYesNoCancelFormLine2').html(sMainResources.getString(translatableLine));
+      $('#mYesNoCancelFormLine2').show();
+    }
+    else $('#mYesNoCancelFormLine2').hide();
+    mListener = listener;
+    mModal.show();
+  }
+  return self;
+}
 /*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the Web EJS authoring and simulation tool
@@ -11324,7 +12214,482 @@ WebEJS_TOOLS.selectFile = function(extensions, onSuccess, checkExistence, helper
 	} // end of listener
 	sMainFileChooser.showRead(extensions, fileListener, helperHtml);
 }
-	/*
+	var WebEJS_GUI = WebEJS_GUI || {};
+
+WebEJS_GUI.libraryChooser = function() {
+	const ITEM_LIST_PREFIX = "mLibraryChooserCollection-item-";
+  const ITEM_GROUP_PREFIX = "mLibraryChooserCollection-group-";
+  const EXPAND_ICON_CLASS = 'bi bi-chevron-down';
+  const COLLAPSE_ICON_CLASS = 'bi bi-chevron-right';
+  const ITEM_ICON_CLASS = "bi bi-dash";
+  const FOLDER_ICON_CLASS = "bi bi-folder";
+  const EJSS_ICON_CLASS = "bi bi-cloud-download";
+  const PAGE_ICON_CLASS = "bi bi-file-richtext";
+  const INDENT =  0.5;
+  const PARENTS_MARGIN_LEFT = '0.25rem';
+
+  function getLeftPadding(depth) {
+    return depth>0 ? (INDENT + depth * INDENT).toString() + "rem" : PARENTS_MARGIN_LEFT;
+  }
+  
+  var self = {};
+
+  const _HTML = `
+<div class="modal modal-dialog-scrollable fade" id="mLibraryChooserModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mLibraryChooserLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 class="sTranslatable text-primary modal-title">Library explorer</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+    	<!------------------  end modal header --------------->
+      	
+			<div class="modal-body  d-flex flex-row">
+					<div id="mLibraryChooserCollection" class="bstreeview" style="flex-grow:1;">
+					</div>
+					<div id="mLibraryChooserHelper" class="border" style="flex-basis:0; flex-grow: 0; min-width: 50%;">
+					</div>
+
+			</div>
+    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+				<span class="flex flex-grow input-group input-group-sm mt-1">
+					<nav aria-label="breadcrumb">
+  					<ol id="mLibraryChooserBreadCrumb" class="breadcrumb m-0">
+  					</ol>
+					</nav>
+				</span>
+				<span class="mb-2"> 
+					<button type="button" id="mLibraryChooserCancelButton" class="sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Cancel</button>
+					<button type="button" id="mLibraryChooserOKButton" class="sTranslatable btn btn-primary float-left">Download</button>
+				 </span>
+
+			</div>
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+	var mModal = new bootstrap.Modal(document.getElementById('mLibraryChooserModal'));
+  $('#mLibraryChooserLogo').attr("src",sMainEjsLogo);
+	var mCollectionDiv = $('#mLibraryChooserCollection');
+	var mCurrentItem = null;
+	var mHash = 0;	
+	var mDataByHash = {}; // keeps a dict of entries 'hash' : data 
+
+	var mListener = null;
+
+	self.show = function(listener) {
+		WebEJS_TOOLS.getComPADRECollectionIndex(function(success, collection) { 
+				console.log(collection);
+				mListener = listener;
+				mOriginalPath = null;
+				_show(collection);
+			});				
+	}
+
+	function _show(collection) {
+		mCurrentItem = null;
+		displayCollection(collection);
+		sMainHideTooltips();
+		mModal.show();
+	}
+
+  // --------------------
+  // Display functions
+  // --------------------
+
+  function displayCollection(collection) {
+    $(mCollectionDiv).empty();
+    mHash = 0;
+    mDataByHash = {};
+
+    var groupNodes = {};
+    var rootItem = null;
+    for (var index=0; index<collection.length; index++) {
+      var entry = collection[index];
+
+      const parentStr = entry['parent'];
+      const parentNode = (parentStr=="#") ? null : groupNodes[parentStr];
+      const depth = parentNode ? parentNode['depth']+1 : 0;
+      const target = ('target' in entry['data']) ?  entry['data']['target'] : "";
+      var built = buildTreeItem(depth,entry['text'],entry['data']['type'],target, index==0);
+
+      if (parentNode) parentNode['group'].append(built.tree_item);
+      else mCollectionDiv.append(built.tree_item);
+      
+    	if ('group' in built) {
+    		built.tree_item.parent().append(built.group); 
+	      // Keep for later use in this function
+	      groupNodes[entry['id']] = { 'group' : built.group, 'depth' : depth };
+    	}
+      // Keep for future use in this object  
+      mDataByHash[mHash] = correctData(entry);
+      if (index==0) {
+    	  mDataByHash[mHash]['type'] = 'ROOT';
+    	  rootItem = built.tree_item;
+      }
+      // Update unique hash   
+      mHash++;
+    }
+    groupNodes = {};
+	  if (rootItem) $('#mLibraryChooserHelper').html(getItemHtml(rootItem));
+		$('#mLibraryChooserOKButton').prop('disabled', true)
+  }
+
+  function correctData(entry) {
+  	const data = entry['data'];
+    if (!('target' in data))   data['target']   = "";
+    if (!('htmlPath' in data)) data['htmlPath'] = "";
+    data['_name_'] = entry['text'];
+    data['_id_'] = entry['id'];
+    return data;
+  }
+  
+  function addToCollection(hash, collection) {
+	  	const parentItem = findGroupByHash(hash);
+	  	var rootEntry = collection[0];
+	  	const data = mDataByHash[hash];
+	  	if (rootEntry['id']!=data['_id_']) {
+	  		alert ("Error trying to expand ID:"+rootEntry['id']);
+	  		return;
+	  	}
+	  	mDataByHash[hash] = correctData(rootEntry);
+	  	findItemByHash(hash).children('.cLibraryChooserName').removeClass('text-danger');
+	  	
+	    var groupNodes = {};
+	    groupNodes[rootEntry['id']] = { 'group' : findGroupByHash(hash), 'depth' : findDepthByHash(hash) };
+
+	    for (var index=1; index<collection.length; index++) {
+	      var entry = collection[index];
+
+	      const parentStr = entry['parent'];
+	      const parentNode = groupNodes[parentStr];
+	      const depth = parentNode['depth']+1;
+	      const target = ('target' in entry['data']) ?  entry['data']['target'] : "";
+	      var built = buildTreeItem(depth,entry['text'],entry['data']['type'],target, index==0);
+
+	      parentNode['group'].append(built.tree_item);
+	      
+	    	if ('group' in built) {
+	    		built.tree_item.parent().append(built.group); 
+		      // Keep for later use in this function
+		      groupNodes[entry['id']] = { 'group' : built.group, 'depth' : depth };
+	    	}
+	      // Keep for future use in this object   
+      	mDataByHash[mHash] = correctData(entry);
+	      // Update unique hash   
+	      mHash++;
+	    }
+	    groupNodes = {};
+	  }
+  
+  function expandItem(treeItem) {
+	  const hash = treeItem.data('hash');
+		console.log("You selected folder :"+getItemName(treeItem));
+	  const target = getItemTarget(treeItem);
+	  if (target) {
+			console.log("Expanding folder with target:"+target);
+		  WebEJS_TOOLS.getComPADRECollection(target, getItemID(getParentItem(treeItem)), getItemID(treeItem), 
+				function(success, collection) { 
+					addToCollection(hash,collection);	
+					console.log(collection);
+					clearItemTarget(treeItem);
+					showItemHtml(treeItem);
+			});				
+	  }
+  }
+
+  // --------------------
+  // Items info
+  // --------------------
+
+  function getItemHash(treeItem) {
+	    return treeItem.data('hash');
+	}
+
+	function findDepthByHash(hash) {
+		const itemList = $('#'+ITEM_LIST_PREFIX + hash);
+		if (itemList.length>0) return itemList.first().data('depth');
+		return 0;
+	}
+
+	function findItemByHash(hash) {
+		const itemList = $('#'+ITEM_LIST_PREFIX + hash);
+		if (itemList.length>0) return itemList.first();
+		return null;
+	}
+
+	function findGroupByHash(hash) {
+		const itemList = $('#'+ITEM_GROUP_PREFIX + hash);
+		if (itemList.length>0) return itemList.first();
+		return null;
+	}
+
+	function findGroupByID(anID) {
+		for (const hash of mDataByHash.entries()) {
+			const data = mDataByHash[hash];
+			if (data['_id_']==anID) return findItemByHash(hash);
+		}
+		return null;
+	}
+
+  function getItemData(treeItem) {
+	    return mDataByHash[treeItem.data('hash')];;
+	}
+  
+  function getItemID(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		return data['_id_'];
+	}
+
+  function getItemName(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		return data['_name_'];
+	}
+
+  function getItemType(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['type'].trim().length>0) return data['type'].trim();
+		return 'Unknown type';
+	}
+
+  function getItemTarget(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['target'].trim().length>0) return data['target'];
+		return null;
+	}
+
+  function clearItemTarget(treeItem) {
+    const data = mDataByHash[treeItem.data('hash')];
+    data['target'] = '';
+  }
+  
+  function getItemDescription(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['description'].trim().length>0) return data['description'];
+		return null;
+	}
+  
+  
+  function getItemPath(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['htmlPath'].trim().length>0) return data['htmlPath'];
+		return null;
+	}
+  
+  function buildGroupForItem(treeItem, expanded) {
+	    const hash = getItemHash(treeItem);
+	    const html = 
+	      '<div role="group" class="list-group ps-2 collapse'+(expanded ? ' show' : '')+'" '+
+	        ' data-parent="'+ITEM_LIST_PREFIX + hash+'" '+
+	        ' id="'+ITEM_GROUP_PREFIX + hash+'">'+
+	      '</div>';
+	    const group = $(html);
+	    const iconClass = expanded ? EXPAND_ICON_CLASS : COLLAPSE_ICON_CLASS;
+	    treeItem.find('.state-icon').removeClass(ITEM_ICON_CLASS).addClass(iconClass);
+	    return group;
+	 }
+
+  function buildTreeItem(depth,name,type, target, expanded) {
+	    const leftPadding = getLeftPadding(depth);
+	    const isFolder = (type=="Collection");
+	    const isModel = (type=="EJS");
+			const classStr = (isFolder && target.trim().length>0) ? 'text-danger' : isModel ? 'text-primary' : '';
+	    const iconStr  = isFolder ? FOLDER_ICON_CLASS : isModel ? EJSS_ICON_CLASS : PAGE_ICON_CLASS;
+	    const html = 
+	      '<div role="treeitem" class="list-group-item py-0 border-0" style="padding-left:'+leftPadding+'" '+
+	        ' id ="'+ITEM_LIST_PREFIX + mHash+'" data-hash="'+mHash+'" data-depth="'+depth+'" '+
+	        ' data-bs-target="#' + ITEM_GROUP_PREFIX + mHash +'" "aria-level="'+depth+'" >' +
+	        '<i class="state-icon '+ITEM_ICON_CLASS+'"></i>'+
+	        '<span class="cLibraryChooserName '+classStr+'"><i class="me-1 '+ iconStr+'"></i>'+name+'</span>'+   
+	      '</div>';
+	    const treeItem = $(html); 
+	    if (isFolder) return { 'tree_item' : treeItem , 'group' : buildGroupForItem(treeItem, expanded) };
+	    return { 'tree_item' : treeItem }
+	  }
+  
+  function getParentItem(treeItem) {
+		const parentName = treeItem.parent().data('parent');
+		return $('#'+parentName);
+  }
+  
+	// ------------------
+	// Helper display
+	// ------------------
+
+	function showItemHtml(treeItem) {
+		const type = getItemType(treeItem);
+		var html='';
+		if (type!='Collection') {
+			$('#mLibraryChooserHelper').removeClass('p-2');
+			$('#mLibraryChooserHelper').html(getItemHtml(treeItem));
+		}
+		else {
+			$('#mLibraryChooserHelper').addClass('p-2');
+			$('#mLibraryChooserHelper').html(getFolderHtml(treeItem));
+		}
+	}
+
+	function getItemHtml(treeItem) {
+		const htmlPath = getItemPath(treeItem);
+		if (htmlPath) return '<iframe	src="'+htmlPath+'" style="width:100%; height:100%;"></iframe>';
+		const description = getItemDescription(treeItem);
+		if (description) return '<div class="p-2">'+description+'<div>';
+		return '<h5 class="p-1 text-danger">'+sLocaleFor("No information on this item")+'</h5>';
+	}
+
+	function getFolderHtml(treeItem) {
+		var categories = [];
+		var models = [];
+		$(treeItem.data('bs-target')).children('.list-group-item').each(function() {
+			const item = $(this);
+			const type = getItemType(item);
+			if (type=="Collection") categories.push(getItemName(item));
+			else if (type=="EJS") models.push(getItemName(item));
+		});
+		const name = getItemName(treeItem);
+		var html = '';
+		if (categories.length>0) {
+			html += '<h5 class="text-primary">'+sLocaleFor('Subcategories of ')+
+							name+'</h5><ul class="mb-2">';
+			for (var i=0; i<categories.length; i++) html += '<li>'+categories[i]+'</li>';
+			html += '</ul>';
+		}
+		if (models.length>0) {
+			html += '<h5 class="text-primary">'+sLocaleFor('Models in the ')+
+								name+' '+sLocaleFor('category')+'</h5><ul class="mb-2">';
+			for (var i=0; i<models.length; i++) html += '<li>'+models[i]+'</li>';
+			html += '</ul>';
+		}
+		else if (getItemTarget(treeItem)) {
+			html += '<h5 class="text-danger">'+
+							sLocaleFor('Double-click this node to get the list of models in the ')+
+							name+' '+sLocaleFor('category')+'</h5>';
+		}
+		return html;
+	}
+
+	// ------------------
+	// Interface actions
+  // ------------------
+
+	$('#mLibraryChooserCancelButton').click(function() {
+		mModal.hide();
+	});
+	
+	$('#mLibraryChooserOKButton').click(function() {
+		var path;
+		if (!mCurrentItem) return;
+		mModal.hide();
+		const url = getItemTarget(mCurrentItem);
+		console.log("url selected = "+url);
+		mListener(getItemTarget(mCurrentItem),getItemName(mCurrentItem));
+	});
+	
+	// --- Expanding/collapsing a parent node
+	$(mCollectionDiv).on('click', '.state-icon', function (event) {
+	    var icon = $(event.currentTarget);
+	    if (icon.hasClass(ITEM_ICON_CLASS)) return;
+	    icon.toggleClass(EXPAND_ICON_CLASS).toggleClass(COLLAPSE_ICON_CLASS);
+	    const groupItem = $(event.currentTarget).closest('.list-group-item');
+	    // Toggle the data-bs-target. Issue with Bootstrap toggle and dynamic code
+	    $(groupItem.attr("data-bs-target")).collapse('toggle');
+	});
+	  
+  // --- clicking on an element
+
+  $(mCollectionDiv).on('click', '.cLibraryChooserName', function (event) {
+    const treeItem = $(event.currentTarget).closest('.list-group-item');
+		if (mCurrentItem) mCurrentItem.removeClass('bg-info');
+		mCurrentItem = treeItem;
+		mCurrentItem.addClass('bg-info');
+		const type = getItemType(treeItem);
+		$('#mLibraryChooserOKButton').prop('disabled', type!="EJS");
+		showItemHtml(treeItem);
+  });
+  
+  $(mCollectionDiv).on('dblclick', '.cLibraryChooserName', function (event) {
+	  const treeItem = $(event.currentTarget).closest('.list-group-item');
+		const type = getItemType(treeItem);
+		console.log("You selected item "+getItemName(treeItem));
+		if (type=='Collection') {
+			expandItem(treeItem);
+			const icon = $(event.currentTarget).siblings('.state-icon');
+		  icon.addClass(EXPAND_ICON_CLASS).removeClass(COLLAPSE_ICON_CLASS);
+		  const groupItem = $(event.currentTarget).closest('.list-group-item');
+		  // Toggle the data-bs-target. Issue with Bootstrap toggle and dynamic code
+		   $(groupItem.attr("data-bs-target")).collapse('show');
+		}
+		else if (type=="EJS") {
+			mModal.hide();
+			const url = getItemTarget(treeItem);
+			console.log("url selected = "+url);
+			mListener(getItemTarget(treeItem),getItemName(treeItem));
+		}
+		});
+
+  /*
+  $(mCollectionDiv).on('click', '.cLibraryChooserFile', function (event) {
+    const treeItem = $(event.currentTarget).closest('.list-group-item');
+		if (mCurrentItem) mCurrentItem.removeClass('bg-info');
+		mCurrentItem = treeItem;
+		mCurrentItem.addClass('bg-info');
+		$('#mLibraryChooserOKButton').prop('disabled', false)
+	  $('#mLibraryChooserHelper').html(getItemHtml(treeItem));
+  });
+
+  // --- clicking on a folder
+  $(mCollectionDiv).on('click', '.cLibraryChooserFolder', function (event) {
+  	const treeItem = $(event.currentTarget).closest('.list-group-item');
+		if (mCurrentItem) mCurrentItem.removeClass('bg-info');
+		mCurrentItem = treeItem;
+		mCurrentItem.addClass('bg-info');
+		$('#mLibraryChooserOKButton').prop('disabled', true)
+  	$('#mLibraryChooserHelper').html(getFolderHtml(treeItem));
+  });
+
+  
+  // --- double-clicking on an element
+  $(mCollectionDiv).on('dblclick', '.cLibraryChooserFile', function (event) {
+		mModal.hide();
+	  const treeItem = $(event.currentTarget).closest('.list-group-item');
+	  const hash = treeItem.data('hash');
+		console.log("You selected file with hash:"+hash+ " : data =");
+		const data = mDataByHash[hash];
+		console.log(data);
+		//mListener(path);
+  });
+
+  // --- double-clicking on an element
+  $(mCollectionDiv).on('dblclick', '.cLibraryChooserFolder', function (event) {
+	  const treeItem = $(event.currentTarget).closest('.list-group-item');
+		expandItem(treeItem);
+		//mListener(path);
+  });
+	*/
+	
+  // ------------------
+  // Final start up
+  // ------------------
+
+
+  return self;
+}
+/*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the WebEJS authoring and simulation tool
  *
@@ -12125,6 +13490,326 @@ WebEJS_TOOLS.getComPADRECollection = function(url, parentID, nodeID, listener) {
 }    
 
 
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * Offers a list of colors
+ */
+WebEJS_GUI.editorForColor = function() {
+	const TOOLS = WebEJS_TOOLS.textTools(); 
+	var self = {};
+
+  const _HTML = `
+<div class="modal fade" id="mEditorForColorModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div id= "mEditorForColorModalDiv" class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mEditorForColorLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mEditorForColorTitle" class="sTranslatable text-primary modal-title">Select color</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+        <div id="mEditorForColorList" class="container">
+          <div class="row">
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: BLACK; width:36px; height:36px;" data-value="Black"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: DARKGRAY; width:36px; height:36px;" data-value="DarkGray"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: GRAY; width:36px; height:36px;" data-value="Gray"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: LIGHTGRAY; width:36px; height:36px;" data-value="LightGray"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0 border" style="background: WHITE; width:36px; height:36px;" data-value="White"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: BLUE; width:36px; height:36px;" data-value="Blue"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: CYAN; width:36px; height:36px;" data-value="Cyan"></div>
+          </div>
+          <div class="row">
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: GREEN; width:36px; height:36px;" data-value="Green"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: MAGENTA; width:36px; height:36px;" data-value="Magenta"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: RED; width:36px; height:36px;" data-value="Red"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: PINK; width:36px; height:36px;" data-value="Pink"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: ORANGE; width:36px; height:36px;" data-value="Orange"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: YELLOW; width:36px; height:36px;" data-value="Yellow"></div>
+            <div class="col cEditorForColorOne me-1 mb-1 p-0" style="background: rgb(200,220,208); width:36px; height:36px;" data-value="rgb(200,220,208)"></div>
+          </div>
+        </div>
+			
+				<div class="mt-2 input-group">
+					<span  id="mEditorForColorInputLabel" class="sTranslatable input-group-text">Or click to choose a color &rarr;</span>
+ 					<input type="color" id="mEditorForColorInput" class="form-control" style="height:40px;"
+ 									aria-label="Title" aria-describedby="mEditorForColorInputLabel">
+				</div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+	
+			<div class="modal-footer">
+				<span class="flex flex-grow input-group input-group-sm mt-1"> 
+				  <span class="sTranslatable input-group-text">Value</span> 
+					   <input id="mEditorForColorValue"  type="text" class="flex flex-grow form-control"   
+						 placeholder="<Type in or click on an option>" aria-label="Value"   
+						 value=""> 
+					 <button id= "mEditorForColorCancelButton" class="sTranslatable btn btn-outline-secondary" type="button">Cancel</button>
+					 <button id= "mEditorForColorOkButton"     class="sTranslatable btn btn-outline-primary "  type="button">OK</button> 
+				 </span>
+
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+	var mModal = new bootstrap.Modal(document.getElementById('mEditorForColorModal'))
+  $('#mEditorForColorLogo').attr("src",sMainEjsLogo);
+
+	var mListener;
+
+	self.show = function(title, currentValue, listener)  {
+		mListener = listener;
+
+		$('#mEditorForColorTitle').text(sMainResources.getString(title));
+		currentValue = TOOLS.removeQuotes(currentValue);
+		if (currentValue.trim().length>0) {
+			$('#mEditorForColorInput').val(currentValue)
+			$('#mEditorForColorValue').val(TOOLS.addQuotes(currentValue));
+		}
+		mModal.show(); 
+	}
+
+	$('#mEditorForColorInput').change((event)=>{
+		var choice = $('#mEditorForColorInput').val();
+		$('#mEditorForColorValue').val(TOOLS.addQuotes(choice));
+	});
+
+  $('#mEditorForColorList .cEditorForColorOne').click((event)=>{
+    var choice = $( event.target ).data('value');
+    $('#mEditorForColorValue').val(TOOLS.addQuotes(choice));
+  });
+
+  $('#mEditorForColorList .cEditorForColorOne').dblclick((event)=>{
+    mModal.hide();
+    var choice = $( event.target ).data('value');
+    mListener(TOOLS.addQuotes(choice));
+  }); 
+    
+	$('#mEditorForColorValue').change((event)=>{
+		mModal.hide();
+		mListener($('#mEditorForColorValue').val().trim());
+	});		
+
+	$('#mEditorForColorOkButton').click((event)=>{
+		mModal.hide();
+		mListener($('#mEditorForColorValue').val().trim());
+	});		
+	
+	$('#mEditorForColorCancelButton').click((event)=>{
+		mModal.hide();
+	});		
+
+	return self;
+}
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * Offers a list of safe fonts: https://www.w3schools.com/cssref/css_fonts_fallbacks.asp
+ */
+WebEJS_GUI.editorForFont = function() {
+	const TOOLS = WebEJS_TOOLS.textTools(); 
+	var self = {};
+
+  const _HTML = `
+<div class="modal fade" id="mEditorForFontModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div id= "mEditorForFontModalDiv" class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mEditorForFontLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mEditorForFontTitle" class="sTranslatable text-primary modal-title">Select font</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body">
+
+        <div class="mt-2 input-group">
+          <span class="sTranslatable input-group-text">Family</span>
+          <select id="mEditorForFontFamily" class="form-select">
+            <option selected>"Times New Roman", Times, serif</option>
+            <option>Georgia, serif</option>
+            <option>Garamond, serif</option>
+            <option>Arial, Helvetica, sans-serif</option>
+            <option>Tahoma, Verdana, sans-serif</option>
+            <option>"Trebuchet MS", Helvetica, sans-serif</option>
+            <option>Geneva, Verdana, sans-serif</option>
+            <option>"Courier New", Courier, monospace</option>
+            <option>"Brush Script MT", cursive</option>
+            <option>Copperplate, Papyrus, fantasy</option>
+          </select>
+        </div>
+        <div class="mt-2 input-group">
+          <span class="sTranslatable input-group-text">Style</span>
+          <select id="mEditorForFontStyle" class="form-select">
+            <option selected value="normal normal">Plain</option>
+            <option value="normal bold">Bold</option>
+            <option value="italic normal">Italic</option>
+            <option value="italic bold">Bold+Italic</option>
+          </select>
+        </div>
+        
+        <div class="mt-2 input-group">
+          <span class="sTranslatable input-group-text">Size</span>
+          <select id="mEditorForFontSize" class="form-select">
+            <option selected value="default">Default</option>
+            <option value="pixels">pixels:</option>
+            <option value="xx-small">xx small</option>
+            <option value="x-small">x small</option>
+            <option value="small">small</option>
+            <option value="medium">medium</option>
+            <option value="large">large</option>
+            <option value="x-large">x large</option>
+            <option value="xx-large">xx large</option>
+            <option value="smaller">smaller</option>
+            <option value="larger">larger</option>
+          </select>
+          <input id="mEditorForFontSizeInput" type="text" class="form-control d-none" value="10"
+                placeholder="Enter pixel size" >
+        </div>
+
+        <!-- div id="mEditorForFontSizePixels" class="mt-2 input-group">
+          <span class="sTranslatable input-group-text">Pixels</span>
+          <input id="mEditorForFontSizePixelsSlider" class="input-range"  type="range"  step="1" value="10" min="6" max="49">
+        </div-->
+			
+        <div class="sTranslatable mt-2">Demo</div>
+				<div class="border border-dark p-1" id="mEditorForFontDemo">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+            Phasellus imperdiet, nulla et dictum interdum, nisi lorem 
+            egestas odio, vitae scelerisque enim ligula venenatis dolor.
+        </div>
+        
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+	
+			<div class="modal-footer">
+				<span class="flex flex-grow input-group input-group-sm mt-1"> 
+				  <span class="sTranslatable input-group-text">Value</span> 
+					   <input id="mEditorForFontValue"  type="text" class="flex flex-grow form-control"   
+						 placeholder="<Type in or click on an option>" aria-label="Value"   
+						 value=""> 
+					 <button id= "mEditorForFontCancelButton" class="sTranslatable btn btn-outline-secondary" type="button">Cancel</button>
+					 <button id= "mEditorForFontOkButton"     class="sTranslatable btn btn-outline-primary "  type="button">OK</button> 
+				 </span>
+
+			</div>
+		</div>
+	</div>	
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+	var mModal = new bootstrap.Modal(document.getElementById('mEditorForFontModal'))
+  $('#mEditorForFontLogo').attr("src",sMainEjsLogo);
+
+	var mListener;
+
+	self.show = function(title, currentValue, listener)  {
+		mListener = listener;
+
+		$('#mEditorForFontTitle').text(sMainResources.getString(title));
+		currentValue = TOOLS.removeQuotes(currentValue);
+		if (currentValue.trim().length>0) {
+			$('#mEditorForFontInput').val(currentValue)
+			$('#mEditorForFontValue').val(TOOLS.addQuotes(currentValue));
+		}
+		mModal.show(); 
+	}
+
+  // Listeners
+  
+  $('#mEditorForFontFamily').change((event)=>{
+    const family = $('#mEditorForFontFamily option:selected').text();
+    $('#mEditorForFontDemo').css("font-family",family);
+    updateValue();
+  });
+
+  $('#mEditorForFontStyle').change((event)=>{
+    const style = $('#mEditorForFontStyle option:selected').val();
+    var keys = style.split(' ');
+    $('#mEditorForFontDemo').css("font-style",keys[0]);
+    $('#mEditorForFontDemo').css("font-weight",keys[1]);
+    updateValue();
+  });
+
+  $('#mEditorForFontSize').change((event)=>{
+    const size = $('#mEditorForFontSize option:selected').val();
+    if (size=="pixels") {
+      $('#mEditorForFontSizeInput').removeClass('d-none');
+      var pixelSize = $('#mEditorForFontSizeInput').val();
+      if (pixelSize.trim().length==0) $('#mEditorForFontDemo').css("font-size",'');
+      else $('#mEditorForFontDemo').css("font-size",pixelSize.trim()+'px');
+      updateValue();
+      return;
+    }
+    $('#mEditorForFontSizeInput').addClass('d-none');
+    if (size=="default") $('#mEditorForFontDemo').css("font-size",'');
+    else $('#mEditorForFontDemo').css("font-size",size);
+    updateValue();
+  });
+
+  function updateValue() {
+    const family = $('#mEditorForFontFamily option:selected').text();
+    const style = $('#mEditorForFontStyle option:selected').val();
+    var sizeStr = 'medium';
+    const size = $('#mEditorForFontSize option:selected').val();
+    if (size=="pixels") {
+      var pixelSize = $('#mEditorForFontSizeInput').val();
+      if (pixelSize.trim().length==0) sizeStr = pixelSize+'px';
+    }
+    else sizeStr = size;
+    const value = style +' ' + sizeStr + ' ' + TOOLS.scapeQuotes(family);
+		$('#mEditorForFontValue').val(TOOLS.addQuotes(value));
+  }
+
+  $('#mEditorForFontSizeInput').change((event)=>{
+      var pixelSize = $('#mEditorForFontSizeInput').val();
+      if (pixelSize.trim().length==0) $('#mEditorForFontDemo').css("font-size",'');
+      else $('#mEditorForFontDemo').css("font-size",pixelSize.trim()+'px');
+      updateValue();
+  });   
+
+
+	$('#mEditorForFontValue').change((event)=>{
+		mModal.hide();
+		mListener($('#mEditorForFontValue').val().trim());
+	});		
+
+	$('#mEditorForFontOkButton').click((event)=>{
+		mModal.hide();
+		mListener($('#mEditorForFontValue').val().trim());
+	});		
+	
+	$('#mEditorForFontCancelButton').click((event)=>{
+		mModal.hide();
+	});		
+
+	return self;
+}
 /*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the Web EJS authoring and simulation tool
