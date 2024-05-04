@@ -600,6 +600,11 @@ WebEJS_GEN.generate_ode = {
     }
   }
 
+  function getValue(field, defaultValue) {
+    if (field in self.odePage && self.odePage[field]) return self.odePage[field];
+    else return defaultValue;
+  }
+
   self.appendCode = function(code) {
     const pageName    = self.odePage['Name'];
     // NOTE: Paco says... should'nt this be the other way round??? (i.e. with "true")
@@ -670,10 +675,10 @@ WebEJS_GEN.generate_ode = {
 
     //print ('ODE = ',self.odePage)       
 
-    const stepSize      = ('Increment'    in self.odePage) ? self.odePage['Increment'].trim()    : '0';
-    const intStepSize   = ('InternalStep' in self.odePage) ? self.odePage['InternalStep'].trim() :  '';
-    const historyLength = ('MemoryLength' in self.odePage) ? self.odePage['MemoryLength'].trim() :  '';
-    const maxStep       = ('MaximumStep' in self.odePage)  ? self.odePage['MaximumStep'].trim()  :  '';
+    const stepSize      = getValue('Increment', '0').trim();    // ('Increment'    in self.odePage) ? self.odePage['Increment'].trim()    : '0';
+    const intStepSize   = getValue('InternalStep', '').trim(); // ('InternalStep' in self.odePage) ? self.odePage['InternalStep'].trim() :  '';
+    const historyLength = getValue('MemoryLength', '').trim(); // ('MemoryLength' in self.odePage) ? self.odePage['MemoryLength'].trim() :  '';
+    const maxStep       = getValue('MaximumStep', '').trim();  // ('MaximumStep' in self.odePage)  ? self.odePage['MaximumStep'].trim()  :  '';
     const maxNumberOfSteps = self.odePage['MaximumNumberOfSteps'].trim();
 
     if (intStepSize) code.push("      __eventSolver.initialize("+intStepSize+");");
@@ -709,8 +714,9 @@ WebEJS_GEN.generate_ode = {
     const absTol = self.odePage['AbsoluteTolerance'].trim();
     var toleranceStr = '';
     if (absTol) {
-        var relTol = ('RelativeTolerance' in self.odePage) ? self.odePage['RelativeTolerance'].trim() : null;
+        var relTol = getValue('MaximumStep', null);  // ('RelativeTolerance' in self.odePage) ? self.odePage['RelativeTolerance'].trim() : null;
         if (!relTol) relTol = absTol;
+        else relTol = relTol.trim();
         toleranceStr = "setTolerances("+absTol+","+relTol+")";
     }
     if (toleranceStr) code.push("      __eventSolver."+toleranceStr+";");
@@ -794,10 +800,14 @@ WebEJS_GEN.generate_ode = {
     if (maxStep)          code.push("      __eventSolver.setMaximumInternalStepSize("+maxStep+");");
     if (maxNumberOfSteps) code.push("      __eventSolver.setMaximumInternalSteps("+maxNumberOfSteps+");");        
 
+    const eventStep = getValue('EventMaximumStep', '').trim();
+    if (eventStep) code.push("      __eventSolver.setMaximumEventStep("+eventStep+");");
+/*
     if ('EventMaximumStep' in self.odePage) {
         const eventStep = self.odePage['EventMaximumStep'].trim();
         if (eventStep) code.push("      __eventSolver.setMaximumEventStep("+eventStep+");");
     }
+    */
     if (toleranceStr) code.push("      __eventSolver."+toleranceStr+";");
     code.push("      __pushState();");
 
@@ -829,7 +839,7 @@ WebEJS_GEN.generate_ode = {
 
     code.push("    __odeSelf.getState = function() { return __state; }\n");
 
-    if (('DelayList' in self.odePage) && (self.odePage['DelayList'].trim())) { // Use delays
+    if (('DelayList' in self.odePage) && (self.odePage['DelayList']) && (self.odePage['DelayList'].trim()) ) { // Use delays
       code.push("    __odeSelf.setStateHistory = function(_history) { }; // deliberately left empty\n");
 
       code.push("    __odeSelf.getDelays = function(__aState) {");
@@ -931,7 +941,7 @@ WebEJS_GEN.generate_ode = {
       code.push("      _eventSelf.getTypeOfEvent = function() { return EJSS_ODE_SOLVERS.EVENT_TYPE."+event['EventType']+"; }");
       code.push("      _eventSelf.getRootFindingMethod = function() { return EJSS_ODE_SOLVERS.EVENT_METHOD."+event['Method']+"; }");
       code.push("      _eventSelf.getMaxIterations = function() { return "+event['Iterations']+"; }");
-      if (('Tolerance' in event) && (event['Tolerance'].trim())) 
+      if (('Tolerance' in event) && (event['Tolerance']) && (event['Tolerance'].trim())) 
           code.push("      _eventSelf.getTolerance = function() { return "+event['Tolerance']+"; }");
       else
           code.push("      _eventSelf.getTolerance = function() { return "+absTol+"; }\n");
@@ -2204,9 +2214,36 @@ WebEJS_GUI.comm = function(sessionID) {
 	// ----------------------------
 
 	self.getSystemInformation = function(onSuccess) {
-		ajaxGet('/system/system_information', 
-			onSuccess, "Error reading system information from server!");
-	}
+    /*
+		$.ajax({
+			type: 'GET', 
+			url: sMainEjsAssetsFolder+'/WebEJS/system_info.json', // if it is not /static/assets
+			contentType: 'application/json; charset=UTF-8',
+			success : function (result) {
+        console.log ("SYSTEM INFO FROM STATIC SERVER "+sMainEjsAssetsFolder);
+        console.log (result);
+        ajaxGet('/system/get_server_dynamic_info',
+          function(response) {
+            const user_compound_elements = response['user_compound_elements']['elements'];
+            console.log("User compound elements:");
+            console.log (user_compound_elements);
+            // Merge user compound elements
+            // Finally
+            onSuccess();
+          }, 
+          "Error reading system information from server!");
+        }, 
+			error : function(error) {
+        console.log ("ERROR SYSTEM INFO FROM STATIC SERVER "+sMainEjsAssetsFolder);
+        console.log(error);
+        ajaxGet('/system/system_information', 
+          onSuccess, "Error reading system information from server!");
+      }
+    });  
+    */
+    ajaxGet('/system/system_information', 
+    onSuccess, "Error reading system information from server!");
+}
 
 	self.saveWebEJSOptions = function(options) {
 		ajaxPost('/system/save_options', options, 
@@ -3161,7 +3198,51 @@ WebEJS_GUI.optionsWebEJSPanel = function() {
 
 		return options;
 	}
-		
+		/*
+  $('#mElementEditorImportField').change(function (event) {
+    console.log("Import: ");
+    console.log(event.target.files[0]);
+    const reader = new FileReader();
+    const [file] = this.files;
+    reader.addEventListener("load", () => {
+      importValues(JSON.parse(reader.result))
+    }, false);
+    if (file) reader.readAsText(file);
+    $('#mElementEditorImportField').val("");
+  });
+
+  $('#mElementEditorExportDoit').click(function () {
+    var filename = $('#mElementEditorExportFilename').val().trim();
+    if (filename.length <= 0) {
+      filename = $('#mElementEditorNameField').val().trim();
+      if (filename.length <= 0) filename = "IODA_Element_exported";
+      else filename = "IODA_Element_" + filename;
+    }
+
+    var values = {}
+    values['name'] = $('#mElementEditorNameField').val().trim();
+    values['description'] = $('#mElementEditorDescriptionField').val();
+    values['properties'] = getProperties(document.getElementById('mElementEditorPropertiesTableBody'));
+    values['language'] = $('#mElementEditorProgrammingLanguageList option:selected').val();
+    values['code'] = aceEditor.getValue();
+    values['code_keyword'] = $('#mElementEditorServerCodeKeywordField').val();
+    values['code_requirements'] = $('#mElementEditorRequirementsField').val();
+    values['code_recommendations'] = $('#mElementEditorRecommendationsField').val();
+    values['help'] = canBeEdited ? helpEditor.getContents() : $('#mElementEditorHelpViewer').html();
+    //values['base64Icon']  = IODA_TOOLS.getBase64("mElementEditorIconImage");					
+
+    const text = JSON.stringify(values);
+    const blob = new Blob([text], { type: 'text/plain' });
+    var anchor = document.createElement('a');
+    anchor.download = filename;
+    anchor.href = (window.webkitURL || window.URL).createObjectURL(blob);
+    anchor.dataset.downloadurl = ['text/plain', anchor.download, anchor.href].join(':');
+    anchor.click();
+  });
+
+
+  */
+ 
 	self.readOptions = function(options) {
 		options = checkDefaults(options);
 		const panel = options['panel_at_start_up'];
@@ -9965,6 +10046,8 @@ WebEJS_RESOURCES.main = function(locale) {
 
 		"Clear output" : "Borrar salida",
 
+    "Create a new simulation" : "Crear una simulación nueva",
+
 		"Create a new simulation" : "Crear una simulación nueva",
 		"Load a simulation from your device" : "Cargar una simulación desde su dispositivo",
 		"Download a simulation from a digital library" : "Descargar una simulación desde una librería digital",
@@ -10018,7 +10101,7 @@ WebEJS_RESOURCES.main = function(locale) {
 			mLocale = "es";
 		}
 		else {
-			mStrings = null;
+			mStrings = sStrings_en;
 			mLocale = "en";
 		}
 		self.translateAll();
@@ -10087,7 +10170,7 @@ WebEJS_RESOURCES.main = function(locale) {
 	
 	if (locale!=null) self.setLocale(locale);
 	WebEJS_RESOURCES.sSingleton = self;
-	
+
 	return self;
 	
 }
