@@ -1699,8 +1699,12 @@ WebEJS_GEN.generate_view = {
 										if (value.startswith('"') and value.endswith('"')): value = value[1:-1]
 										value = '"' + value.replace('\\', '\\\\').replace('"', '\"') + '"'
 						*/
-						if (('modifiers' in prop_info) && (prop_info['modifiers'].includes('MULTILINE')))
+						if (('modifiers' in prop_info) && (prop_info['modifiers'].includes('MULTILINE'))) {
 							text = WebEJS_GEN.generate_view.__getMultilineValue(value,prop_info['types']);
+              if (prop_info['modifiers'].includes('HTML')) {
+                text = WebEJS_TOOLS.html_tools.convertToAbsolute(text);
+              }
+            }
 						else 
               text = value.replaceAll('\r', ' ').replaceAll('\n', ' ').trim()
 						prop_code.push('      .setProperty("'+prop_name+'",'+text+')');
@@ -12803,7 +12807,7 @@ WebEJS_TOOLS.LibraryComPADRE = {
 	TRACKER_SERVER_TREE: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?verb=Identify&OSPType=Tracker",
 	TRACKER_SERVER_RECORDS: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?OSPType=Tracker",
 	TRACKER_COLLECTION_NAME: "Tracker OSP Collection",
-	TRACKER_INFO_URL: "http://www.cabrillo.edu/~dbrown/tracker/library/comPADRE_collection.html",
+	TRACKER_INFO_URL: "https://physlets.org/tracker/library/comPADRE_collection.html",
 	PRIMARY_ONLY: "&OSPPrimary=Subject",
 	GENERIC_COLLECTION_NAME: "AAPT-ComPADRE OSP Collection",
 	ABOUT_OSP: "About OSP and AAPT-ComPADRE",
