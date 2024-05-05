@@ -174,7 +174,7 @@ WebEJS_GEN.generate_model = {
   // Static methods
   // ----------------------------------------------------
 
-  getModelCode : function(simulation, fullModel) {
+  getModelCode : function(simulation, fullModel, forPackage) {
     const model = simulation['model'];
     const variable_pages = model['variables']['pages'];
     const evolution_pages = fullModel ? model['evolution']['pages'] : null;
@@ -257,7 +257,7 @@ WebEJS_GEN.generate_model = {
     const description_pages = fullModel ? simulation['description']['pages'] : [];
     return {
       'model': code.join('\n'),
-      'view': WebEJS_GEN.generate_view.getTreeCode(view['Tree'], description_pages, variables_list, fullModel)
+      'view': WebEJS_GEN.generate_view.getTreeCode(view['Tree'], description_pages, variables_list, fullModel, forPackage)
     };
     
   },
@@ -1669,7 +1669,7 @@ WebEJS_GEN.generate_view = {
 		return value;
 	},	
 
-  __appendDefinition : function(code, tree, parent, variables_list) {
+  __appendDefinition : function(code, tree, parent, variables_list, forPackage) {
     for (const el of tree) {
       var uses_graphic_canvas = false;
 			const fullclass = sMainGUI.getSystemInformation('view_elements')['classnames'][el['Type']];
@@ -1701,7 +1701,7 @@ WebEJS_GEN.generate_view = {
 						*/
 						if (('modifiers' in prop_info) && (prop_info['modifiers'].includes('MULTILINE'))) {
 							text = WebEJS_GEN.generate_view.__getMultilineValue(value,prop_info['types']);
-              if (prop_info['modifiers'].includes('HTML')) {
+              if ((!forPackage) && prop_info['modifiers'].includes('HTML')) {
                 text = WebEJS_TOOLS.html_tools.convertToAbsolute(text);
               }
             }
@@ -1722,7 +1722,7 @@ WebEJS_GEN.generate_view = {
       }
 		  else code.push(command+";");
 		  if ('Children' in el)
-				WebEJS_GEN.generate_view.__appendDefinition(code,el['Children'],el['Name'],variables_list);
+				WebEJS_GEN.generate_view.__appendDefinition(code,el['Children'],el['Name'],variables_list, forPackage);
 		}
 		return code.join('\n');
 	},	
@@ -1790,7 +1790,7 @@ WebEJS_GEN.generate_view = {
     }
   },
 
-  getTreeCode : function(view_tree,description_pages,variables_list,fullmodel) {
+  getTreeCode : function(view_tree,description_pages,variables_list,fullmodel, forPackage) {
     const code = [];
     if (!fullmodel)
       code.push("function _getBase64Image(__base64ImageName) { return __base64ImageName; }\n");
@@ -1813,7 +1813,7 @@ WebEJS_GEN.generate_view = {
     code.push("\n  _view._reset = function() {");
     code.push("    _view._clearAll();");
     if (view_tree.length)
-      WebEJS_GEN.generate_view.__appendDefinition(code,view_tree, '_topFrame',variables_list);
+      WebEJS_GEN.generate_view.__appendDefinition(code,view_tree, '_topFrame',variables_list, forPackage);
     else // Tree is empty, generate minimal view
       code.push(WebEJS_GEN.generate_view.__EMPTY_VIEW.replaceAll('{{WEBEJS_ASSETS_FOLDER}}',sMainEjsAssetsFolder));
     code.push("  }; // end of _view._reset");
@@ -1927,6 +1927,7 @@ var WebEJS_GEN = WebEJS_GEN || {};
  */
 
 WebEJS_GEN.generate = function(mOptions) {
+  const forPackage = __optionHasValue('forPackage', true);
 
   function __optionHasValue(keyword,value) {
     return keyword in mOptions && mOptions[keyword]==value;
@@ -1935,7 +1936,7 @@ WebEJS_GEN.generate = function(mOptions) {
    var mEjsLibraryFolder = (__optionHasValue('useCDN', true) ? sMainEjsAssetsFolder : './') + '_ejs_library/';
    var mCodebaseFolder ;
   
-  if (__optionHasValue('forPackage', true)) mCodebaseFolder = 'null';
+  if (forPackage) mCodebaseFolder = null;
   else {
     const prefix = window.location.protocol + "//" + window.location.host;
     mCodebaseFolder = prefix + sMainGUI.getURLpathFor('');
@@ -1947,7 +1948,7 @@ WebEJS_GEN.generate = function(mOptions) {
 
   const NAME = 'WebEJS : the web version of Easy JavaScript Simulations';
   const VERSION = "1.0";
-  const VERSION_DATE = "2404101";
+  const VERSION_DATE = "240505";
   const WEB_SITE = "https://t.um.es/webejs";
   
   const EJS_CSS            = "css/ejss.css";
@@ -1971,8 +1972,8 @@ WebEJS_GEN.generate = function(mOptions) {
       var _scorm;
       window.addEventListener('load',
         function () {
-          _model = new {{MODEL_NAME}}("_topFrame","{{EJS_LIBRARY_FOLDER}}","{{CODEBASE_FOLDER}}");
-  
+          _model = new {{MODEL_NAME}}("_topFrame","{{EJS_LIBRARY_FOLDER}}",{{CODEBASE_FOLDER}});
+
           if (typeof _isApp !== "undefined" && _isApp) _model.setRunAlways(true);
           TextResizeDetector.TARGET_ELEMENT_ID = '_topFrame';
           TextResizeDetector.USER_INIT_FUNC = function () {
@@ -2006,10 +2007,16 @@ WebEJS_GEN.generate = function(mOptions) {
     code.push("        <b>Title and author:</b>");
     code.push("        <p>");
     if (title) code.push("          "+title + "<br/>");
-    for (const l of logos) code.push("          <img alt='Logo' src='" + l + "'/>");
+    for (const l of logos) {
+      if (mCodebaseFolder) code.push("          <img alt='Logo' src='" + mCodebaseFolder + l + "'/>");
+      else                 code.push("          <img alt='Logo' src='" + l + "'/>");
+    }
     code.push("        </p>");
     code.push("        <p>");
-    for (const al of authorlogos) code.push("          <img alt='author image' src='" + al + "'/>");
+    for (const al of authorlogos) {
+      if (mCodebaseFolder) code.push("          <img alt='author image' src='" + mCodebaseFolder + al + "'/>");
+      else                 code.push("          <img alt='author image' src='" + al + "'/>");
+    }
     code.push(authorList);
     code.push("        </p>");
     code.push("        <hr />");
@@ -2035,8 +2042,10 @@ WebEJS_GEN.generate = function(mOptions) {
     var code = [];
     // Add .js files in auxiliary files
     for (filename of simulation['information']['AuxiliaryFiles'])
-      if (filename.trim().toLowerCase().endsWith('.js'))
-        code.push("    <script src='"+mCodebaseFolder+filename+"'></script>");
+      if (filename.trim().toLowerCase().endsWith('.js')) {
+        if (mCodebaseFolder) code.push("    <script src='"+mCodebaseFolder+filename+"'></script>");
+        else                 code.push("    <script src='"+filename+"'></script>");
+      }
     // TODO : Must append JS files in Auxiliary FOLDERS!
     // Add scripts from model elements
     WebEJS_GEN.generate_model.addElementsScriptCode(code,simulation['model'],mOptions['fullModel']);
@@ -2079,7 +2088,7 @@ WebEJS_GEN.generate = function(mOptions) {
 
   const simulation = sMainGUI.saveObject();
   const information = simulation['information'];
-  const metadataCode = __optionHasValue('separatePage', true) ? __getMetadataCode(information): '';
+  const metadataCode = __optionHasValue('separatePage', true)  ? __getMetadataCode(information): '';
   const scriptsImportCode = __getScriptsImportCode(simulation);
 
   // css files
@@ -2092,7 +2101,7 @@ WebEJS_GEN.generate = function(mOptions) {
   var manifestFile = '';
   if (__optionHasValue('type', 'PWA')) cssFiles.push('manifest.json'); // This is actually a json
 
-  var simulationCode = WebEJS_GEN.generate_model.getModelCode(simulation, __optionHasValue('fullModel',true));
+  var simulationCode = WebEJS_GEN.generate_model.getModelCode(simulation, __optionHasValue('fullModel',true),forPackage);
   var mainScript = ['    <script type="text/javascript"><!--//--><![CDATA[//><!--'];
   mainScript.push(simulationCode['model']);
   mainScript.push(simulationCode['view']);
@@ -2106,7 +2115,7 @@ WebEJS_GEN.generate = function(mOptions) {
   buffer.push('    <script type="text/javascript"><!--//--><![CDATA[//><!--');
   buffer.push(__START_UP_SCRIPT.replaceAll("{{MODEL_NAME}}", '_simulation')
                                .replaceAll("{{EJS_LIBRARY_FOLDER}}", mEjsLibraryFolder)
-                               .replaceAll("{{CODEBASE_FOLDER}}", mCodebaseFolder));
+                               .replaceAll("{{CODEBASE_FOLDER}}", mCodebaseFolder ? '"'+mCodebaseFolder+'"' : 'null'));
   if (__optionHasValue('separatePage', false))
     buffer.push('        window.console = window.parent.console;');
 
@@ -2403,16 +2412,29 @@ WebEJS_GUI.comm = function(sessionID) {
 	// ----------------------------
 
 	self.zipSimulation = function(generate, listener) {
-		var simulation = sMainGUI.saveObject();
+    const simulation = sMainGUI.saveObject();
+    var info = simulation;
+    if (generate && WebEJS_GUI.GENERATE_LOCALLY) {
+      const includeLibrary = ('IncludeLibrary' in simulation.information && simulation.information['IncludeLibrary']=='true');
+			const options = { 
+				'useCDN' : !includeLibrary, 
+				'separatePage' : true, 
+				'fullModel' : true,
+        'forPackage': true
+			};      
+      info = { 'source' : simulation, 'generated' : WebEJS_GEN.generate(options) };
+    }
+
 		var name = simulation.information.Title.trim();
 		if ( name == "" || name == null) name = 'untitled';
 		else if (name.endsWith('.')) name = name.substring(0,name.length-1);
 		if (generate) name = 'webejs_model_'+name+'.zip';
 		else name = 'webejs_src_'+name+'.zip';
-		sMainFilenameForm.show(name, filename => {
+		
+    sMainFilenameForm.show(name, filename => {
 			var url = '/simulation/zip_simulation?filename='+encodeURI(filename);
 			if (generate) url += '&generate=true'
-			ajaxPost(url, simulation, 
+			ajaxPost(url, info, 
 				result => { 
 					sMainGUI.logLine(sMainResources.getString("ZIP simulation file correctly created."));
 					console.log("Zip ok created");
@@ -2493,6 +2515,8 @@ var WebEJS_GUI = WebEJS_GUI || {};
  * @class Model 
  * @constructor  
  */
+
+WebEJS_GUI.GENERATE_LOCALLY = true;
 
 WebEJS_GUI.main = function() {
 	var self = {};
@@ -7669,8 +7693,6 @@ var WebEJS_GUI = WebEJS_GUI || {};
 WebEJS_GUI.previewArea = function() {
 	var self = {};
 
-	const GENERATE_LOCALLY = true;
-
 	function setSource(url) {
 		$('#sPreviewFrame').attr('src', url);
 		//$('#sPreviewFrame').attr('srcdoc', IFRAME_EXAMPLE);
@@ -7719,7 +7741,7 @@ WebEJS_GUI.previewArea = function() {
 	// ---------------------------------------
 
 	function mustCallServer() {
-		if (GENERATE_LOCALLY) {
+		if (WebEJS_GUI.GENERATE_LOCALLY) {
 			const options = { 
 				'useCDN' : true, 
 				'separatePage' : false, 
@@ -7749,7 +7771,7 @@ WebEJS_GUI.previewArea = function() {
 	// ---------------------------------------
 
 	self.runSimulation = function() {
-		if (GENERATE_LOCALLY) {
+		if (WebEJS_GUI.GENERATE_LOCALLY) {
       const options = { 
 				'useCDN' : true, 
 				'separatePage' : true, 
@@ -12301,7 +12323,101 @@ WebEJS_TOOLS.selectFile = function(extensions, onSuccess, checkExistence, helper
 	} // end of listener
 	sMainFileChooser.showRead(extensions, fileListener, helperHtml);
 }
-	var WebEJS_GUI = WebEJS_GUI || {};
+	/*
+ * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
+ * This code is part of the Web EJS authoring and simulation tool
+ */
+
+/**
+ * GUI tools
+ * @module core
+ */
+
+var WebEJS_TOOLS = WebEJS_TOOLS || {};
+
+WebEJS_TOOLS.html_tools = {
+	
+  TO_RELATIVE_TO_XML_FILE : 0,
+	TO_ABSOLUTE_URL : 1,
+	
+  convertSRCtags: function (_text, _type) {
+    const prefix = window.location.protocol + "//" + window.location.host+'/'+sMainGUI.getURLpathFor('');
+    const prefix_length = prefix.length;
+    var textLowercase = _text.toLowerCase();
+    var textChanged = '';
+    // Compute relativePath
+//    var relativePath = sMainGUI.getURLpathFor(''), pathToLib=relativePath+'ejs_library/'; // Levels up to get to the _ejs_library
+//    if (_type==TO_REQUIRED_BY_HTML) {
+//      relativePath = sMainGUI.getURLpathFor('');
+//      char[] pathChars = relativePath.toCharArray();
+//      for (int i=0; i<pathChars.length; i++) if (pathChars[i]=='/') pathToLib += "../";
+
+//    }
+    var index = textLowercase.indexOf("<img");
+    while (index>=0) {
+      var hasSlash = true;
+      var index2 = textLowercase.indexOf("/>",index);
+      if (index2<0) {
+        hasSlash = false;
+        index2 = textLowercase.indexOf('>',index);
+      }
+      if (index2<0) break; // This is a syntax error , actually
+      var tag = textLowercase.substring(index,index2);
+      // Process the tag
+      var srcEnd = -1;
+      var srcBegin = tag.indexOf('src=\"');
+      if (srcBegin>=0) {
+        srcBegin += 5;
+        srcEnd   = index+tag.indexOf('"',srcBegin);
+      }
+      else {
+        srcBegin = tag.indexOf('src=\\\"')+6;
+        srcEnd   = index+tag.indexOf('\\\"',srcBegin);
+      }
+      srcBegin = index + srcBegin;
+
+//      var srcBegin = tag.indexOf("src=\"")+5;
+//      var srcEnd = index+tag.indexOf("\"",srcBegin);
+// srcBegin = index + srcBegin;
+      var filename = _text.substring(srcBegin,srcEnd);
+      switch (_type) {
+        case WebEJS_TOOLS.html_tools.TO_RELATIVE_TO_XML_FILE : 
+        	if (filename.startsWith(prefix)) {
+				    filename = './'+filename.substring(prefix_length);
+			     }
+        	break;
+        //case TO_REQUIRED_BY_HTML : filename = convertToRequiredByHTML(_ejs,filename,relativePath,pathToLib); break;
+        default :
+        case WebEJS_TOOLS.html_tools.TO_ABSOLUTE_URL :
+          //if (filename.startsWith('./')) {
+          if (filename.indexOf(':')<0) {
+            if (filename.startsWith('./')) filename = prefix+filename.substring(2);
+            else filename = prefix+filename;
+			     }
+          break;
+      }
+      textChanged+=(_text.substring(0,srcBegin)+filename);
+      textChanged+=(_text.substring(srcEnd,index2));
+      if (!hasSlash) textChanged+=("/");
+      // Search next tag
+      textLowercase = textLowercase.substring(index2);
+      _text = _text.substring(index2);
+      index = textLowercase.indexOf("<img");
+    }
+    textChanged+=(_text);
+    return textChanged;
+  },
+
+  convertToRelative : function(htmlCode) { 
+    return WebEJS_TOOLS.html_tools.convertSRCtags(htmlCode,WebEJS_TOOLS.html_tools.TO_RELATIVE_TO_XML_FILE); 
+  },
+  
+  convertToAbsolute : function(htmlCode) { 
+    return WebEJS_TOOLS.html_tools.convertSRCtags(htmlCode,WebEJS_TOOLS.html_toolsTO_ABSOLUTE_URL); 
+  }
+		
+};
+var WebEJS_GUI = WebEJS_GUI || {};
 
 WebEJS_GUI.libraryChooser = function() {
 	const ITEM_LIST_PREFIX = "mLibraryChooserCollection-item-";
