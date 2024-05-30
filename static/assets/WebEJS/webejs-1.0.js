@@ -549,9 +549,9 @@ WebEJS_GEN.generate_ode = {
           // tokens = re.findall("\[(.*?)\]", state)
           const tokens = [];
           for (const tk of state.split(/\s+|\[|\]/)) if (tk) tokens.push(tk);
-          const theState = tokens.pop(0)
+          const theState = tokens.shift()
           if (tokens.len <= 0) self.eqnList.push({ 'state': theState, 'rate': rate }); // No index
-          else self.eqnList.push({ 'state': theState, 'index': tokens.pop(0), 'rate': rate }); // f.i. x[i]
+          else self.eqnList.push({ 'state': theState, 'index': tokens.shift(), 'rate': rate }); // f.i. x[i]
         }
       }
       else self.eqnList.push({'state' : state, 'rate' : rate }); // No index
@@ -4284,7 +4284,7 @@ WebEJS_GUI.odeEventsPanel = function(mEvolutionPanel, mEvolutionPageDiv, mEvolut
               '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
                 '<div class="row">'+
                   '<div class="col">'+
-                      '<span id="'+mID+'-ZeroLabel" class="sTranslatable sModelBtn input-group-text btn text-decoration-none" >'+
+                      '<span id="'+mID+'-ZeroLabel-'+mHash+'" class="sTranslatable sModelBtn input-group-text btn text-decoration-none" >'+
                         sLocaleFor("Zero condition")+
                       '</span>'+
                   '</div>'+
@@ -4324,7 +4324,7 @@ WebEJS_GUI.odeEventsPanel = function(mEvolutionPanel, mEvolutionPageDiv, mEvolut
                   '<div class="col input-group">'+
                     '<span class="form-check">'+
                       '<input class="form-check-input" type="checkbox" value="" checked '+
-                        ' name="'+mID+'-EndCheckbox-'+mHash+'" id="'+mID+'-EndCheckbox">'+
+                        ' name="'+mID+'-EndCheckbox-'+mHash+'" id="'+mID+'-EndCheckbox-'+mHash+'">'+
                       '<label class="sTranslatable form-check-label" for="'+mID+'-EndCheckbox">'+
                         sLocaleFor("End step at event")+
                       '</label>'+
@@ -6348,6 +6348,7 @@ WebEJS_GUI.evolutionPanel = function(mMainPanelSelector) {
       const value = parent.find('.cODEvalue').val();
       sMainSelectChoiceForm.show("List of suitable variables",getVariables('double|double[]'),value,
         function(newValue) {
+          if (sMainGUI.getModel().getVariables().isArrayVariable (newValue)) newValue += '[i]';
           if (newValue==value) return;
           setState(parent,pageHash,newValue);
           if (odeTr.is(':last-child')) mTablePanel.appendEmptyRow(pageHash);
@@ -6363,6 +6364,7 @@ WebEJS_GUI.evolutionPanel = function(mMainPanelSelector) {
       const value = parent.find('.cODEvalue').val();
       sMainSelectChoiceForm.show("List of suitable variables",getVariables('int|int[]|double|double[]'),value,
         function(newValue) {
+          if (sMainGUI.getModel().getVariables().isArrayVariable (newValue)) newValue += '[i]';
           if (newValue==value) return;
           setRate(parent,newValue);
           if (odeTr.is(':last-child')) mTablePanel.appendEmptyRow(pageHash);
@@ -6598,6 +6600,20 @@ WebEJS_GUI.variablesPanel = function(mMainPanelSelector) {
 			} 
 		}
 		return list;
+	} 
+
+  self.isArrayVariable = function(varName) {
+    var variables = getAllVariables(false); //mTablePanel.getAllTableRows(mMainPanelSelector);
+		for (var i=0; i<variables.length; i++) {
+      var variable = variables[i];
+      const thisVarName = variable.Name.trim();
+      if (thisVarName==varName) {
+        var dimension = variable.Dimension.trim();
+        if (dimension.length>0) return true;
+        return false;
+      }
+		}
+		return false;
 	} 
 
 	function checkVariables() {
