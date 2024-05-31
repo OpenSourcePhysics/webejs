@@ -6348,13 +6348,13 @@ WebEJS_GUI.evolutionPanel = function(mMainPanelSelector) {
       const value = parent.find('.cODEvalue').val();
       sMainSelectChoiceForm.show("List of suitable variables",getVariables('double|double[]'),value,
         function(newValue) {
-          if (sMainGUI.getModel().getVariables().isArrayVariable (newValue)) newValue += '[i]';
+          //if (sMainGUI.getModel().getVariables().isArrayVariable (newValue)) newValue += '[i]';
           if (newValue==value) return;
           setState(parent,pageHash,newValue);
           if (odeTr.is(':last-child')) mTablePanel.appendEmptyRow(pageHash);
           self.nonReportableChange("ODE state changed on "+pageHash);
           //sInitMathJax();
-        });
+        }, null,null,'[i]');
     });   
 
     odeTr.find('.cODErate').on("click", (event)=>{ 
@@ -6364,12 +6364,12 @@ WebEJS_GUI.evolutionPanel = function(mMainPanelSelector) {
       const value = parent.find('.cODEvalue').val();
       sMainSelectChoiceForm.show("List of suitable variables",getVariables('int|int[]|double|double[]'),value,
         function(newValue) {
-          if (sMainGUI.getModel().getVariables().isArrayVariable (newValue)) newValue += '[i]';
+          //if (sMainGUI.getModel().getVariables().isArrayVariable (newValue)) newValue += '[i]';
           if (newValue==value) return;
           setRate(parent,newValue);
           if (odeTr.is(':last-child')) mTablePanel.appendEmptyRow(pageHash);
           self.nonReportableChange("ODE Rate changed on "+pageHash);
-        });
+        }, null,null,'[i]');
     });   
 
   }
@@ -12032,7 +12032,7 @@ WebEJS_GUI.selectChoiceForm = function() {
 		return html;
 	}
 
-	self.show = function(title, options, currentValue, listener, modalClass, disableInput)  {
+	self.show = function(title, options, currentValue, listener, modalClass, disableInput, includeIndexForArrays)  {
 		mListener = listener;
 		
 		$("#mSelectChoiceFormModalDiv").removeClass('modal-sm modal-lg modal-xl');
@@ -12053,13 +12053,20 @@ WebEJS_GUI.selectChoiceForm = function() {
 			mCurrentChoice = $( event.target ).closest('.cSelectChoiceFormOptionChosen');
 			mCurrentChoice.addClass(selectedClass);
 			var choice = options[mCurrentChoice.data('index')].value;
+      if (includeIndexForArrays) {
+        if (sMainGUI.getModel().getVariables().isArrayVariable (choice)) choice += includeIndexForArrays;
+      }
 			$('#mSelectChoiceFormValue').val(choice);
 		});		
 		
 		$('#mSelectChoiceFormModal .cSelectChoiceFormOptionChosen').dblclick((event)=>{
 			mModal.hide();
 			const index = $( event.target ).closest('.cSelectChoiceFormOptionChosen').data('index');
-			mListener(options[index].value);
+			var choice = options[index].value;
+      if (includeIndexForArrays) {
+        if (sMainGUI.getModel().getVariables().isArrayVariable (choice)) choice += includeIndexForArrays;
+      }
+			mListener(choice);
 		});		
 
 		$('#mSelectChoiceFormModal .cSelectChoiceFormOptionName').each(function() {
