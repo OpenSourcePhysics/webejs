@@ -7,7 +7,7 @@ body {
   background-color: rgb(255,255,192);
   color: rgb(0, 0, 0);
 	overflow: hidden;
-	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-family: "Garamond";
 }
 
 /* -------------------------- */
@@ -35,7 +35,7 @@ li { cursor: pointer; }
 
 .sMainWebEJSlogo {
 	font-size:20px;
-	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-family: "Garamond";
 	font-weight: bold;
 	color: black;
 	margin-right: 3px;	
@@ -145,7 +145,7 @@ li { cursor: pointer; }
 }
 
 .sModelPanel {
-	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-family: "Garamond";
 	font-weight: bold;
 }
 
@@ -215,6 +215,14 @@ li { cursor: pointer; }
   }
 
 /* -------------------------- */
+/* Model elements specific
+/* -------------------------- */
+
+.cModelElementGroup {
+	padding-right: 10px;
+}
+
+/* -------------------------- */
 /* View
 /* -------------------------- */
 
@@ -256,11 +264,6 @@ li { cursor: pointer; }
 	padding-top: 0px;
 	padding-bottom: 0px;
 }
-
-.cViewPropertyEditorLabel {
-  min-width: 100px;
-}
-
 /* -------------------------- */
 /* Preview
 /* -------------------------- */
@@ -270,7 +273,7 @@ li { cursor: pointer; }
 }
 
 #sPreviewTitle {
-	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-family: "Garamond";
 	font-weight: bold;
 	color: rgb(0, 143, 81);
 }
@@ -284,7 +287,7 @@ li { cursor: pointer; }
 }
 
 #sOutputAreaLabel {
-	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-family: "Garamond";
 	font-weight: bold;
 	color: rgb(148, 22, 81);
 	border-color: black;
