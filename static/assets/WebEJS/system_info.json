@@ -3161,14 +3161,14 @@
                 "AxisXLineWidth",
                 "AxisXShapeRendering",
                 "AxisXFont",
-                "AxisXFillColor",
+                "AxisXFontColor",
                 "<SEP>",
                 "AxisYShow",
                 "AxisYLineColor",
                 "AxisYLineWidth",
                 "AxisYShapeRendering",
                 "AxisYFont",
-                "AxisYFillColor"
+                "AxisYFontColor"
               ]
             ]
           }
