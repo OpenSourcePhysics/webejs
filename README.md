@@ -18,4 +18,4 @@ WebEJS is an online JavaScript version of the Easy Java Simulations (EJS) author
 Clone the repository:
 
 ```bash
-git clone https://github.com/lookang/webejs.git
+git clone https://github.com/OpenSourcePhysics/webejs.git
