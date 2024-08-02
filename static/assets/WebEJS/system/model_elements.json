@@ -1,9 +1,0 @@
-{
-  "list": [
-    "model_elements/Hardware/AccelerometerElement.js",
-    "model_elements/Hardware/GyroscopeElement.js",
-    "model_elements/Hardware/SensorTagElement.js",
-    "model_elements/Numerics/MathJSElement.js",
-    "model_elements/Numerics/NumericJSElement.js"
-  ]
-}
