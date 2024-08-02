@@ -32,23 +32,3 @@ WebEJS_MODEL_ELEMENTS["org.colos.ejss.model_elements.hardware.GyroscopeElement"]
   return self;
 
 };
-
-/*
-  // -------------------------------
-  // Implementation of ModelElement
-  // -------------------------------
-  
-  public String getInitializationCode(String _name) { // Code for the LINT in JS
-    return "var EJSS_HARDWARE = EJSS_HARDWARE || {};"; 
-  }
-
-  public String getSourceCode(String name) { // Code that goes into the body of the model 
-    return "var " + name + " = EJSS_HARDWARE.gyroscope();";
-  }  
-
-  public String getImportStatements() { // Required for Lint
-    return "Hardware/window_sensors.js"; 
-  }
-
-}
-*/

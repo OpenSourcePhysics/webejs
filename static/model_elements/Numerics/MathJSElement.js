@@ -32,33 +32,3 @@ WebEJS_MODEL_ELEMENTS["org.colos.ejss.model_elements.numerics.MathJSJavascriptEl
   return self;
 
 };
-
-/*
-  // -------------------------------
-  // Implementation of ModelElement
-  // -------------------------------
-  
-  public ImageIcon getImageIcon() { return ELEMENT_ICON; }
-  
-  public String getGenericName() { return "MathJS"; }
-  
-  public String getConstructorName() { return "MathJS"; }
-  
-  public String getInitializationCode(String _name) { // Code for the LINT in JS
-    return "";
-  }
-
-  public String getSourceCode(String name) { // Code that goes into the body of the model 
-    return "";
-  }
-
-  public String getPackageList() { 
-    return "";
-  } 
-
-  public String getImportStatements() { 
-    return "Numerics/math-3.16.4.min.js"; 
-  }
-  
-}
-*/
