@@ -1,0 +1,192 @@
+{
+  "name": "SingleDrawing",
+  "icon": "data:image/gif;base64,R0lGODlhGAAYAIMAAAAAAIAAAACAAICAAAAAgIAAgACAgICAgMDAwP8AAAD/AP//AAAA//8A/wD//////yH5BAMAAAsALAAAAAAYABgAAARwcMlJq7046807PmAojmJ1IGiqrsgBmAghz3TtwjX9APt+UyeSMPQCIh7IpHL5m5yWiWhS+mhKntAEMiq1LrDTh1bMrRadxweDMVZSvc/1esk8X49yBl0JT8/3SX2Ae3BDhnYLAIqLjI2MHpCRkpOTEQA7",
+  "elements": [
+    {
+      "Expanded": "true",
+      "Type": "Panel",
+      "Name": "singleDrawingPanel"
+    },
+    {
+      "Expanded": "true",
+      "Type": "Panel",
+      "Name": "labelPanel",
+      "Parent": "singleDrawingPanel"
+    },
+    {
+      "Type": "Label",
+      "Name": "topLabel",
+      "Parent": "labelPanel",
+      "Property": {
+        "@name": "Text",
+        "#text": "\"<h1>TopLabel</h1>\""
+      }
+    },
+    {
+      "Expanded": "true",
+      "Type": "WrappedPanel",
+      "Name": "wrappedPanel",
+      "Parent": "singleDrawingPanel",
+      "Property": {
+        "@name": "CSS",
+        "#text": "{ \"display\":\"block\"}"
+      }
+    },
+    {
+      "Type": "DrawingPanel",
+      "Name": "drawingPanel",
+      "Parent": "wrappedPanel",
+      "Property": [
+        {
+          "@name": "Height",
+          "#text": "400"
+        },
+        {
+          "@name": "Width",
+          "#text": "400"
+        }
+      ]
+    },
+    {
+      "Expanded": "true",
+      "Type": "Panel",
+      "Name": "controlPanel",
+      "Parent": "wrappedPanel",
+      "Property": [
+        {
+          "@name": "CSS",
+          "#text": "{\"display\":\"block\"}"
+        },
+        {
+          "@name": "BorderStyle",
+          "#text": "\"solid\""
+        },
+        {
+          "@name": "BorderColor",
+          "#text": "\"Gray\""
+        },
+        {
+          "@name": "BorderWidth",
+          "#text": "1"
+        },
+        {
+          "@name": "Width",
+          "#text": "398"
+        }
+      ]
+    },
+    {
+      "Expanded": "false",
+      "Type": "Panel",
+      "Name": "firstRowPanel",
+      "Parent": "controlPanel"
+    },
+    {
+      "Expanded": "false",
+      "Type": "Panel",
+      "Name": "executionPanel",
+      "Parent": "firstRowPanel",
+      "Property": {
+        "@name": "Display",
+        "#text": "\"inline-block\""
+      }
+    },
+    {
+      "Type": "TwoStateButton",
+      "Name": "runPauseButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "OffClick",
+          "#text": "%_pause%"
+        },
+        {
+          "@name": "State",
+          "#text": "_isPaused"
+        },
+        {
+          "@name": "Tooltip",
+          "#text": "\"Play/Pause\""
+        },
+        {
+          "@name": "ImageOnUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/play.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_play%"
+        },
+        {
+          "@name": "ImageOffUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/pause.gif\""
+        }
+      ]
+    },
+    {
+      "Type": "Button",
+      "Name": "stepButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "Tooltip",
+          "#text": "\"Step\""
+        },
+        {
+          "@name": "ImageUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/stepforward.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_step%"
+        }
+      ]
+    },
+    {
+      "Type": "Button",
+      "Name": "initButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "Tooltip",
+          "#text": "\"Initialize\""
+        },
+        {
+          "@name": "ImageUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/reset1.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_initialize%"
+        }
+      ]
+    },
+    {
+      "Type": "Button",
+      "Name": "resetButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "Tooltip",
+          "#text": "\"Reset\""
+        },
+        {
+          "@name": "ImageUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/reset.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_reset%"
+        }
+      ]
+    },
+    {
+      "Type": "Panel",
+      "Name": "narrativePanel",
+      "Parent": "singleDrawingPanel",
+      "Property": {
+        "@name": "Html",
+        "#text": "<h2>XHTML Sample Narrative</h2>\n<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Non est enim vitium in oratione solum, sed etiam in moribus.\nRestinguet citius, si ardentem acceperit. Erit enim instructus ad mortem contemnendam, ad exilium, ad ipsum etiam dolorem. \nAtqui iste locus est, Piso, tibi etiam atque etiam confirmandus, inquam; Ne in odium veniam, si amicum destitero tueri. \nDuo Reges: constructio interrete. Itaque hic ipse iam pridem est reiectus; Scrupulum, inquam, abeunti; </p>\n\n<p>Rhetorice igitur, inquam, nos mavis quam dialectice disputare? Quid me istud rogas? Non potes, nisi retexueris illa. </p>\n\n<p>Honesta oratio, Socratica, Platonis etiam. Sed quid attinet de rebus tam apertis plura requirere? Nec tamen ullo \nmodo summum pecudis bonum et hominis idem mihi videri potest. At quicum ioca seria, ut dicitur, quicum arcana, quicum \nocculta omnia? Nihil acciderat ei, quod nollet, nisi quod anulum, quo delectabatur, in mari abiecerat. Disserendi artem \nnullam habuit. Sed emolumenta communia esse dicuntur, recte autem facta et peccata non habentur communia. Nondum autem \nexplanatum satis, erat, quid maxime natura vellet. Quae duo sunt, unum facit. Primum in nostrane potestate est, quid meminerimus? </p>"
+      }
+    }
+  ]
+}

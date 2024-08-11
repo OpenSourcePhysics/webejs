@@ -1,0 +1,143 @@
+{
+  "name": "ControlPanel",
+  "icon": "data:image/gif;base64,R0lGODlhFQAUALMAAAAAAIAAAACAAICAAAAAgIAAgACAgICAgMDAwP8AAAD/AP//AAAA//8A/wD//////yH5BAEAAAkALAAAAAAVABQAAARiMMlJq70416MvBw+QiF1yIOABgKQGhjDaqSoL1C7yhOseuqrHYQdCcEYXlHEIGPRWi9YktVItBsyrdCpaNZ8212DBA2nFALL620kPBqExAOHSplfvrWU1co70GV4lg4QZEQAAOw==",
+  "elements": [
+    {
+      "Expanded": "true",
+      "Type": "Panel",
+      "Name": "controlPanel",
+      "Property": {
+        "@name": "Width",
+        "#text": "400"
+      }
+    },
+    {
+      "Expanded": "true",
+      "Type": "Panel",
+      "Name": "executionPanel",
+      "Parent": "controlPanel",
+      "Property": {
+        "@name": "CSS",
+        "#text": "{\"float\" : \"left\"}"
+      }
+    },
+    {
+      "Type": "TwoStateButton",
+      "Name": "playPauseButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "OffClick",
+          "#text": "%_pause%"
+        },
+        {
+          "@name": "State",
+          "#text": "_isPaused"
+        },
+        {
+          "@name": "Tooltip",
+          "#text": "\"Play/Pause\""
+        },
+        {
+          "@name": "ImageOnUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/play.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_play%"
+        },
+        {
+          "@name": "ImageOffUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/pause.gif\""
+        }
+      ]
+    },
+    {
+      "Type": "Button",
+      "Name": "stepButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "ImageUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/stepforward.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_step%"
+        }
+      ]
+    },
+    {
+      "Type": "Button",
+      "Name": "initButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "Tooltip",
+          "#text": "\"Initialize\""
+        },
+        {
+          "@name": "ImageUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/reset1.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_initialize%"
+        }
+      ]
+    },
+    {
+      "Type": "Button",
+      "Name": "resetButton",
+      "Parent": "executionPanel",
+      "Property": [
+        {
+          "@name": "ImageUrl",
+          "#text": "\"/org/opensourcephysics/resources/controls/images/reset.gif\""
+        },
+        {
+          "@name": "OnClick",
+          "#text": "%_reset%"
+        }
+      ]
+    },
+    {
+      "Expanded": "true",
+      "Type": "Panel",
+      "Name": "timePanel",
+      "Parent": "controlPanel",
+      "Property": {
+        "@name": "CSS",
+        "#text": "{ \"float\" : \"right\"}"
+      }
+    },
+    {
+      "Type": "Label",
+      "Name": "timeLabel",
+      "Parent": "timePanel",
+      "Property": {
+        "@name": "Text",
+        "#text": "\"Time:\""
+      }
+    },
+    {
+      "Type": "ParsedField",
+      "Name": "timeField",
+      "Parent": "timePanel",
+      "Property": [
+        {
+          "@name": "Format",
+          "#text": "\"0.00\""
+        },
+        {
+          "@name": "Editable",
+          "#text": "false"
+        },
+        {
+          "@name": "Width",
+          "#text": "\"50px\""
+        }
+      ]
+    }
+  ]
+}
