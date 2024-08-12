@@ -17,33 +17,37 @@
       "Type": "Label",
       "Name": "topLabel",
       "Parent": "labelPanel",
-      "Property": {
-        "@name": "Text",
-        "#text": "\"<h1>TopLabel</h1>\""
-      }
+      "Properties": [
+        {  
+          "name": "Text",
+          "value": "\"<h1>TopLabel</h1>\""
+        }
+      ]
     },
     {
       "Expanded": "true",
       "Type": "WrappedPanel",
       "Name": "wrappedPanel",
       "Parent": "singleDrawingPanel",
-      "Property": {
-        "@name": "CSS",
-        "#text": "{ \"display\":\"block\"}"
-      }
+      "Properties": [
+        {  
+          "name": "CSS",
+          "value": "{ \"display\":\"block\"}"
+        }
+      ]
     },
     {
       "Type": "DrawingPanel",
       "Name": "drawingPanel",
       "Parent": "wrappedPanel",
-      "Property": [
-        {
-          "@name": "Height",
-          "#text": "400"
+      "Properties": [
+        {  
+          "name": "Height",
+          "value": "400"
         },
         {
-          "@name": "Width",
-          "#text": "400"
+          "name": "Width",
+          "value": "400"
         }
       ]
     },
@@ -52,26 +56,26 @@
       "Type": "Panel",
       "Name": "controlPanel",
       "Parent": "wrappedPanel",
-      "Property": [
-        {
-          "@name": "CSS",
-          "#text": "{\"display\":\"block\"}"
+      "Properties": [
+        {  
+          "name": "CSS",
+          "value": "{\"display\":\"block\"}"
         },
         {
-          "@name": "BorderStyle",
-          "#text": "\"solid\""
+          "name": "BorderStyle",
+          "value": "\"solid\""
         },
         {
-          "@name": "BorderColor",
-          "#text": "\"Gray\""
+          "name": "BorderColor",
+          "value": "\"Gray\""
         },
         {
-          "@name": "BorderWidth",
-          "#text": "1"
+          "name": "BorderWidth",
+          "value": "1"
         },
         {
-          "@name": "Width",
-          "#text": "398"
+          "name": "Width",
+          "value": "398"
         }
       ]
     },
@@ -86,39 +90,41 @@
       "Type": "Panel",
       "Name": "executionPanel",
       "Parent": "firstRowPanel",
-      "Property": {
-        "@name": "Display",
-        "#text": "\"inline-block\""
-      }
+      "Properties": [
+        {  
+          "name": "Display",
+          "value": "\"inline-block\""
+        }
+      ]
     },
     {
       "Type": "TwoStateButton",
       "Name": "runPauseButton",
       "Parent": "executionPanel",
-      "Property": [
-        {
-          "@name": "OffClick",
-          "#text": "%_pause%"
+      "Properties": [
+        {  
+          "name": "OffClick",
+          "value": "%_pause%"
         },
         {
-          "@name": "State",
-          "#text": "_isPaused"
+          "name": "State",
+          "value": "_isPaused"
         },
         {
-          "@name": "Tooltip",
-          "#text": "\"Play/Pause\""
+          "name": "Tooltip",
+          "value": "\"Play/Pause\""
         },
         {
-          "@name": "ImageOnUrl",
-          "#text": "\"/org/opensourcephysics/resources/controls/images/play.gif\""
+          "name": "ImageOnUrl",
+          "value": "\"/org/opensourcephysics/resources/controls/images/play.gif\""
         },
         {
-          "@name": "OnClick",
-          "#text": "%_play%"
+          "name": "OnClick",
+          "value": "%_play%"
         },
         {
-          "@name": "ImageOffUrl",
-          "#text": "\"/org/opensourcephysics/resources/controls/images/pause.gif\""
+          "name": "ImageOffUrl",
+          "value": "\"/org/opensourcephysics/resources/controls/images/pause.gif\""
         }
       ]
     },
@@ -126,18 +132,18 @@
       "Type": "Button",
       "Name": "stepButton",
       "Parent": "executionPanel",
-      "Property": [
-        {
-          "@name": "Tooltip",
-          "#text": "\"Step\""
+      "Properties": [
+        {  
+          "name": "Tooltip",
+          "value": "\"Step\""
         },
         {
-          "@name": "ImageUrl",
-          "#text": "\"/org/opensourcephysics/resources/controls/images/stepforward.gif\""
+          "name": "ImageUrl",
+          "value": "\"/org/opensourcephysics/resources/controls/images/stepforward.gif\""
         },
         {
-          "@name": "OnClick",
-          "#text": "%_step%"
+          "name": "OnClick",
+          "value": "%_step%"
         }
       ]
     },
@@ -145,18 +151,18 @@
       "Type": "Button",
       "Name": "initButton",
       "Parent": "executionPanel",
-      "Property": [
-        {
-          "@name": "Tooltip",
-          "#text": "\"Initialize\""
+      "Properties": [
+        {  
+          "name": "Tooltip",
+          "value": "\"Initialize\""
         },
         {
-          "@name": "ImageUrl",
-          "#text": "\"/org/opensourcephysics/resources/controls/images/reset1.gif\""
+          "name": "ImageUrl",
+          "value": "\"/org/opensourcephysics/resources/controls/images/reset1.gif\""
         },
         {
-          "@name": "OnClick",
-          "#text": "%_initialize%"
+          "name": "OnClick",
+          "value": "%_initialize%"
         }
       ]
     },
@@ -164,18 +170,18 @@
       "Type": "Button",
       "Name": "resetButton",
       "Parent": "executionPanel",
-      "Property": [
-        {
-          "@name": "Tooltip",
-          "#text": "\"Reset\""
+      "Properties": [
+        {  
+          "name": "Tooltip",
+          "value": "\"Reset\""
         },
         {
-          "@name": "ImageUrl",
-          "#text": "\"/org/opensourcephysics/resources/controls/images/reset.gif\""
+          "name": "ImageUrl",
+          "value": "\"/org/opensourcephysics/resources/controls/images/reset.gif\""
         },
         {
-          "@name": "OnClick",
-          "#text": "%_reset%"
+          "name": "OnClick",
+          "value": "%_reset%"
         }
       ]
     },
@@ -183,10 +189,12 @@
       "Type": "Panel",
       "Name": "narrativePanel",
       "Parent": "singleDrawingPanel",
-      "Property": {
-        "@name": "Html",
-        "#text": "<h2>XHTML Sample Narrative</h2>\n<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Non est enim vitium in oratione solum, sed etiam in moribus.\nRestinguet citius, si ardentem acceperit. Erit enim instructus ad mortem contemnendam, ad exilium, ad ipsum etiam dolorem. \nAtqui iste locus est, Piso, tibi etiam atque etiam confirmandus, inquam; Ne in odium veniam, si amicum destitero tueri. \nDuo Reges: constructio interrete. Itaque hic ipse iam pridem est reiectus; Scrupulum, inquam, abeunti; </p>\n\n<p>Rhetorice igitur, inquam, nos mavis quam dialectice disputare? Quid me istud rogas? Non potes, nisi retexueris illa. </p>\n\n<p>Honesta oratio, Socratica, Platonis etiam. Sed quid attinet de rebus tam apertis plura requirere? Nec tamen ullo \nmodo summum pecudis bonum et hominis idem mihi videri potest. At quicum ioca seria, ut dicitur, quicum arcana, quicum \nocculta omnia? Nihil acciderat ei, quod nollet, nisi quod anulum, quo delectabatur, in mari abiecerat. Disserendi artem \nnullam habuit. Sed emolumenta communia esse dicuntur, recte autem facta et peccata non habentur communia. Nondum autem \nexplanatum satis, erat, quid maxime natura vellet. Quae duo sunt, unum facit. Primum in nostrane potestate est, quid meminerimus? </p>"
-      }
+      "Properties": [
+        {  
+          "name": "Html",
+          "value": "<h2>XHTML Sample Narrative</h2>\n<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Non est enim vitium in oratione solum, sed etiam in moribus.\nRestinguet citius, si ardentem acceperit. Erit enim instructus ad mortem contemnendam, ad exilium, ad ipsum etiam dolorem. \nAtqui iste locus est, Piso, tibi etiam atque etiam confirmandus, inquam; Ne in odium veniam, si amicum destitero tueri. \nDuo Reges: constructio interrete. Itaque hic ipse iam pridem est reiectus; Scrupulum, inquam, abeunti; </p>\n\n<p>Rhetorice igitur, inquam, nos mavis quam dialectice disputare? Quid me istud rogas? Non potes, nisi retexueris illa. </p>\n\n<p>Honesta oratio, Socratica, Platonis etiam. Sed quid attinet de rebus tam apertis plura requirere? Nec tamen ullo \nmodo summum pecudis bonum et hominis idem mihi videri potest. At quicum ioca seria, ut dicitur, quicum arcana, quicum \nocculta omnia? Nihil acciderat ei, quod nollet, nisi quod anulum, quo delectabatur, in mari abiecerat. Disserendi artem \nnullam habuit. Sed emolumenta communia esse dicuntur, recte autem facta et peccata non habentur communia. Nondum autem \nexplanatum satis, erat, quid maxime natura vellet. Quae duo sunt, unum facit. Primum in nostrane potestate est, quid meminerimus? </p>"
+        }
+      ]
     }
-  ]
+]
 }

@@ -17,42 +17,46 @@
       "Type": "Label",
       "Name": "topLabel",
       "Parent": "labelPanel",
-      "Property": {
-        "@name": "Text",
-        "#text": "\"<h1>TopLabel</h1>\""
-      }
+      "Properties": [
+        {  
+          "name": "Text",
+          "value": "\"<h1>TopLabel</h1>\""
+        }
+      ]
     },
     {
       "Expanded": "false",
       "Type": "Panel",
       "Name": "mainPanel",
       "Parent": "threePanelsPanel",
-      "Property": {
-        "@name": "CSS",
-        "#text": "{\"display\":\"block\",\n\n \"margin-left\":\"0cm\",\n \"margin-right\":\"0cm\",\n \"margin-top\":\"0cm\",\n \"margin-bottom\":\"0cm\"}"
-      }
+      "Properties": [
+        {  
+          "name": "CSS",
+          "value": "{\"display\":\"block\",\n\n \"margin-left\":\"0cm\",\n \"margin-right\":\"0cm\",\n \"margin-top\":\"0cm\",\n \"margin-bottom\":\"0cm\"}"
+        }
+      ]
     },
     {
       "Expanded": "false",
       "Type": "Panel",
       "Name": "subPanel1",
       "Parent": "mainPanel",
-      "Property": [
+      "Properties": [
         {
-          "@name": "CSS",
-          "#text": "{\"display\":\"inline-block\", \n  \"margin\":\"2px\", \n  \"vertical-align\": \"top\"}"
+          "name": "CSS",
+          "value": "{\"display\":\"inline-block\", \n  \"margin\":\"2px\", \n  \"vertical-align\": \"top\"}"
         },
         {
-          "@name": "Background",
-          "#text": "\"Blue\""
+          "name": "Background",
+          "value": "\"Blue\""
         },
         {
-          "@name": "Height",
-          "#text": "300"
+          "name": "Height",
+          "value": "300"
         },
         {
-          "@name": "Width",
-          "#text": "300"
+          "name": "Width",
+          "value": "300"
         }
       ]
     },
@@ -60,14 +64,14 @@
       "Type": "DrawingPanel",
       "Name": "drawingPanel",
       "Parent": "subPanel1",
-      "Property": [
+      "Properties": [
         {
-          "@name": "Height",
-          "#text": "\"100%\""
+          "name": "Height",
+          "value": "\"100%\""
         },
         {
-          "@name": "Width",
-          "#text": "\"100%\""
+          "name": "Width",
+          "value": "\"100%\""
         }
       ]
     },
@@ -76,22 +80,22 @@
       "Type": "Panel",
       "Name": "subPanel2",
       "Parent": "mainPanel",
-      "Property": [
+      "Properties": [
         {
-          "@name": "CSS",
-          "#text": "{\"display\":\"inline-block\", \n  \"margin\":\"2px\", \n  \"vertical-align\": \"top\"}"
+          "name": "CSS",
+          "value": "{\"display\":\"inline-block\", \n  \"margin\":\"2px\", \n  \"vertical-align\": \"top\"}"
         },
         {
-          "@name": "Background",
-          "#text": "\"Cyan\""
+          "name": "Background",
+          "value": "\"Cyan\""
         },
         {
-          "@name": "Height",
-          "#text": "300"
+          "name": "Height",
+          "value": "300"
         },
         {
-          "@name": "Width",
-          "#text": "400"
+          "name": "Width",
+          "value": "400"
         }
       ]
     },
@@ -99,22 +103,22 @@
       "Type": "PlottingPanel",
       "Name": "plottingPanel",
       "Parent": "subPanel2",
-      "Property": [
+      "Properties": [
         {
-          "@name": "AutoScaleY",
-          "#text": "true"
+          "name": "AutoScaleY",
+          "value": "true"
         },
         {
-          "@name": "AutoScaleX",
-          "#text": "true"
+          "name": "AutoScaleX",
+          "value": "true"
         },
         {
-          "@name": "Height",
-          "#text": "\"100%\""
+          "name": "Height",
+          "value": "\"100%\""
         },
         {
-          "@name": "Width",
-          "#text": "\"100%\""
+          "name": "Width",
+          "value": "\"100%\""
         }
       ]
     },
@@ -123,22 +127,22 @@
       "Type": "Panel",
       "Name": "subPanel3",
       "Parent": "mainPanel",
-      "Property": [
+      "Properties": [
         {
-          "@name": "CSS",
-          "#text": "{\"display\":\"inline-block\", \n  \"margin\":\"2px\", \n  \"vertical-align\": \"top\"}"
+          "name": "CSS",
+          "value": "{\"display\":\"inline-block\", \n  \"margin\":\"2px\", \n  \"vertical-align\": \"top\"}"
         },
         {
-          "@name": "Background",
-          "#text": "\"Green\""
+          "name": "Background",
+          "value": "\"Green\""
         },
         {
-          "@name": "Height",
-          "#text": "300"
+          "name": "Height",
+          "value": "300"
         },
         {
-          "@name": "Width",
-          "#text": "400"
+          "name": "Width",
+          "value": "400"
         }
       ]
     },
@@ -146,22 +150,22 @@
       "Type": "PlottingPanel",
       "Name": "plottingPanel2",
       "Parent": "subPanel3",
-      "Property": [
+      "Properties": [
         {
-          "@name": "AutoScaleY",
-          "#text": "true"
+          "name": "AutoScaleY",
+          "value": "true"
         },
         {
-          "@name": "AutoScaleX",
-          "#text": "true"
+          "name": "AutoScaleX",
+          "value": "true"
         },
         {
-          "@name": "Height",
-          "#text": "\"100%\""
+          "name": "Height",
+          "value": "\"100%\""
         },
         {
-          "@name": "Width",
-          "#text": "\"100%\""
+          "name": "Width",
+          "value": "\"100%\""
         }
       ]
     },
@@ -169,10 +173,12 @@
       "Type": "Panel",
       "Name": "narrativePanel",
       "Parent": "threePanelsPanel",
-      "Property": {
-        "@name": "Html",
-        "#text": "<h2>XHTML Sample Narrative</h2>\n<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Non est enim vitium in oratione solum, sed etiam in moribus.\nRestinguet citius, si ardentem acceperit. Erit enim instructus ad mortem contemnendam, ad exilium, ad ipsum etiam dolorem. \nAtqui iste locus est, Piso, tibi etiam atque etiam confirmandus, inquam; Ne in odium veniam, si amicum destitero tueri. \nDuo Reges: constructio interrete. Itaque hic ipse iam pridem est reiectus; Scrupulum, inquam, abeunti; </p>\n\n<p>Rhetorice igitur, inquam, nos mavis quam dialectice disputare? Quid me istud rogas? Non potes, nisi retexueris illa. </p>\n\n<p>Honesta oratio, Socratica, Platonis etiam. Sed quid attinet de rebus tam apertis plura requirere? Nec tamen ullo \nmodo summum pecudis bonum et hominis idem mihi videri potest. At quicum ioca seria, ut dicitur, quicum arcana, quicum \nocculta omnia? Nihil acciderat ei, quod nollet, nisi quod anulum, quo delectabatur, in mari abiecerat. Disserendi artem \nnullam habuit. Sed emolumenta communia esse dicuntur, recte autem facta et peccata non habentur communia. Nondum autem \nexplanatum satis, erat, quid maxime natura vellet. Quae duo sunt, unum facit. Primum in nostrane potestate est, quid meminerimus? </p>"
-      }
+      "Properties": [
+        {  
+          "name": "Html",
+          "value": "<h2>XHTML Sample Narrative</h2>\n<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Non est enim vitium in oratione solum, sed etiam in moribus.\nRestinguet citius, si ardentem acceperit. Erit enim instructus ad mortem contemnendam, ad exilium, ad ipsum etiam dolorem. \nAtqui iste locus est, Piso, tibi etiam atque etiam confirmandus, inquam; Ne in odium veniam, si amicum destitero tueri. \nDuo Reges: constructio interrete. Itaque hic ipse iam pridem est reiectus; Scrupulum, inquam, abeunti; </p>\n\n<p>Rhetorice igitur, inquam, nos mavis quam dialectice disputare? Quid me istud rogas? Non potes, nisi retexueris illa. </p>\n\n<p>Honesta oratio, Socratica, Platonis etiam. Sed quid attinet de rebus tam apertis plura requirere? Nec tamen ullo \nmodo summum pecudis bonum et hominis idem mihi videri potest. At quicum ioca seria, ut dicitur, quicum arcana, quicum \nocculta omnia? Nihil acciderat ei, quod nollet, nisi quod anulum, quo delectabatur, in mari abiecerat. Disserendi artem \nnullam habuit. Sed emolumenta communia esse dicuntur, recte autem facta et peccata non habentur communia. Nondum autem \nexplanatum satis, erat, quid maxime natura vellet. Quae duo sunt, unum facit. Primum in nostrane potestate est, quid meminerimus? </p>"
+        }
+      ]
     }
   ]
 }
