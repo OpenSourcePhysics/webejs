@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="./static/assets/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="./static/assets/bootstrap/bootstrap-icons.css"> 
+		<link rel="stylesheet" href="./static/assets/WebEJS/gui.css">
+
+    <script src="./static/assets/bootstrap/bootstrap.bundle.min.js"></script>
+    <script src="./static/assets/jquery/jquery-3.6.1.min.js"></script>
+        
+    <title>Web EJS run page</title>
+  </head>
+  <body>
+    <span class="navbar-brand">
+			<span class="sFullText sMainWebEJSlogo">
+				<a href="https://www.um.es/fem/wikis/webejs/" target="_blank" style="text-decoration: none; color:grey;">
+          <img  src="./static/assets/WebEJS/icons/WebEJS_logo.png" height="40" 
+							class="sFullText mt-2 mx-0 d-inline-block align-bottom align-items-center">
+            <span>WebEJS</span>
+          </img>
+        </a>
+			</span>
+    </span>	
+
+
+    <div class="container my-1 d-flex justify-content-center align-items-center"">
+      <div class="row align-items-end">
+        <div class="col-auto">
+          <img src="./static/assets/WebEJS/icons/WebEJS_logo.png" width=200 class="d-inline-block align-bottom;"/>
+        </div>
+        <div class="col">
+          <h2 class="mb-1 text-primary">Welcome to WebEJS</h2>
+          <h5 class="mb-1">WebEJS is EJS 7.0 implemented as a Web service</h5>
+          <h5 class="mb-1">Served by : <a class='text-success' href='https://www.um.es' target='_blank' style="text-decoration: none;">Universidad de Murcia, Spain</a></h5>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-3">
+
+      <hr/>
+
+      <div id="mModelGroup" class="d-none mt-3 fs-5" >
+        Model to load: <span class="text-primary" id="mModelField">No model</span>
+      </div>
+
+      <div id="mNoServerGroup" class="mt-3 fs-5" >
+        No server found yet. <span id="mSecondsField">Searching for 30 more seconds...</span>
+      </div>
+
+      <div id="mServerGroup" class="d-none fs-5">          
+        <div id="mModelCount" class="d-none">
+          Will go to server in <span id="mCountdownField">4</span> seconds...
+          <button type="button" class="my-3 me-2 btn btn-primary" onclick="stopCountdown()">Stop countdown</button>
+        </div>
+        <div id="mServerFound">
+          <div class="container mt-4 w-100">
+            <div id="mServerTable" class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4"></div>
+            <button type="button" class="my-3 me-2 btn btn-primary" style="width:100%" onclick="goToServer()">Go to server</button>
+          </div>
+          <!--span id="mServerRadio" class="btn-group" role="group" aria-label="Servers group"></span-->  
+        </div>
+      </div>
+
+      <div id="mExamplesGroup" class="d-none fs-5">          
+        <hr/>      
+        <div id="mExampleList" class="btn-group" role="group" aria-label="Example group"></div>
+    </div>
+
+    <hr/>     
+     
+    <script type='text/javascript' id='clustrmaps' src='//cdn.clustrmaps.com/map_v2.js?cl=ffffff&w=386&t=n&d=Tidox0Or6RCm6D3QoGaure5UCtdHxj00so9xs5v9Rkw'></script>  
+
+  </body>
+  
+  <script>
+
+    const SERVER_LIST = [ // Order is important
+      { name: 'EjsCloud' , url : "https://ejscloud.inf.um.es", comment:'A stable server in Murcia (Spain) running WebEJS 1.0' },
+      { name: 'Iwant2Study' , url : "https://webejs.iwant2study.org:8000", comment:'A Signapore-based stable server running WebEJS 1.0' },
+      { name: 'SilverSurfer' , url : "https://silversurfer.inf.um.es", comment:'A <span class="text-danger">temporary</span> Murcia (Spain) - based running WebEJS 1.0' },
+      { name: 'MacMath' , url : "https://macmath.inf.um.es", 
+        comment:'This is a server in Murcia (Spain) <span class="text-danger"> experimentally running WebEJS 1.1</span>'},
+    ];
+
+    const EXAMPLES_LIST = [ // Order is important
+      { name: 'Bungee Jump'         , url : "https%3A//www.compadre.org/osp/document/ServeFile.cfm%3FID%3D13284%26DocID%3D3826%26EJSSource%3D1", comment:'An elastic string jump' },
+      { name: 'Half Atwood Machine' , url : "https%3A//www.compadre.org/osp/document/ServeFile.cfm%3FID%3D12976%26DocID%3D3554%26EJSSource%3D1", comment:'A half Atwood machine' },
+    ];
+
+    const TESTING = false;
+
+    // -------------------------------
+    // Checking and adding servers
+    // -------------------------------
+    
+    var nServers = 0;
+
+    function rebuildList() {
+      //var html = '';
+      var tableHtml = '';
+      var found = false;
+      for (var index in SERVER_LIST) {
+        const server = SERVER_LIST[index];
+        if ('ready' in server) {
+          /*
+          html += 
+              '<div class="form-check form-check-inline">'+
+                '<input class="form-check-input" type="radio" name="ServerOptions" id="server_'+index+'" value="'+server.url+'" '+
+                  (found ? '' : 'checked')+'>'+
+                '<label class="form-check-label" for="server_'+index+'">'+server.name+'</label>'+
+              '</div>';
+          */
+          tableHtml += 
+            '<div class="col">'+
+              '<div class="card">'+
+                '<div class="card-header d-flex justify-content-between align-items-center">'+
+                  server.name+
+                  '<input type="radio" name="ServerOptions" value="'+server.url+'" '+
+                  (found ? '' : 'checked')+'>'+
+                '</div>'+
+                '<div class="card-body">'+
+                  '<p class="card-text fs-6">'+server.comment+'</p>'+
+                '</div>'+
+              '</div>'+
+            '</div>';
+/*
+            '<div class="card card-radio">'+
+              '<div class="card-header">'+server.name+'</div>'+
+              '<div class="card-body">'+
+                '<p class="card-text fs-6">'+server.comment+'</p>'+
+                '<a class="btn btn-primary" onclick="goToServer()">Go to server</a>'+
+              '</div>'+
+            '</div>';
+*/
+          found = true;
+        }
+      }
+      //if (html) $('#mServerSelector').html(html);
+      //if (html) $('#mServerRadio').html(html);
+      if (tableHtml) $('#mServerTable').html(tableHtml);
+    }
+
+    function addServer(server) {
+      server['ready'] = true;
+      rebuildList();
+      $('#mNoServerGroup').addClass("d-none");
+      $('#mServerGroup').removeClass("d-none");
+      $('#mExamplesGroup').removeClass("d-none");
+      nServers++;
+    }
+    
+    function checkServer(server) {
+      $.ajax(server.url, {
+        statusCode: {
+          404: function() {
+            console.log("Server not available: "+server.name);
+          },
+          200: function() {
+            $('#mNoServerNotice').addClass("d-none");
+            console.log("Server available!!!: ")
+            console.log(server);            
+            addServer(server);
+          }
+        }
+      });
+    }
+
+    function buildExamplesList() {
+      var html = '';
+      //html += '<span class="form-check-input">Or try an example:</span>';
+      html += '<button type="button" class="btn btn-outline-primary fs-6" disabled>Or try an example:</button>';
+
+      for (var index in EXAMPLES_LIST) {
+        const example = EXAMPLES_LIST[index];
+        html += 
+            '<button type="button" class="btn btn-outline-primary fs-6" onclick="goToServer(\''+example.url+'\')">'+
+              example.name+
+            '</button>';
+/*
+              '<div class="form-check form-check-inline">'+
+                '<input class="form-check-input" type="checkbox" id="server_'+index+'" value="'+server.url+'" '+
+                  (found ? '' : 'checked')+'>'+
+                '<label class="form-check-label" for="server_'+index+'">'+server.name+'</label>'+
+              '</div>';
+        const html = '<li class="mb-3" style="list-style-type: none;">'
+                      +  '<button type="button" class="btn btn-primary me-3" onclick="goToServer(\''+example.url+'\')">'
+                      +     example.name
+                      +  '</button>'
+                      + example.comment
+                      + '</li>';
+                      
+        $('#mExampleList').append($(html));
+        */
+      }
+      if (html) $('#mExampleList').html(html);
+
+    }
+
+    // -------------------------------
+    // Redirecting to a server
+    // -------------------------------
+
+    function urlParam(name) {
+        var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.search);
+        return (results !== null) ? results[1] || 0 : false;
+      }  
+
+    function goToServer(modelURL) {
+      const serverURL = $('input[name=ServerOptions]:checked').val();
+
+      var postMessage = '';
+      if (!modelURL) modelURL = urlParam('url');
+      console.log ("Will go to "+serverURL+" with model "+modelURL);
+      if (modelURL) {
+        postMessage += '?url=' + modelURL;
+        var modelName = urlParam('name');
+        if (modelName && modelName.trim().length > 0) postMessage += "&name=" + modelName;
+      }
+      
+      if (TESTING) console.log("HREF = "+serverURL + '/editor' + postMessage);
+      else         window.location.href = serverURL + '/editor' + postMessage;
+      }
+
+    // -------------------------
+    // Timeout for the search
+    // -------------------------
+
+    var counter = 30;
+
+    function timeOutCounter() {
+      if (nServers>0) {
+        //return;
+      }
+      counter--;
+      $('#mSecondsField').text('Searching for '+counter+' more seconds...');
+      if (TESTING) {  
+        if (counter==25) addServer(SERVER_LIST[3]);
+        if (counter==20) addServer(SERVER_LIST[2]);
+        if (counter==15) addServer(SERVER_LIST[1]);
+        if (counter==10) addServer(SERVER_LIST[0]);
+      }
+
+      if (counter>0) setTimeout(timeOutCounter, 1000);
+      else {
+        $('#mSecondsField').addClass('d-none');
+        if (nServers<=0) {
+          $('#mNoServerGroup').text('We are sorry. We could not find an available server. Please, try later!');
+          $('#mNoServerGroup').addClass('text-danger');
+        }
+      }
+    }
+
+    // -------------------------
+    // Timeout for going to the server
+    // -------------------------
+
+    var countdown = 4;
+    var continueCountdown = true;
+
+    function stopCountdown() { 
+      continueCountdown = false; 
+      $('#mModelCount').addClass("d-none");
+    }
+
+    function countdownCounter() {
+      if (!continueCountdown) return;
+      countdown--;
+      $('#mCountdownField').text(countdown);
+      if (countdown>0) setTimeout(countdownCounter, 1000);
+      else {
+        if (nServers<=0) {
+          $('#mNoServerGroup').text('We are sorry. We could not find an available server. Please, try later!');
+          $('#mNoServerGroup').addClass('text-danger');
+        }
+        else goToServer();
+      }
+    }
+
+    // -------------------------
+    // Here we go
+    // -------------------------
+
+    buildExamplesList();
+    setTimeout(timeOutCounter, 1000);
+    {
+      const _modelURL = urlParam('url');
+      if (_modelURL) {
+        const _name = urlParam('name');
+        if (_name) {
+          $('#mModelField').text(decodeURIComponent(_name));
+        }
+        else {
+          var text = decodeURIComponent(_modelURL);
+          if (text.endsWith('&EJSSource=1')) text = text.substring(0,text.length-12);
+          $('#mModelField').text(text);
+        }
+        $('#mModelGroup').removeClass("d-none");
+        $('#mModelCount').removeClass("d-none");
+        countdownCounter();
+      }
+
+    } 
+
+    for (var index in SERVER_LIST) 
+      checkServer(SERVER_LIST[index])
+
+  </script>
+</html>
