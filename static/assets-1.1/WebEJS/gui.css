@@ -1,0 +1,307 @@
+/* -------------------------- */
+/* EVERYTHING 			  
+/* -------------------------- */
+
+body {
+  margin: 0 0 0px 0;
+  background-color: rgb(255,255,192);
+  color: rgb(0, 0, 0);
+	overflow: hidden;
+	font-family: Garamond, Arial, Helvetica, sans-serif;
+}
+
+/* -------------------------- */
+/* NAVIGATION BAR 
+/* -------------------------- */
+
+.navbar {
+	background-color: rgb(255,255,192);
+	padding: 0px 0px 0px 0px;
+}
+
+.navbar-brand {
+  padding: 1px 0px 1px 0px;
+}
+
+.btn:hover {
+  background-color: rgb(192, 192, 192);
+}
+
+li { cursor: pointer; }
+
+/* -------------------------- */
+/* LOGO and Panel selectors
+/* -------------------------- */
+
+.sMainWebEJSlogo {
+	font-size:20px;
+	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-weight: bold;
+	color: grey;
+	margin-right: 3px;	
+}
+
+.sRadioButton  {
+	font-family: Helvetica, Arial, sans-serif;
+	font-weight: bold;
+}
+
+.sRadioButton:hover {
+	color: #0432ff;
+}
+
+.sRadioButtonOn  {
+	 background-color: rgb(255, 212, 120);
+}
+
+.sRadioButtonOff  {
+	 background-color: rgb(255,255,192);
+}
+
+.sShortText { display: none; }
+
+@media (max-width: 610px) {
+	.sShortText { display: inline; }
+	.sFullText { display: none; }
+}
+
+/* -------------------------- */
+/* TOOLBAR
+/* -------------------------- */
+
+
+.custom-toggler .navbar-toggler-icon {
+	padding-left: 10px;
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(0,0,0, 0.5)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 8h24M4 16h24M4 24h24'/%3E%3C/svg%3E");
+}
+.custom-toggler.navbar-toggler {
+  border-color: None;
+}
+
+.sNavBtn {
+  background-color: None;
+  border: none;
+  margin: 0 0px 0 0;
+  padding: 0 5px 0 5px;
+}
+
+.sNavBtn:hover {
+  background-color: None;
+}
+
+.red_NO {
+  filter: invert(13%) sepia(94%) saturate(7466%) hue-rotate(0deg) brightness(94%) contrast(115%);
+}
+
+.blue_NO {
+  filter: invert(12%) sepia(63%) saturate(6234%) hue-rotate(246deg) brightness(87%) contrast(156%);
+}
+      
+/* -------------------------- */
+/* WORK PANELS AND SELECTORS  */
+/* -------------------------- */
+
+.sPanelNoPageBtn {
+	border-radius: 0 !important;
+}
+
+/* -------------------------- */
+/* Description
+/* -------------------------- */
+
+.sDescriptionPanel {
+  background-color: rgb(254, 255, 255);
+	border-color: rgb(213, 213, 213);
+  border: 1px solid rgb(213, 213, 213);
+}
+
+.sDescriptionBtn {
+	color: rgb(100,100,100);
+}
+
+.sDescriptionNoPageBtn {
+	color:  rgb(30,30,30);
+}
+
+.sDescriptionPanel > .nav-pills .nav-link.active, .nav-pills .show >.nav-link {
+	color: rgb(100,100,100);
+	border: 1px solid rgb(100,100,100);
+	background-color: white;
+}
+
+.sDescriptionPanel > .nav-pills .nav-link {
+	border: 1px solid white;
+	padding: 2px 5px 2px 5px;
+	color: rgb(100,100,100);
+	background-color: #d5d5d5;
+}
+
+/* -------------------------- */
+/* Model
+/* -------------------------- */
+
+.sModelBtn {
+	color: rgb(180,0,0);
+}
+
+.sModelPanel {
+	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-weight: bold;
+}
+
+.sModelPanel > .nav-pills .nav-link.active, .nav-pills .show >.nav-link {
+	color: rgb(180,0,0);
+	background-color: white;
+	font-style: normal;
+}
+
+.sModelPanel > .nav-pills .nav-link {
+	padding: 2px 5px 2px 5px;
+	color: rgb(180,0,0);
+	font-style: normal;
+}
+
+.sModelTabLabel {
+		margin-left: 5px;
+}
+
+.sModelSubpanel > .nav-pills .nav-link.active, .nav-pills .show >.nav-link {
+	color: rgb(180,0,0);
+	border: 1px solid rgb(180,0,0);
+	background-color: white;
+}
+
+.sModelSubpanel > .nav-pills .nav-link {
+	border: 1px solid white;
+	padding: 2px 5px 2px 5px;
+	color: rgb(180,0,0);
+	background-color: #d5d5d5;
+}
+
+.sModelBorderedPanel {
+	margin: 0px 1px 0px 1px;
+	border: 1px solid black;
+}
+
+.sCommentPanel {
+	margin-right:1px;
+}
+
+.sPageCommentField_NO {
+	padding: 4px;
+  background-image: linear-gradient(to bottom, white 0%, white 100%), linear-gradient(to bottom, rgb(232, 236, 238) 0%, rgb(232, 236, 238) 100%);
+  background-clip: content-box, padding-box;
+} 
+
+.sPageEditButton  {
+	margin-right: 5px;
+	color: green;
+}
+
+/* -------------------------- */
+/* Evolution specific
+/* -------------------------- */
+
+.sMainEvolutionParameters {
+	background-color: #F5F7F9;
+	width: 100px;
+	flex: 0 0 80px;
+}
+
+.sMainEvolutionParameters > .input-range {
+    -webkit-appearance: none;
+    writing-mode: bt-lr; /* IE */
+    -webkit-appearance: slider-vertical; /* WebKit */
+  }
+
+/* -------------------------- */
+/* View
+/* -------------------------- */
+
+.sViewPanel {
+  border-color: rgb(213, 213, 213);
+  border: 1px solid rgb(213, 213, 213);
+}
+
+.sViewBtn {
+  font-weight: bold;
+	color: rgb(0,128,192);
+}
+
+#sViewPalettePanel {
+	min-width:280px;
+}
+
+.mPaletteSubpanel > .nav-pills .nav-link.active, .nav-pills .show >.nav-link {
+  color: rgb(100,100,100);
+  border: 1px solid rgb(100,100,100);
+  background-color: white;
+}
+
+.mPaletteSubpanel > .nav-pills .nav-link {
+  border: 1px solid white;
+  padding: 0;
+  color: white;
+  background-color: #d5d5d5;
+}
+
+.mPaletteSubpanel {
+  border: 1px solid gray;
+  padding: 0;
+  color: white;
+  background-color: #F5F7F9;
+}
+
+.cViewMenuItem {
+	padding-top: 0px;
+	padding-bottom: 0px;
+}
+
+.cViewPropertyEditorLabel {
+  min-width: 100px;
+}
+
+/* -------------------------- */
+/* Preview
+/* -------------------------- */
+
+.sPreviewBtn {
+	color: rgb(0, 143, 81);
+}
+
+#sPreviewTitle {
+	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-weight: bold;
+	color: rgb(0, 143, 81);
+}
+
+/* -------------------------- */
+/* Output
+/* -------------------------- */
+
+.sOutputBtn {
+	color: rgb(148, 22, 81);
+}
+
+#sOutputAreaLabel {
+	font-family: Garamond, Arial, Helvetica, sans-serif;
+	font-weight: bold;
+	color: rgb(148, 22, 81);
+	border-color: black;
+}
+
+#sOutputTextarea {
+  background-color: white;
+}
+
+/* -------------------------- */
+/* For top modals
+/* -------------------------- */
+
+.modal.cModalTop {
+  z-index: 1060;
+}
+/* Aumentar el z-index del backdrop del segundo modal */
+.modal-backdrop.cModalTop {
+  z-index: 1059;
+}

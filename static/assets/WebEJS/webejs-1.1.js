@@ -317,12 +317,13 @@ WebEJS_GEN.generate_model = {
 		return null;
 	},
 
-	addElementsScriptCode : function(code, model, fullmodel) {
+	addElementsScriptCode : function(code, ejsAssetsFolder, model) {
 		const model_elements = model['elements']['list'];
 		if (model_elements.length<=0) return;
 
 		const system_elements = sMainGUI.getSystemInformation('model_elements'); 
-		if (fullmodel) {
+		// if (fullmodel) 
+    {
 			const jsList = []
 			for (const element of model_elements) {
 				const info = WebEJS_GEN.generate_model.__getElementInfo(element['Classname'],system_elements);
@@ -333,8 +334,9 @@ WebEJS_GEN.generate_model = {
 				}
 			}	
 			for (const jsLib of jsList) 
-				code.push("<script src='"+sMainGUI.getModelElementsURL()+jsLib+"'></script>"); // TODO
+				code.push("    <script src='"+ejsAssetsFolder+'_ejs_model_elements/'+jsLib+"'></script>");
 		}
+   /*
 		else {
 			var lintList = [];
 			var codeList = [];
@@ -358,6 +360,7 @@ WebEJS_GEN.generate_model = {
 					code.push('      '+sourceCode);            
 			code.push("//--><!]]></script>\n");
 		}
+    */
 	},
 
 	__addElementsCode : function(code, model) {
@@ -1933,7 +1936,8 @@ WebEJS_GEN.generate = function(mOptions) {
     return keyword in mOptions && mOptions[keyword]==value;
   }
    
-   var mEjsLibraryFolder = (__optionHasValue('useCDN', true) ? sMainStaticURL+'assets/' : './') + '_ejs_library/';
+   var mEjsAssetsFolder  = (__optionHasValue('useCDN', true) ? sMainStaticURL+'assets/' : './');
+   var mEjsLibraryFolder = mEjsAssetsFolder + '_ejs_library/';
    var mCodebaseFolder ;
   
   if (forPackage) mCodebaseFolder = null;
@@ -2041,14 +2045,15 @@ WebEJS_GEN.generate = function(mOptions) {
   function __getScriptsImportCode(simulation) {
     var code = [];
     // Add .js files in auxiliary files
-    for (filename of simulation['information']['AuxiliaryFiles'])
+    for (filename of simulation['information']['AuxiliaryFiles']) {
       if (filename.trim().toLowerCase().endsWith('.js')) {
         if (mCodebaseFolder) code.push("    <script src='"+mCodebaseFolder+filename+"'></script>");
         else                 code.push("    <script src='"+filename+"'></script>");
       }
+    }
     // TODO : Must append JS files in Auxiliary FOLDERS!
     // Add scripts from model elements
-    WebEJS_GEN.generate_model.addElementsScriptCode(code,simulation['model'],mOptions['fullModel']);
+    WebEJS_GEN.generate_model.addElementsScriptCode(code,mEjsAssetsFolder,simulation['model']);
     return code.join("\n");
   }
 
@@ -2075,6 +2080,8 @@ WebEJS_GEN.generate = function(mOptions) {
     buffer.push('    <script src="' + mEjsLibraryFolder + TEXT_SIZE_DETECTOR + '"></script>');
     buffer.push('    <script src="' + mEjsLibraryFolder + LIB_MIN_FILENAME + '"></script>');
 
+    console.log("Script code =");
+    console.log(scriptsImportCode);
     if (scriptsImportCode) buffer.push(scriptsImportCode);
     if (mainScriptCode) buffer.push(mainScriptCode);
     buffer.push("\n  </head>");
@@ -2160,7 +2167,7 @@ WebEJS_GUI.comm = function(sessionID) {
 		if (data) sMainGUI.errorLine(sMainResources.getString(message)+" : "+data); 
 		else sMainGUI.errorLine(sMainResources.getString(message)); 
 		sMainGUI.errorLine(sMainResources.getString("Server message")+" : "+error.responseText); 
-		sMessageForm.showWarning("Communication error", message, "Check out the output area.");
+		sMessageForm.showWarning("Communication error", error.responseText, "Check out the output area.");
 	}
 
   /*
@@ -2307,7 +2314,7 @@ WebEJS_GUI.comm = function(sessionID) {
       if ('messages' in response) sMainGUI.displayReadingWarnings(response['messages']);
 			if (files.length>0) return chooseSimulation(files);
       if (no_files_warning) {
-        sMessageForm.showWarning("Reading warning", 
+        return sMessageForm.showWarning("Reading warning", 
           'There are no valid simulation files in the uploaded ZIP!!!', 
           "The files have been saved, and a default, empty simulation will be loaded.",
           () => { if ('simulation' in response) return sMainGUI.readResponse(response);}
@@ -2379,8 +2386,8 @@ WebEJS_GUI.comm = function(sessionID) {
 			"Error creating new simulation!");
 	}
 	
-  const UNZIP_OPTIONS = { };
-  // const UNZIP_OPTIONS = {'do_not_clean' : true }; // This would not remove WebEJS' anciliary files
+  var UNZIP_OPTIONS = { };
+  //UNZIP_OPTIONS = {'do_not_clean' : true }; // This would not remove WebEJS' anciliary files
   
   /**
    * Uploads a local ZIP with a simulation in it
@@ -2595,7 +2602,7 @@ WebEJS_GUI.main = function() {
 
   self.getSystemInformation = function(keyword) { return mSystemInformation[keyword]; }
   self.getSystemIconURL = function(src) { return sMainStaticURL+'assets/WebEJS/icons/'+src; }
-  self.getModelElementsURL = function() { return sMainStaticURL+mSystemInformation['model_elements_folder']; }
+  self.getModelElementsURL = function() { return sMainStaticURL+'assets/_ejs_model_elements/'; }
   self.getWebEJSLogo = function() { return self.getSystemIconURL("WebEJS_logo.png"); }
   self.getWebEJSLogoImg = function() { 
     return '<img  src="'+sMainGUI.getWebEJSLogo()+'" height="40" class="me-2 d-inline-block align-bottom">';
@@ -2904,6 +2911,14 @@ WebEJS_GUI.main = function() {
       console.log (result);
        mViewPanel.buildPalette(mSystemInformation);
        mModelPanel.getElementsPanel().buildPalette(mSystemInformation);
+       if ('ejs_reserved_filenames' in mSystemInformation) {
+        sMainFileChooser.addToReservedFilenameList(mSystemInformation['ejs_reserved_filenames']);
+        delete mSystemInformation['ejs_reserved_filenames'];
+       }
+       if ('webejs_reserved_filenames' in mSystemInformation) {
+        sMainFileChooser.addToReservedFilenameList(mSystemInformation['webejs_reserved_filenames']);
+        delete mSystemInformation['webejs_reserved_filenames'];
+       }
       mViewIsReady = true;
   });
 
@@ -5644,13 +5659,8 @@ WebEJS_GUI.elementsPanel = function() {
 		}
 		sMainGUI.errorLine(sMainResources.getString("Attempt to create a NON-SUPPORTED model element:")); 
 		sMainGUI.errorLine(sMainResources.getString("  - "+classname)); 
-		/*
 		sMessageForm.showWarning("MODEL ELEMENT reading error", 
 			'The file includes a Model Element class not supported by WebEJS!', 
-			"Check out the output area.");
-		*/
-			alert("Reading error:\n"+ 
-			'The file includes a Model Element class not supported by WebEJS!\n'+
 			"Check out the output area.");
 		return null;
 	}
@@ -6716,6 +6726,13 @@ WebEJS_GUI.variablesPanel = function(mMainPanelSelector) {
       const tdArray = variableTr.children();
       const variable = self.getTableRowObject(tdArray);
       self.reportableChange("Changed variable "+variable.Name);
+			if ($(event.target).hasClass('cEjsVarName')) {
+        const valid_name = TEXT_TOOLS.toValidVariableName(variable.Name);
+        if (valid_name!=variable.Name) {
+          sMessageForm.showWarning('Error',"This name is not a valid one!", 
+            sLocaleFor('Consider instead using (f.i.):')+' ' + valid_name);
+        }
+      }
 			if (variableTr.is(':last-child')) mTablePanel.appendEmptyRow(pageHash);
 		});
 
@@ -6762,7 +6779,7 @@ WebEJS_GUI.variablesPanel = function(mMainPanelSelector) {
   
   self.getTableRowHTML = function(pageHash,rowHash,rowID) {
     return ''+
-      '<td><input id="'+rowID+'Name"   type="text" class="col-12"'+sMainNoAutocorrect+'/></td>'+
+      '<td><input id="'+rowID+'Name"   type="text" class="col-12 cEjsVarName"'+sMainNoAutocorrect+'/></td>'+
       '<td><input id="'+rowID+'Value"  type="text" class="col-12"'+sMainNoAutocorrect+'/></td>'+
       '<td>'+VariableMenuHTML.replace( /#\{label\}/g, pageHash+'_'+rowHash)+'</td>'+
       '<td><input id="'+rowID+'Type"   type="text" class="col-12 cTypeColumn"'+sMainNoAutocorrect+'/></td>'+
@@ -8754,6 +8771,8 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
   const PARENTS_MARGIN_LEFT = '0.25rem';
   const ROOT_TYPE = 'Root';
 
+  const TEXT_TOOLS = WebEJS_TOOLS.textTools();
+  
   function getLeftPadding(depth) {
     return depth>0 ? (INDENT + depth * INDENT).toString() + "rem" : PARENTS_MARGIN_LEFT;
   }
@@ -9410,6 +9429,7 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
   }
   
   function getUniqueName (name) {
+    name = TEXT_TOOLS.toValidVariableName(name);
     var counter = 1;
     var testName = name;
     while (findItemByName(testName)) {
@@ -10324,372 +10344,402 @@ WebEJS_GUI.fileChooser_dragFunction = function(event) {
 }
 
 /**
-	* Creates a modal to serve as file manager
-	* @param mFileServer The server that provides the files. This object must support the following commands:
-	*		-  refreshUserFiles(listener) // listener(file_listing) is a function to call when the server sends the files 
-	*	@param mModalSize optionally one of "fullscreen" (default), "lg", "xl"
-	* @param mTranslate An optional function to translate texts 
-	* In this class paths always are of the form '/folder/subfolder/file' or '/folder/subfolder/'
+  * Creates a modal to serve as file manager
+  * @param mFileServer The server that provides the files. This object must support the following commands:
+  *		-  refreshUserFiles(listener) // listener(file_listing) is a function to call when the server sends the files 
+  *	@param mModalSize optionally one of "fullscreen" (default), "lg", "xl"
+  * @param mTranslate An optional function to translate texts 
+  * In this class paths always are of the form '/folder/subfolder/file' or '/folder/subfolder/'
  */
 WebEJS_GUI.fileChooser = function(mFileServer, mModalSize, mTranslator) {
-	var self = {};
-	var mModalID = "webEJSFileChooserModal";
-	const mHomeLabel = "Simulation";
+  var self = {};
+  const TEXT_TOOLS = WebEJS_TOOLS.textTools();
+  var mModalID = "webEJSFileChooserModal";
+  var mReservedFileList = []; // array of objects { 'string' : str , ['pattern' ; regexPattern] }
 
-	{ // Initialize modal ID and mTranslate
-		var counter = 1;
-		while ($('#'+mModalID).length>0 && counter < 1000) {
-			mModalID = "webEJSFileChooserModal"+(++counter);
-		}
-		//console.log ("WebEJS_GUI.fileChooser's modal ID = "+mModalID);
-		
-		if (! (['fullscreen','lg','xl'].includes(mModalSize)) ) mModalSize = 'fullscreen';
-		
-		var mTranslate    = function (text) { 
-			return '(en) ' + text; 
-		}
-		var mTranslateAll = function (selector) {
-			$(selector + ' .sTranslatable').each(function() { 
-				var text = null;
-				const original = $(this).data('_locale_original_text');
-				if (original) $(this).text(mTranslate(original));
-				else {
-					const text = $(this).text();
-					$(this).data('_locale_original_text',text);
-					$(this).text(mTranslate(text)); 
-				} 
-			});
-		}
+  const mHomeLabel = "Simulation";
 
-		if (typeof mTranslator != 'undefined') {
-			mTranslate = mTranslator.getString;
-			mTranslateAll = mTranslator.translateAll;
-		}
-	}
+  { // Initialize modal ID and mTranslate
+    var counter = 1;
+    while ($('#'+mModalID).length>0 && counter < 1000) {
+      mModalID = "webEJSFileChooserModal"+(++counter);
+    }
+    //console.log ("WebEJS_GUI.fileChooser's modal ID = "+mModalID);
+    
+    if (! (['fullscreen','lg','xl'].includes(mModalSize)) ) mModalSize = 'fullscreen';
+    
+    var mTranslate    = function (text) { 
+      return '(en) ' + text; 
+    }
+    var mTranslateAll = function (selector) {
+      $(selector + ' .sTranslatable').each(function() { 
+        var text = null;
+        const original = $(this).data('_locale_original_text');
+        if (original) $(this).text(mTranslate(original));
+        else {
+          const text = $(this).text();
+          $(this).data('_locale_original_text',text);
+          $(this).text(mTranslate(text)); 
+        } 
+      });
+    }
+
+    if (typeof mTranslator != 'undefined') {
+      mTranslate = mTranslator.getString;
+      mTranslateAll = mTranslator.translateAll;
+    }
+  }
+
+  self.addToReservedFilenameList = function (filenameList) {
+    for (var i=0; i<filenameList.length; i++) {
+      const filename = filenameList[i];
+      if (filename.includes('*')) {
+        var escapedPattern = filename.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+        var regexPattern = escapedPattern.replace(/\*/g, '.*');
+        var regex = new RegExp('^' + regexPattern + '$');
+        mReservedFileList.push({ 'regex' : regex });
+      }
+      else mReservedFileList.push({ 'reserved' : filename });
+    }
+  }
+
+  function isReservedFilename(filename) {
+    if (filename.startsWith('/')) filename = filename.substring(1);
+    for (var i=0; i<mReservedFileList.length; i++) {
+      const pattern = mReservedFileList[i];
+      if ('regex' in pattern) {
+        if (pattern.regex.test(filename)) return true;
+      }
+      else {
+        if (filename==pattern['reserved']) return true;
+      }
+    }
+    return false;
+  }
 
   // --------------------
   // Modals
   // --------------------
 
-	const MODAL_HEADER= `
-		<div class="modal-header bg-light text-dark">
-		<img src="`+sMainEjsLogo+`" height="40" class="me-2 d-inline-block align-bottom;">
-		<h5 class="ps-2 sTranslatable text-primary modal-title">#{TITLE}</h5>
-			<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-		</div>
-		`;
+  const MODAL_HEADER= `
+    <div class="modal-header bg-light text-dark">
+    <img src="`+sMainEjsLogo+`" height="40" class="me-2 d-inline-block align-bottom;">
+    <h5 class="ps-2 sTranslatable text-primary modal-title">#{TITLE}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    `;
 
-	const MODAL_HTML = `
-		<div id="#{ID}" 
-					class="modal modal-dialog-scrollable fade" 
-					data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">		
-			<div class="modal-dialog modal-#{SIZE} modal-dialog-centered modal-dialog-scrollable">
-				<div class="modal-content h-100">
-					`  + MODAL_HEADER + `
+  const MODAL_HTML = `
+    <div id="#{ID}" 
+          class="modal modal-dialog-scrollable fade" 
+          data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">		
+      <div class="modal-dialog modal-#{SIZE} modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content h-100">
+          `  + MODAL_HEADER + `
 
-					<div class="modal-body d-flex flex-row">
-				
-						<div id="mFileChooserHelper" class="col-2 m-0 p-0" style="flex-grow:1;">
-						</div>
-					
-	
-					<div class="h-100 col-10 d-flex flex-column" style="flex-grow:1;">
-						<div class="bstreeview h-100 d-flex flex-column" style="flex-grow: 1"></div>
-						<div class="border-top" style="flex-grow: 0; flex-basis: 0">
-							<span class="flex flex-grow input-group input-group-sm mt-1">
-								<nav aria-label="breadcrumb">
-									<ol class="breadcrumb m-0"></ol>
-								</nav>
-							</span>
-							<span class="filename_div flex flex-grow input-group input-group-sm mt-1">
-								<span  class="sTranslatable input-group-text">Filename</span>
-								<input type="text" class="filename_input flex flex-grow form-control"   
-									placeholder="<Type in or click on an option>" aria-label="Filename"   
-									value="">
-							</span>
-						</div>
-					</div>
-					</div>
-		
-					<div class="modal-footer">
-			   			<button type="button" class="cancel_button sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Close</button>
-						<button type="button" class="upload_button sTranslatable btn btn-outline-secondary me-auto">Upload File</button>
-						<button type="button" class="folder_button sTranslatable btn btn-outline-secondary me-auto">New Folder</button>
-						<button type="button" class="ok_button btn btn-primary">Done</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	`;
-	
-	const NEW_FOLDER_MODAL_HTML = `
-		<div id="#{ID}-new_folder_modal" class="modal fade"
-			 data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">	
-		
-			<div class="modal-dialog modal-dialog-centered">
-				<div class="modal-content">
-				`  + MODAL_HEADER + `
-				<div class="modal-body">
-							<div class="input-group mb-3">
-								<span  id="#{ID}-new_folder_label" class="sTranslatable input-group-text">Name</span>
-								<input id="#{ID}-new_folder_name"  type="text" class="name_input form-control" 
-									placeholder="Folder name here" aria-label="Folder name" aria-describedby="#{ID}-new_folder_label">
-							</div>
-					</div>
-					<div class="modal-footer">
-						<button type="button" class="sTranslatable btn btn-secondary me-auto" 
-										data-bs-target="##{ID}" data-bs-toggle="modal">Cancel</button>
-						<button type="button" class="ok_button sTranslatable btn btn-primary">Create</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	`;		
+          <div class="modal-body d-flex flex-row">
+        
+            <div id="mFileChooserHelper" class="col-2 m-0 p-0" style="flex-grow:1;">
+            </div>
+          
+  
+          <div class="h-100 col-10 d-flex flex-column" style="flex-grow:1;">
+            <div class="bstreeview h-100 d-flex flex-column" style="flex-grow: 1"></div>
+            <div class="border-top" style="flex-grow: 0; flex-basis: 0">
+              <span class="flex flex-grow input-group input-group-sm mt-1">
+                <nav aria-label="breadcrumb">
+                  <ol class="breadcrumb m-0"></ol>
+                </nav>
+              </span>
+              <span class="filename_div flex flex-grow input-group input-group-sm mt-1">
+                <span  class="sTranslatable input-group-text">Filename</span>
+                <input type="text" class="filename_input flex flex-grow form-control"   
+                  placeholder="<Type in or click on an option>" aria-label="Filename"   
+                  value="">
+              </span>
+            </div>
+          </div>
+          </div>
+    
+          <div class="modal-footer">
+               <button type="button" class="cancel_button sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Close</button>
+            <button type="button" class="upload_button sTranslatable btn btn-outline-secondary me-auto">Upload File</button>
+            <button type="button" class="folder_button sTranslatable btn btn-outline-secondary me-auto">New Folder</button>
+            <button type="button" class="ok_button btn btn-primary">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  const NEW_FOLDER_MODAL_HTML = `
+    <div id="#{ID}-new_folder_modal" class="modal fade"
+       data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">	
+    
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+        `  + MODAL_HEADER + `
+        <div class="modal-body">
+              <div class="input-group mb-3">
+                <span  id="#{ID}-new_folder_label" class="sTranslatable input-group-text">Name</span>
+                <input id="#{ID}-new_folder_name"  type="text" class="name_input form-control" 
+                  placeholder="Folder name here" aria-label="Folder name" aria-describedby="#{ID}-new_folder_label">
+              </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="sTranslatable btn btn-secondary me-auto" 
+                    data-bs-target="##{ID}" data-bs-toggle="modal">Cancel</button>
+            <button type="button" class="ok_button sTranslatable btn btn-primary">Create</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;		
 
-	const UPLOAD_MODAL_HTML = `
-		<div id="#{ID}-upload_modal" class="modal fade"
-			data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">	
-		
-			<div class="modal-dialog modal-dialog-centered">
-				<div class="modal-content">
-				`  + MODAL_HEADER + `
-				<div class="modal-body">
-						<div class="input-group mb-3">
-							<span  id="#{ID}-upload_label" class="sTranslatable input-group-text">Name</span>
-							<input id="#{ID}-upload_name"  type="text" class="name_input form-control" 
-									placeholder="File name here" aria-label="File name" aria-describedby="#{ID}-upload_label">
-						</div>
-						<div class="input-group mb-3">
-							<input  id="#{ID}-upload_input" class="form-control" type="file">
-						</div>
-					</div>
-					<div class="modal-footer">
-						<button type="button" class="sTranslatable btn btn-secondary me-auto" 
-										data-bs-target="##{ID}" data-bs-toggle="modal">Cancel</button>
-						<button type="button" class="ok_button sTranslatable btn btn-primary">Upload</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	`;	
+  const UPLOAD_MODAL_HTML = `
+    <div id="#{ID}-upload_modal" class="modal fade"
+      data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">	
+    
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+        `  + MODAL_HEADER + `
+        <div class="modal-body">
+            <div class="input-group mb-3">
+              <span  id="#{ID}-upload_label" class="sTranslatable input-group-text">Name</span>
+              <input id="#{ID}-upload_name"  type="text" class="name_input form-control" 
+                  placeholder="File name here" aria-label="File name" aria-describedby="#{ID}-upload_label">
+            </div>
+            <div class="input-group mb-3">
+              <input  id="#{ID}-upload_input" class="form-control" type="file">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="sTranslatable btn btn-secondary me-auto" 
+                    data-bs-target="##{ID}" data-bs-toggle="modal">Cancel</button>
+            <button type="button" class="ok_button sTranslatable btn btn-primary">Upload</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;	
 
-	const RENAME_MODAL_HTML = `
-	<div id="#{ID}-rename_modal" class="modal fade"
-		 data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">	
-	
-		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content">
-			`  + MODAL_HEADER + `
-			<div class="modal-body">
-						<div class="input-group mb-3">
-							<span  id="#{ID}-rename_label" class="sTranslatable input-group-text">New name</span>
-							<input id="#{ID}-rename_name"  type="text" class="name_input form-control" 
-								placeholder="New name here" aria-label="Folder name" aria-describedby="#{ID}-rename_label">
-						</div>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="sTranslatable btn btn-secondary me-auto" data-bs-target="##{ID}" data-bs-toggle="modal">Cancel</button>
-					<button type="button" class="ok_button sTranslatable btn btn-primary">Apply</button>
-				</div>
-			</div>
-		</div>
-	</div>
+  const RENAME_MODAL_HTML = `
+  <div id="#{ID}-rename_modal" class="modal fade"
+     data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">	
+  
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+      `  + MODAL_HEADER + `
+      <div class="modal-body">
+            <div class="input-group mb-3">
+              <span  id="#{ID}-rename_label" class="sTranslatable input-group-text">New name</span>
+              <input id="#{ID}-rename_name"  type="text" class="name_input form-control" 
+                placeholder="New name here" aria-label="Folder name" aria-describedby="#{ID}-rename_label">
+            </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="sTranslatable btn btn-secondary me-auto" data-bs-target="##{ID}" data-bs-toggle="modal">Cancel</button>
+          <button type="button" class="ok_button sTranslatable btn btn-primary">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
 `;		
-	$('body').append($( MODAL_HTML.replace( /#\{ID\}/g,   mModalID )
-																.replace( /#\{TITLE\}/g,  'File Manager' )
-															 	.replace( /#\{SIZE\}/g, mModalSize ) ) );
-	$('body').append($(NEW_FOLDER_MODAL_HTML.replace( /#\{ID\}/g,   mModalID ).replace( /#\{TITLE\}/g,  'New Folder' ) ) );
-	$('body').append($(    UPLOAD_MODAL_HTML.replace( /#\{ID\}/g,   mModalID ).replace( /#\{TITLE\}/g,  'Upload File' ) ) );
-	$('body').append($(      RENAME_MODAL_HTML.replace( /#\{ID\}/g,   mModalID ).replace( /#\{TITLE\}/g,  'Rename' ) ) );
+  $('body').append($( MODAL_HTML.replace( /#\{ID\}/g,   mModalID )
+                                .replace( /#\{TITLE\}/g,  'File Manager' )
+                                 .replace( /#\{SIZE\}/g, mModalSize ) ) );
+  $('body').append($(NEW_FOLDER_MODAL_HTML.replace( /#\{ID\}/g,   mModalID ).replace( /#\{TITLE\}/g,  'New Folder' ) ) );
+  $('body').append($(    UPLOAD_MODAL_HTML.replace( /#\{ID\}/g,   mModalID ).replace( /#\{TITLE\}/g,  'Upload File' ) ) );
+  $('body').append($(    RENAME_MODAL_HTML.replace( /#\{ID\}/g,   mModalID ).replace( /#\{TITLE\}/g,  'Rename' ) ) );
 
-	const mModal       = new bootstrap.Modal(document.getElementById(mModalID));
-	const mFolderModal = new bootstrap.Modal(document.getElementById(mModalID+'-new_folder_modal'));
-	const mUploadModal = new bootstrap.Modal(document.getElementById(mModalID+'-upload_modal'));
-	const mRenameModal   = new bootstrap.Modal(document.getElementById(mModalID+'-rename_modal'));
+  const mModal       = new bootstrap.Modal(document.getElementById(mModalID));
+  const mFolderModal = new bootstrap.Modal(document.getElementById(mModalID+'-new_folder_modal'));
+  const mUploadModal = new bootstrap.Modal(document.getElementById(mModalID+'-upload_modal'));
+  const mRenameModal   = new bootstrap.Modal(document.getElementById(mModalID+'-rename_modal'));
 
-	['','-new_folder_modal','-upload_modal','-rename_modal'].forEach(function(entry) {
-		$('#'+mModalID+entry).on('show.bs.modal', function (event) { mTranslateAll('#'+mModalID+entry); });
-	});
+  ['','-new_folder_modal','-upload_modal','-rename_modal'].forEach(function(entry) {
+    $('#'+mModalID+entry).on('show.bs.modal', function (event) { mTranslateAll('#'+mModalID+entry); });
+  });
 
-	$('#'+mModalID).on('hide.bs.modal', function (event) {
-		mExpandedList = [];
-		$('#'+mModalID+ ' .'+EXPAND_ICON_CLASS).each(function() {
-			const treeItem = $(this).closest('.list-group-item');
-			mExpandedList.push(treeItem.data('path'));
-		});
-	});
+  $('#'+mModalID).on('hide.bs.modal', function (event) {
+    mExpandedList = [];
+    $('#'+mModalID+ ' .'+EXPAND_ICON_CLASS).each(function() {
+      const treeItem = $(this).closest('.list-group-item');
+      mExpandedList.push(treeItem.data('path'));
+    });
+  });
 
-	$("#mFileChooserHelper").on('click', '.cFileChooserHelperImage', function (event) {
-		mModal.hide();
-		const image = $(event.currentTarget);
-		const path = image.data('value');
-		if (mListener) mListener(path);
-	});
+  $("#mFileChooserHelper").on('click', '.cFileChooserHelperImage', function (event) {
+    mModal.hide();
+    const image = $(event.currentTarget);
+    const path = image.data('value');
+    if (mListener) mListener(path);
+  });
 
-	const mTreeDiv    = $('#'+mModalID+' .bstreeview');
-	const mBreadCrumb = $('#'+mModalID+' .breadcrumb');
+  const mTreeDiv    = $('#'+mModalID+' .bstreeview');
+  const mBreadCrumb = $('#'+mModalID+' .breadcrumb');
 
   // --------------------
   // Variables
   // --------------------
 
-	const PURPOSE = {
-		MANAGER : 0,
-		READ : 1,
-		WRITE : 2
-	}
-	
-	var mTree = null; // Holds the tree of folders and files to display
-	var mCurrentPath = '/';
+  const PURPOSE = {
+    MANAGER : 0,
+    READ : 1,
+    WRITE : 2
+  }
+  
+  var mTree = null; // Holds the tree of folders and files to display
+  var mCurrentPath = '/';
 
-	var mPurpose = PURPOSE.MANAGER;
-	var mOriginalFilePath = '/';
-	var mExtensions = null; // [string] Only files with an extension in this list will be clickable
+  var mPurpose = PURPOSE.MANAGER;
+  var mOriginalFilePath = '/';
+  var mExtensions = null; // [string] Only files with an extension in this list will be clickable
 
-	var mHash = 0;	
-	var mCurrentItem = null;
-	var mExpandedList = [];
-	
-	var mListener = null;
+  var mHash = 0;	
+  var mCurrentItem = null;
+  var mExpandedList = [];
+  
+  var mListener = null;
   var mAllowSelectFolder=false;
 
-	// --------------------
+  // --------------------
   // API
   // --------------------
 
-	/**
-	 * Resets the file chooser to a null Tree
-	 */
-	self.reset = function() {
-		mTree = null;
-		mCurrentPath = '/';
-		mCurrentItem = null;
-		mHash = 0;
-	}
+  /**
+   * Resets the file chooser to a null Tree
+   */
+  self.reset = function() {
+    mTree = null;
+    mCurrentPath = '/';
+    mCurrentItem = null;
+    mHash = 0;
+  }
 
-	function _checkAndShow (helperHtml, foldersToo) {
-		if (helperHtml) {
-			$("#mFileChooserHelper").html(helperHtml);
-			$("#mFileChooserHelper").removeClass('d-none');
-		}
-		else {
-			$("#mFileChooserHelper").html('');
-			$("#mFileChooserHelper").addClass('d-none');
-		}
+  function _checkAndShow (helperHtml, foldersToo) {
+    if (helperHtml) {
+      $("#mFileChooserHelper").html(helperHtml);
+      $("#mFileChooserHelper").removeClass('d-none');
+    }
+    else {
+      $("#mFileChooserHelper").html('');
+      $("#mFileChooserHelper").addClass('d-none');
+    }
 
-		if (mTree==null) mFileServer.refreshUserFiles(function(serverListing) { 
-			mTree = { root_path : '/', root_entries : getTree(serverListing,'/') };
-			_show(mCurrentPath,foldersToo); 
-		});
-		else _show(mCurrentPath,foldersToo);
-	}
+    if (mTree==null) mFileServer.refreshUserFiles(function(serverListing) { 
+      mTree = { root_path : '/', root_entries : getTree(serverListing,'/') };
+      _show(mCurrentPath,foldersToo); 
+    });
+    else _show(mCurrentPath,foldersToo);
+  }
 
-	/**
-	 * Shows the file reader as a manager for the user to organize the files
-	 */
-	self.showManager = function() {
-		mPurpose = PURPOSE.MANAGER;
-		mExtensions = null;
-		mListener = null;
-		_checkAndShow(null,false);
-	}
-	
-	self.showRead = function(extensions, listener, helperHtml,foldersToo) {
-		mPurpose = PURPOSE.READ;
-		mExtensions = extensions;
-		mListener = listener;
-		_checkAndShow(helperHtml,foldersToo);
-	}
-	
-	self.showWrite = function(extensions, listener) {
-		mPurpose = PURPOSE.WRITE;
-		mExtensions = extensions;
-		mListener = listener;
-		_checkAndShow(null,false);
-	}
+  /**
+   * Shows the file reader as a manager for the user to organize the files
+   */
+  self.showManager = function() {
+    mPurpose = PURPOSE.MANAGER;
+    mExtensions = null;
+    mListener = null;
+    _checkAndShow(null,false);
+  }
+  
+  self.showRead = function(extensions, listener, helperHtml,foldersToo) {
+    mPurpose = PURPOSE.READ;
+    mExtensions = extensions;
+    mListener = listener;
+    _checkAndShow(helperHtml,foldersToo);
+  }
+  
+  self.showWrite = function(extensions, listener) {
+    mPurpose = PURPOSE.WRITE;
+    mExtensions = extensions;
+    mListener = listener;
+    _checkAndShow(null,false);
+  }
 
-	// --------------------------
+  // --------------------------
   // Setting the tree of files
   // --------------------------
 
-	/**
-	 * 
-	 * @param {*} filepath 
-	 * @param {*} is_folder 
-	 * @returns The folder (ending with '/') and name of a given filepath
-	 */
-	function parentAndName(filepath, is_folder) {
-		if (filepath=='/' || filepath=="") return { parent : '/', name : '' };
-		if (!filepath.startsWith('/')) filepath = '/' + filepath;
-		if (is_folder && filepath.endsWith('/')) filepath = filepath.substring(0,filepath.length-1);
-		const index = filepath.lastIndexOf('/');
-		return { parent : filepath.substring(0,index+1) , name : filepath.substring(index+1) };
-	}
+  /**
+   * 
+   * @param {*} filepath 
+   * @param {*} is_folder 
+   * @returns The folder (ending with '/') and name of a given filepath
+   */
+  function parentAndName(filepath, is_folder) {
+    if (filepath=='/' || filepath=="") return { parent : '/', name : '' };
+    if (!filepath.startsWith('/')) filepath = '/' + filepath;
+    if (is_folder && filepath.endsWith('/')) filepath = filepath.substring(0,filepath.length-1);
+    const index = filepath.lastIndexOf('/');
+    return { parent : filepath.substring(0,index+1) , name : filepath.substring(index+1) };
+  }
 
-	function panFolderPath(pan) {
-		if (pan.name=='') return pan.parent;
-		return pan.parent+pan.name+'/';
-	}
+  function panFolderPath(pan) {
+    if (pan.name=='') return pan.parent;
+    return pan.parent+pan.name+'/';
+  }
 
-	function panFilePath(pan) {
-		return pan.parent+pan.name;
-	}
+  function panFilePath(pan) {
+    return pan.parent+pan.name;
+  }
 
 function getTree(listing, parent_folder) {
-	var entries = []; 
-	for (var i=0; i<listing.length; i++) {
-		var fileInfo = listing[i]; 
-		const isFolder = (fileInfo.type=='DIRECTORY');
-		const pan = parentAndName(fileInfo.path, isFolder);
-		if (pan.parent!=parent_folder) continue;
-		if (pan.name.startsWith('.')) continue; // Skip hidden files
-		if (isFolder) entries.push({ name : pan.name, path : panFolderPath(pan), description : fileInfo.description, entries : getTree(listing,panFolderPath(pan))});
-		else 					entries.push({ name : pan.name, path : panFilePath(pan),   description : fileInfo.description, url: fileInfo.url});
-	}
-	return entries;	
+  var entries = []; 
+  for (var i=0; i<listing.length; i++) {
+    var fileInfo = listing[i]; 
+    const isFolder = (fileInfo.type=='DIRECTORY');
+    const pan = parentAndName(fileInfo.path, isFolder);
+    if (pan.parent!=parent_folder) continue;
+    if (pan.name.startsWith('.')) continue; // Skip hidden files
+    if (isFolder) entries.push({ name : pan.name, path : panFolderPath(pan), description : fileInfo.description, entries : getTree(listing,panFolderPath(pan))});
+    else 					entries.push({ name : pan.name, path : panFilePath(pan),   description : fileInfo.description, url: fileInfo.url});
+  }
+  return entries;	
 }
 
   // --------------------
   // Display the tree
   // --------------------
 
-	/**
-	 * filesTree is a tree of folders and files
-	 * { root_path, root_entries: [ { name, path [,entries]} ... ] }
-	 * @param initialFilepath the original file or folder of interest, 
-	 * 		Can be of the form: '/', '/folder/' or '/folder/Filename.txt'.
-	*/
-	function _show(initialFilepath,foldersToo) {
-		switch (mPurpose) {
-			case PURPOSE.WRITE :
-				$('#'+mModalID+' .filename_div').removeClass('d-none');
-				$('#'+mModalID+' .ok_button').text(mTranslate('Save'));
-				$('#'+mModalID+' .filename_input').attr('disabled', mExtensions==null );
-				break;
-			case PURPOSE.READ :
-				$('#'+mModalID+' .filename_div').addClass('d-none');
-				$('#'+mModalID+' .ok_button').text(mTranslate('Read'));
-					break;
-			default:
-				$('#'+mModalID+' .filename_div').addClass('d-none');
-				$('#'+mModalID+' .ok_button').text(mTranslate('Done'));
-		}
-		mCurrentItem = null;
-		mOriginalFilePath = initialFilepath;
-		const isFolder = initialFilepath.endsWith('/');
-		const pan = parentAndName(initialFilepath,isFolder);
-		if (isFolder) {
-			if (!displayTree(panFolderPath(pan))) return;
-			displayBreadCrumb(panFolderPath(pan));			
-		}
-		else {
-			if (!displayTree(pan.parent+'/')) return;
-			displayBreadCrumb(pan.parent+'/');			
-			displayFilename(initialFilepath);
-		}
+  /**
+   * filesTree is a tree of folders and files
+   * { root_path, root_entries: [ { name, path [,entries]} ... ] }
+   * @param initialFilepath the original file or folder of interest, 
+   * 		Can be of the form: '/', '/folder/' or '/folder/Filename.txt'.
+  */
+  function _show(initialFilepath,foldersToo) {
+    switch (mPurpose) {
+      case PURPOSE.WRITE :
+        $('#'+mModalID+' .filename_div').removeClass('d-none');
+        $('#'+mModalID+' .ok_button').text(mTranslate('Save'));
+        $('#'+mModalID+' .filename_input').attr('disabled', mExtensions==null );
+        break;
+      case PURPOSE.READ :
+        $('#'+mModalID+' .filename_div').addClass('d-none');
+        $('#'+mModalID+' .ok_button').text(mTranslate('Read'));
+          break;
+      default:
+        $('#'+mModalID+' .filename_div').addClass('d-none');
+        $('#'+mModalID+' .ok_button').text(mTranslate('Done'));
+    }
+    mCurrentItem = null;
+    mOriginalFilePath = initialFilepath;
+    const isFolder = initialFilepath.endsWith('/');
+    const pan = parentAndName(initialFilepath,isFolder);
+    if (isFolder) {
+      if (!displayTree(panFolderPath(pan))) return;
+      displayBreadCrumb(panFolderPath(pan));			
+    }
+    else {
+      if (!displayTree(pan.parent+'/')) return;
+      displayBreadCrumb(pan.parent+'/');			
+      displayFilename(initialFilepath);
+    }
     mAllowSelectFolder = foldersToo;
-		mModal.show();
-	}
+    mModal.show();
+  }
 
   // --------------------
   // Display functions
@@ -10700,8 +10750,10 @@ function getTree(listing, parent_folder) {
   const COLLAPSE_ICON_CLASS = 'bi-chevron-right';
   const ITEM_ICON_CLASS = "bi-dash";
   const FOLDER_ICON_CLASS = "bi-folder";
+  const UNMUTABLE_FOLDER_ICON_CLASS = "bi-folder-x";
   const FILE_ICON_CLASS = "bi-file-check";
   const NON_FILE_ICON_CLASS = "bi-file";
+  const UNMUTABLE_FILE_ICON_CLASS = "bi-file-earmark-x";
   const INDENT =  0.5;
   const PARENTS_MARGIN_LEFT = '0.25rem';
 
@@ -10709,63 +10761,63 @@ function getTree(listing, parent_folder) {
     return depth>0 ? (INDENT + depth * INDENT).toString() + "rem" : PARENTS_MARGIN_LEFT;
   }
 
-	/**
-	 * Removes leading and trailing '/'
-	 * @param {*} path 
-	 * @returns 
-	 */
-	function stripPath(path) {
-		if (path.startsWith('/')) path = path.substring(1);
-		if (path.endsWith('/'))   path = path.substring(0,path.length-1);
-		return path;
-	}
-
-	function findFolderInEntries(folderName, entries) {
-		for (var i=0; i<entries.length; i++) {
-			const entry = entries[i];
-			if ('entries' in entry) {
-				if (folderName==entry.name) return entry;
-			}
-		}
-		return null;
+  /**
+   * Removes leading and trailing '/'
+   * @param {*} path 
+   * @returns 
+   */
+  function stripPath(path) {
+    if (path.startsWith('/')) path = path.substring(1);
+    if (path.endsWith('/'))   path = path.substring(0,path.length-1);
+    return path;
   }
 
-	/**
-	 * Splits the parent folder in folders and looks down the hierarchy to find the entries
-	 * @param {*} parentFolder 
-	 * @returns 
-	 */
+  function findFolderInEntries(folderName, entries) {
+    for (var i=0; i<entries.length; i++) {
+      const entry = entries[i];
+      if ('entries' in entry) {
+        if (folderName==entry.name) return entry;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Splits the parent folder in folders and looks down the hierarchy to find the entries
+   * @param {*} parentFolder 
+   * @returns 
+   */
   function findEntriesInPath(parentFolder) {
-		if (parentFolder=='/') return mTree.root_entries;
-		const folderNames = stripPath(parentFolder).split('/');
-		var entries = mTree.root_entries;
-		for (var i=0; i<folderNames.length; i++) {
-			const folderName = folderNames[i];
-			const folder = findFolderInEntries(folderName,entries);
-			if (folder==null) return [];
-			entries = folder.entries;
-		}
-		return entries;
+    if (parentFolder=='/') return mTree.root_entries;
+    const folderNames = stripPath(parentFolder).split('/');
+    var entries = mTree.root_entries;
+    for (var i=0; i<folderNames.length; i++) {
+      const folderName = folderNames[i];
+      const folder = findFolderInEntries(folderName,entries);
+      if (folder==null) return [];
+      entries = folder.entries;
+    }
+    return entries;
   }
-	
+  
   /**
    * Displays the tree... starting from the given folder
-	 * @param parentFolder in the form of '/folder/subfolder/'
+   * @param parentFolder in the form of '/folder/subfolder/'
    */
   function displayTree(parentFolder) {
-	  var entries = parentFolder ? findEntriesInPath(parentFolder) : mTree.root_entries;
+    var entries = parentFolder ? findEntriesInPath(parentFolder) : mTree.root_entries;
     $(mTreeDiv).empty();
     var added=0;
-		//added += addFileItem(mTreeDiv,{ name : '.', path : parentFolder , entries: []}, 0, mExtensions);
+    //added += addFileItem(mTreeDiv,{ name : '.', path : parentFolder , entries: []}, 0, mExtensions);
 
     for (var index=0; index<entries.length; index++) {
       var entry = entries[index];
-			added += addFileItem(mTreeDiv,entry, 0, mExtensions);
+      added += addFileItem(mTreeDiv,entry, 0, mExtensions);
     }
-		if (added==0) 
-			mTreeDiv.append($('<div class="m-3 text-secondary">'+mTranslate('(This folder is empty)')+'</div>'));
-		mExpandedList = [];
-		return true;
+    if (added==0) 
+      mTreeDiv.append($('<div class="m-3 text-secondary">'+mTranslate('(This folder is empty)')+'</div>'));
+    mExpandedList = [];
+    return true;
   }
 
   function addGroupForItem(parent,expanded) {
@@ -10775,314 +10827,326 @@ function getTree(listing, parent_folder) {
       '</div>';
     const group = $(html);
     parent.append(group);
-		return group;
+    return group;
   }
 
-	const ITEM_HTML = `
-		<div role="treeitem" class="list-group-item py-0 border-0" style="padding-left: #{PADDING}" 
-			draggable="true" ondragstart="WebEJS_GUI.fileChooser_dragFunction(event)" 
-			data-path="#{PATH}" aria-level="#{DEPTH}" 
-			#{EXTRA_INFO}
-			>
-			<i class="state-icon pe-1 bi #{BI_CLASS}"></i>
-			<span class="#{CLASS_STR}">
-				<span class="dropdown">
-					<i class="item-icon dropdown me-1 bi #{ICON_CLASS}"
-						id="#{ID}-MenuIcon_#{HASH}" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-					</i>
-					<ul class="dropdown-menu py-0" aria-labelledby="#{ID}-MenuIcon_#{HASH}">
-						<!--li><span class="cFileChooserMenuHeader sTranslatable dropdown-item-text py-0 fw-bold">Menu</span></li>
+  const ITEM_HTML = `
+    <div role="treeitem" class="list-group-item py-0 border-0" style="padding-left: #{PADDING}" 
+      draggable="true" ondragstart="WebEJS_GUI.fileChooser_dragFunction(event)" 
+      data-path="#{PATH}" aria-level="#{DEPTH}" 
+      #{EXTRA_INFO}
+      >
+      <i class="state-icon cFileChooserIconActive pe-1 bi #{BI_CLASS}"></i>
+      <span class="#{CLASS_STR}">
+        <span class="dropdown">
+          <i class="item-icon dropdown me-1 bi #{ICON_CLASS}"
+            id="#{ID}-MenuIcon_#{HASH}" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          </i>
+          <ul class="dropdown-menu py-0" aria-labelledby="#{ID}-MenuIcon_#{HASH}">
+            <!--li><span class="cFileChooserMenuHeader sTranslatable dropdown-item-text py-0 fw-bold">Menu</span></li>
 
-						<li><hr class="dropdown-divider m-0"></li-->
-						<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Rename">Rename</li>
-						<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Duplicate">Duplicate</li>
-						#{ITEM_OPTIONS}
-						<li><hr class="dropdown-divider m-0"></li>
-						<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Delete">Delete</li>
-					</ul>
-				</span>
-				<span class="cFileChooserName">
-				#{NAME}
-				</span>
-			</span>
-		</div>`;  
+            <li><hr class="dropdown-divider m-0"></li-->
+            <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Rename">Rename</li>
+            <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Duplicate">Duplicate</li>
+            #{ITEM_OPTIONS}
+            <li><hr class="dropdown-divider m-0"></li>
+            <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Delete">Delete</li>
+          </ul>
+        </span>
+        <span class="cFileChooserName">
+        #{NAME}
+        </span>
+      </span>
+    </div>`;  
 
+    const UNMUTABLE_ITEM_HTML = `
+    <div role="treeitem" class="list-group-item py-0 border-0" style="padding-left: #{PADDING}" 
+      data-path="#{PATH}" aria-level="#{DEPTH}" 
+      #{EXTRA_INFO}
+      >
+      <i class="state-icon pe-1 bi #{BI_CLASS}"></i>
+      <span class="#{CLASS_STR}">
+        <i class="item-icon me-1 bi #{ICON_CLASS}">
+        </i>
+        <span class="cReservedFileChooserName">
+        #{NAME}
+        </span>
+      </span>
+    </div>`;  
   /**
   * entry = { name, path, [entries] }
   */
   function addFileItem(parent,entry,depth, mExtensions) {
     const leftPadding = getLeftPadding(depth);
-		const isFolder = 'entries' in entry;
-		var added = 0;
-		var html="";
-		if (isFolder) {
-			const iconStr  = mExpandedList.includes(entry.path) ? EXPAND_ICON_CLASS : COLLAPSE_ICON_CLASS;
-			const folderOptions = `
-				<li><hr class="dropdown-divider m-0"></li>
-				<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Upload">Upload File</li>
-				<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Subfolder">Create Subfolder</li>
-			`;
-
-			html = ITEM_HTML.replace( /#\{ID\}/g,   mModalID )
-											.replace( /#\{PADDING\}/g, leftPadding ) 
-											.replace( /#\{PATH\}/g, entry.path ) 
-											.replace( /#\{DEPTH\}/g, depth ) 
-											.replace( /#\{EXTRA_INFO\}/g, ' data-bs-target="#' + ITEM_GROUP_PREFIX + mHash +'" data-level="'+depth+'" ')
-											.replace( /#\{BI_CLASS\}/g, iconStr ) 
-											.replace( /#\{CLASS_STR\}/g, 'cFileChooserFolder' ) 
-											.replace( /#\{ICON_CLASS\}/g, FOLDER_ICON_CLASS ) 
-											.replace( /#\{ITEM_OPTIONS\}/g, folderOptions ) 
-											.replace( /#\{NAME\}/g, entry.name ) 
-											;
-/*    	html = 
-	      '<div role="treeitem" class="list-group-item py-0 border-0" style="padding-left:'+leftPadding+'" '+
-        		' draggable="true" ondragstart="WebEJS_GUI.fileChooser_dragFunction(event)" ' +
-		    		' data-path="'+entry.path+'" aria-level="'+depth+'" '+
-						' data-bs-target="#' + ITEM_GROUP_PREFIX + mHash +'" data-level="'+depth+'"  >' +
-		    	'<i class="state-icon pe-1 bi '+ iconStr +'"></i>'+
-	  	  	'<span class="'+classStr+'"><i class="me-1 bi '+ FOLDER_ICON_CLASS+'"></i><span class="cFileChooserName">'+entry.name+'</span></span>'+   
-	      '</div>';    
-*/
-		}
-		else {
-			var isExtensionAccepted = true;
-			if (mExtensions!=null) {
-				const re = /(?:\.([^.]+))?$/;
-				const ext = re.exec(entry.path)[1]; 
-				isExtensionAccepted = ext && mExtensions.includes(ext);
-			}
-			const classStr = isExtensionAccepted ? 'cFileChooserElement' : 'text-muted';
-			const iconStr  = isExtensionAccepted ? FILE_ICON_CLASS : NON_FILE_ICON_CLASS;
-			const itemOptions = `
-				<li><hr class="dropdown-divider m-0"></li>
-				<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Download">Download File</li>
-			`;      
-			html =	 ITEM_HTML.replace( /#\{ID\}/g,   mModalID )
-												.replace( /#\{PADDING\}/g, leftPadding ) 
-												.replace( /#\{PATH\}/g, entry.path ) 
-												.replace( /#\{DEPTH\}/g, depth ) 
-												.replace( /#\{EXTRA_INFO\}/g, ' ')
-												.replace( /#\{BI_CLASS\}/g, ITEM_ICON_CLASS ) 
-												.replace( /#\{CLASS_STR\}/g, classStr ) 
-												.replace( /#\{ICON_CLASS\}/g, iconStr ) 
-												.replace( /#\{ITEM_OPTIONS\}/g, '') //itemOptions ) 
-												.replace( /#\{NAME\}/g, entry.name ) 
-												;
-/*			html = 
-	    	'<div role="treeitem" class="list-group-item py-0 border-0" style="padding-left:'+leftPadding+'" '+
-						' draggable="true" ondragstart="WebEJS_GUI.fileChooser_dragFunction(event)" ' +
-						' data-path="'+entry.path+'"  aria-level="'+depth+'" >'+
-		    	'<i class="state-icon pe-1 bi '+ ITEM_ICON_CLASS +'"></i>'+
-	  	  	'<span class="'+classStr+'"><i class="me-1 bi '+ iconStr+'"></i><span class="cFileChooserName">'+entry.name+'</span></span>'+   
-	      '</div>';    
-*/
-			added++;
-		}
+    const isFolder = 'entries' in entry;
+    const isUnmutable = isReservedFilename(entry.path);
+    const basicHtml = isUnmutable ? UNMUTABLE_ITEM_HTML : ITEM_HTML;
+    var classStr = 'text-muted';
+    var added = 0;
+    var html="";
+    if (isFolder) {
+      var biIconStr = COLLAPSE_ICON_CLASS;
+      var iconStr   = UNMUTABLE_FOLDER_ICON_CLASS;
+      var folderOptions = '';
+      if (!isUnmutable) {
+        iconStr   = FOLDER_ICON_CLASS;
+        classStr = 'cFileChooserFolder';
+        biIconStr  = mExpandedList.includes(entry.path) ? EXPAND_ICON_CLASS : COLLAPSE_ICON_CLASS;
+        folderOptions = `
+          <li><hr class="dropdown-divider m-0"></li>
+          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Upload">Upload File</li>
+          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Subfolder">Create Subfolder</li>
+        `;
+      }
+      html = basicHtml.replace( /#\{ID\}/g,   mModalID )
+                      .replace( /#\{PADDING\}/g, leftPadding ) 
+                      .replace( /#\{PATH\}/g, entry.path ) 
+                      .replace( /#\{DEPTH\}/g, depth ) 
+                      .replace( /#\{EXTRA_INFO\}/g, ' data-bs-target="#' + ITEM_GROUP_PREFIX + mHash +'" data-level="'+depth+'" ')
+                      .replace( /#\{BI_CLASS\}/g, biIconStr ) 
+                      .replace( /#\{CLASS_STR\}/g, classStr ) 
+                      .replace( /#\{ICON_CLASS\}/g, iconStr ) 
+                      .replace( /#\{ITEM_OPTIONS\}/g, folderOptions ) 
+                      .replace( /#\{NAME\}/g, entry.name ) 
+                      ;
+    }
+    else {
+      var iconStr = UNMUTABLE_FILE_ICON_CLASS;
+      var itemOptions = '';
+      var acceptableClass = '';
+      if (!isUnmutable) {
+        var isExtensionAccepted = true;
+        if (mExtensions!=null) {
+          acceptableClass = ' text-primary';
+          const re = /(?:\.([^.]+))?$/;
+          const ext = re.exec(entry.path)[1]; 
+          isExtensionAccepted = ext && mExtensions.includes(ext);
+        }  
+        classStr = isExtensionAccepted ? 'cFileChooserElement'+acceptableClass : 'cFileChooserElement';
+        iconStr  = isExtensionAccepted ? FILE_ICON_CLASS : NON_FILE_ICON_CLASS;
+        itemOptions = `
+          <li><hr class="dropdown-divider m-0"></li>
+          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Download">Download File</li>
+        `;      
+      }
+      html = basicHtml.replace( /#\{ID\}/g,   mModalID )
+                      .replace( /#\{PADDING\}/g, leftPadding ) 
+                      .replace( /#\{PATH\}/g, entry.path ) 
+                      .replace( /#\{DEPTH\}/g, depth ) 
+                      .replace( /#\{EXTRA_INFO\}/g, ' ')
+                      .replace( /#\{BI_CLASS\}/g, ITEM_ICON_CLASS ) 
+                      .replace( /#\{CLASS_STR\}/g, classStr ) 
+                      .replace( /#\{ICON_CLASS\}/g, iconStr ) 
+                      .replace( /#\{ITEM_OPTIONS\}/g, '') //itemOptions ) 
+                      .replace( /#\{NAME\}/g, entry.name ) 
+                      ;
+      added++;
+    }
     parent.append($(html));
-		if (isFolder) {
-			const group = addGroupForItem(parent,mExpandedList.includes(entry.path));
-			added++;
-			mHash++;
-			depth++;
-			const children = entry['entries'];
-	    for (var index=0; index<children.length; index++) {
-	      var child = children[index];
-				added += addFileItem(group,child,depth, mExtensions);
-	    }
-		}
-		return added;
+    if (isFolder) {
+      const group = addGroupForItem(parent,mExpandedList.includes(entry.path));
+      added++;
+      mHash++;
+      depth++;
+      const children = entry['entries'];
+      for (var index=0; index<children.length; index++) {
+        var child = children[index];
+        added += addFileItem(group,child,depth, mExtensions);
+      }
+    }
+    return added;
   }
 
-	function updateTree(displayFolder) {
-		if (!displayFolder.startsWith('/')) displayFolder = '/'+displayFolder;
-		if (!displayFolder.endsWith('/')) displayFolder += '/';
+  function updateTree(displayFolder) {
+    if (!displayFolder.startsWith('/')) displayFolder = '/'+displayFolder;
+    if (!displayFolder.endsWith('/')) displayFolder += '/';
 
-		mExpandedList = [];
-		$('#'+mModalID+ ' .'+EXPAND_ICON_CLASS).each(function() {
-			const treeItem = $(this).closest('.list-group-item');
-			mExpandedList.push(treeItem.data('path'));
-		});
-		
+    mExpandedList = [];
+    $('#'+mModalID+ ' .'+EXPAND_ICON_CLASS).each(function() {
+      const treeItem = $(this).closest('.list-group-item');
+      mExpandedList.push(treeItem.data('path'));
+    });
+    
     mFileServer.refreshUserFiles(
       serverListing => { 
-				mTree = { root_path : '/', root_entries : getTree(serverListing,'/') };
+        mTree = { root_path : '/', root_entries : getTree(serverListing,'/') };
         displayTree(displayFolder); 
         displayBreadCrumb(displayFolder);
       },
       "Could not refresh files tree!"); 
   }
 
-	// -----------------------
+  // -----------------------
   // Display the breadcrumb
   // -----------------------
 
-	function displayBreadCrumb(path) {
-		path = stripPath(path);
+  function displayBreadCrumb(path) {
+    path = stripPath(path);
 
-		mBreadCrumb.empty();
-		const folderNames = path.split('/');
-		if (path.length<=0 || folderNames.length<=0 ) {
-			mBreadCrumb.append($(	'<li class="breadcrumb-item sTranslatable active" href="#" data-path="/">'+
-														mHomeLabel+
-													'</li>'));
-			return;
-		}
-		mBreadCrumb.append($( '<li class="breadcrumb-item sTranslatable" href="#" data-path="/">'+
-														'<a href="#" >'+ mHomeLabel +'</a>'+
-                        	'</li>'));
-		var entries = mTree.root_entries;
-		for (var i=0; i<folderNames.length; i++) {
-			const folderName = folderNames[i];
-			const folder = findFolderInEntries(folderName,entries);
-			if (folder==null) return;
-			var folderHtml;
-			if (i==folderNames.length-1) folderHtml = 
-				'<li class="breadcrumb-item active" aria-current="page" data-path="'+folder.path+'">'+
-					folder.name+
-				'</li>';
-			else folderHtml = 
-				'<li class="breadcrumb-item" href="#" data-path="'+folder.path+'">'+
-					'<a href="#">'+ folder.name + '</a>'+
-				'</li>';
-			mBreadCrumb.append($(folderHtml));
-			entries = folder.entries;
-		}
-		/*
-		mBreadCrumb.find('a').click(function(event) {
-			event.stopPropagation();
-			const path = $(event.currentTarget).closest('li').data('path');
-			displayTree(path);
-			displayBreadCrumb(path);
-		});
-		*/
-	}
+    mBreadCrumb.empty();
+    const folderNames = path.split('/');
+    if (path.length<=0 || folderNames.length<=0 ) {
+      mBreadCrumb.append($(	'<li class="breadcrumb-item sTranslatable active" href="#" data-path="/">'+
+                            mHomeLabel+
+                          '</li>'));
+      return;
+    }
+    mBreadCrumb.append($( '<li class="breadcrumb-item sTranslatable" href="#" data-path="/">'+
+                            '<a href="#" >'+ mHomeLabel +'</a>'+
+                          '</li>'));
+    var entries = mTree.root_entries;
+    for (var i=0; i<folderNames.length; i++) {
+      const folderName = folderNames[i];
+      const folder = findFolderInEntries(folderName,entries);
+      if (folder==null) return;
+      var folderHtml;
+      if (i==folderNames.length-1) folderHtml = 
+        '<li class="breadcrumb-item active" aria-current="page" data-path="'+folder.path+'">'+
+          folder.name+
+        '</li>';
+      else folderHtml = 
+        '<li class="breadcrumb-item" href="#" data-path="'+folder.path+'">'+
+          '<a href="#">'+ folder.name + '</a>'+
+        '</li>';
+      mBreadCrumb.append($(folderHtml));
+      entries = folder.entries;
+    }
+    /*
+    mBreadCrumb.find('a').click(function(event) {
+      event.stopPropagation();
+      const path = $(event.currentTarget).closest('li').data('path');
+      displayTree(path);
+      displayBreadCrumb(path);
+    });
+    */
+  }
 
-	$(mBreadCrumb).on('click', 'a', function (event) {
+  $(mBreadCrumb).on('click', 'a', function (event) {
     const treeItem = $(event.currentTarget).closest('.list-group-item');
-		event.stopPropagation();
-		mCurrentPath = $(event.currentTarget).closest('li').data('path');
-		displayTree(mCurrentPath);
-		displayBreadCrumb(mCurrentPath);
-	});
+    event.stopPropagation();
+    mCurrentPath = $(event.currentTarget).closest('li').data('path');
+    displayTree(mCurrentPath);
+    displayBreadCrumb(mCurrentPath);
+  });
 
-	function getBasePath() {
-		var path = mBreadCrumb.find('li.active').data('path')
-		if (!path.endsWith('/')) path += '/';
-		return path;
-	}
+  function getBasePath() {
+    var path = mBreadCrumb.find('li.active').data('path')
+    if (!path.endsWith('/')) path += '/';
+    return path;
+  }
 
   // -------------------
   // Display the filename
   // -------------------
 
-	function getItemName(item) {
-		const path = item.data('path');
-		const pan = parentAndName(path,path.endsWith('/'));
-		return(pan.name);
-	}
+  function getItemName(item) {
+    const path = item.data('path');
+    const pan = parentAndName(path,path.endsWith('/'));
+    return(pan.name);
+  }
 
-	// Displays the filename
-	function displayFilename(path) {
-		if (mPurpose!=PURPOSE.WRITE) return;
-		const isFolder = (path.endsWith('/'));
-		if (isFolder) {
-			$('#mFileChooserFilename').val('');
-			return;
-		}
-		const pan = parentAndName(path,isFolder);
-		$('#'+mModalID+' .filename_input').val(pan.name);
-	}
-	
-	// -------------------
-	// Main modal actions
+  // Displays the filename
+  function displayFilename(path) {
+    if (mPurpose!=PURPOSE.WRITE) return;
+    const isFolder = (path.endsWith('/'));
+    if (isFolder) {
+      $('#mFileChooserFilename').val('');
+      return;
+    }
+    const pan = parentAndName(path,isFolder);
+    $('#'+mModalID+' .filename_input').val(pan.name);
+  }
+  
+  // -------------------
+  // Main modal actions
   // -------------------
 
-	$('#'+mModalID+' .cancel_button').click(function() {
-		mModal.hide();
-	});
+  $('#'+mModalID+' .cancel_button').click(function() {
+    mModal.hide();
+  });
   
-	function pathExistsInTree(filepath) {
-		const is_folder = filepath.endsWith('/');
-	  const pan = parentAndName(filepath,is_folder);
-	  var entries = findEntriesInPath(pan.parent);
-	  if (entries==null) return false;
-		for (var i=0; i<entries.length; i++) {
-			if (pan.name==entries[i].name) return true; 
-		}
-		return false;
-	}
+  function pathExistsInTree(filepath) {
+    const is_folder = filepath.endsWith('/');
+    const pan = parentAndName(filepath,is_folder);
+    var entries = findEntriesInPath(pan.parent);
+    if (entries==null) return false;
+    for (var i=0; i<entries.length; i++) {
+      if (pan.name==entries[i].name) return true; 
+    }
+    return false;
+  }
 
-	function checkOverwrite(path) {
-		if (pathExistsInTree(path)) 
-			sMainConfirmationForm.showWarning(path, "Existing file will be overwriten","Overwrite",
-				function () { if (mListener) mListener(path); },
-				function () { mModal.show(); }
-			)
-		else if (mListener) mListener(path);
-	}
+  function checkOverwrite(path) {
+    if (pathExistsInTree(path)) 
+      sMainConfirmationForm.showWarning(path, "Existing file will be overwriten","Overwrite",
+        function () { if (mListener) mListener(path); },
+        function () { mModal.show(); }
+      )
+    else if (mListener) mListener(path);
+  }
 
-	$('#'+mModalID+' .ok_button').click(function() {
-		if (mPurpose==PURPOSE.WRITE) {
-			const filename = $('#'+mModalID+' .filename_input').val().trim();
-			if (filename.length<=0) return;
-			mModal.hide();
-			checkOverwrite(getBasePath()+filename);
-		}
-		else if (mPurpose==PURPOSE.READ) {
-			if (!mCurrentItem) return;
-			mModal.hide();
-			if (mListener) mListener(mCurrentItem.data('path'));
-		}
-		else {
-			mModal.hide();
-		}
-	});
+  $('#'+mModalID+' .ok_button').click(function() {
+    if (mPurpose==PURPOSE.WRITE) {
+      const filename = $('#'+mModalID+' .filename_input').val().trim();
+      if (filename.length<=0) return;
+      mModal.hide();
+      checkOverwrite(getBasePath()+filename);
+    }
+    else if (mPurpose==PURPOSE.READ) {
+      if (!mCurrentItem) return;
+      mModal.hide();
+      if (mListener) mListener(mCurrentItem.data('path'));
+    }
+    else {
+      mModal.hide();
+    }
+  });
 
-	$('#'+mModalID+' .folder_button').click(function() {
-		mNewFolderTargetPath = getBasePath();
-		mModal.hide();
-		mFolderModal.show();
-	});
+  $('#'+mModalID+' .folder_button').click(function() {
+    mNewFolderTargetPath = getBasePath();
+    mModal.hide();
+    mFolderModal.show();
+  });
 
-	$('#'+mModalID+' .upload_button').click(function() {
-		mModal.hide();
-		mUploadBasepath = mCurrentPath;
-		mUploadModal.show();
-	});
+  $('#'+mModalID+' .upload_button').click(function() {
+    mModal.hide();
+    mUploadBasepath = mCurrentPath;
+    mUploadModal.show();
+  });
 
-	$('#'+mModalID+' .filename_input').change(function() {
-		const filename = $('#'+mModalID+' .filename_input').val().trim();
-		if (filename.length<=0) return;
-		mModal.hide();
-		checkOverwrite(getBasePath()+filename);
-	});
+  $('#'+mModalID+' .filename_input').change(function() {
+    const filename = $('#'+mModalID+' .filename_input').val().trim();
+    if (filename.length<=0) return;
+    mModal.hide();
+    checkOverwrite(getBasePath()+filename);
+  });
 
-	// -------------------
-	// Menu items actions
+  // -------------------
+  // Menu items actions
   // -------------------
 
   $('#'+mModalID).on("click",'.cFileChooserMenuItem',(event)=>{
     const treeItem = $( event.target ).closest('.list-group-item');
     const action   = $( event.target ).data('action');
-		const path = treeItem.data('path');
+    const path = treeItem.data('path');
     console.log("Action "+action + " for path: "+path);
     switch (action) {
       case "Rename" :
-				mModal.hide();
-				mRenameModal.show();
-				break;
-			case "Duplicate" : duplicateCurrentItem(); break;
-			case "Delete"    : deleteCurrentItem();    break;
-			case "Subfolder" :
-				mNewFolderTargetPath = treeItem.data('path');
-				mModal.hide();
-				mFolderModal.show();
-				break;
-			case "Upload"    :
-				mModal.hide();
-				mUploadBasePath = mCurrentItem.data('path');
-				mUploadModal.show();
-				break;
+        mModal.hide();
+        mRenameModal.show();
+        break;
+      case "Duplicate" : duplicateCurrentItem(); break;
+      case "Delete"    : deleteCurrentItem();    break;
+      case "Subfolder" :
+        mNewFolderTargetPath = treeItem.data('path');
+        mModal.hide();
+        mFolderModal.show();
+        break;
+      case "Upload"    :
+        mModal.hide();
+        mUploadBasePath = mCurrentItem.data('path');
+        mUploadModal.show();
+        break;
       case "Download"  :
         const index = path.lastIndexOf('/');
         const name = (index<0) ? path : path.substring(index+1);
@@ -11106,289 +11170,300 @@ function getTree(listing, parent_folder) {
         //mFileServer.downloadFileCommand(path);
         break;
     }
-	});  
+  });  
 
-	// Rename actions
+  // Rename actions
 
-	$('#'+mModalID+'-rename_modal').on('show.bs.modal', function (event) {
-		const name = getItemName(mCurrentItem);
-		$('#'+mModalID+'-rename_name').val(name);
-	});
-
-	$('#'+mModalID+'-rename_modal .name_input').change(function() {
-		rename();
-	});
-
-	$('#'+mModalID+'-rename_modal .ok_button').click(function() {
-		rename();
-	});
-
-	function rename() {
-		const new_name = $('#'+mModalID+'-rename_name').val().trim();
-		const old_name = getItemName(mCurrentItem);
-
-		if (new_name.length>0 && new_name!=old_name) {
-			if (new_name.indexOf('/')>=0) {
-				mRenameModal.hide();
-				sMessageForm.showWarning('Error',"Name can not contain '/' characters!", 
-				new_name, function() { mRenameModal.show(); });
-				return;
-			}
-			const path = mCurrentItem.data('path'); // getBasePath()+old_name;
-			const pan = parentAndName(path,path.endsWith('/'));
-			if ((pan.parent == '/') && (new_name.startsWith('_'))) {
-				mFolderModal.hide();
-				sMessageForm.showWarning('Error',"Names of files in the root can not begin with the '_' character!", 
-				new_name, function() { mRenameModal.show(); });
-				return;
-			}
-
-			const new_path = pan.parent+new_name;
-			if (pathExistsInTree(new_path)) {
-				mRenameModal.hide();
-				sMessageForm.showWarning('Error',"Name is taken!", 
-				new_path, function() { mRenameModal.show(); });
-				return;
-			}
-			mFileServer.userFileCommand({ command : 'Rename', path : path, new_path : new_path },
-				function() { 
-					updateTree(mCurrentPath); 
-				});
-		}
-		$('#'+mModalID+'-rename_name').val('');
-		mRenameModal.hide();
-		mModal.show();
-	};
-
-
-	function duplicateCurrentItem() {
-		const path = mCurrentItem.data('path');
-		if (path=='/') return;
-		var new_path;
-		if (path.endsWith('/')) { // duplicate a directory
-			const pathStripped = path.substring(0,path.length-1);
-			new_path = pathStripped + ' copy/';
-			var counter = 1;
-			while (pathExistsInTree(new_path) && counter<1000) {
-				new_path = pathStripped + ' copy '+(++counter)+'/';
-			}
-		}
-		else {
-			new_path = path + ' copy';
-			var counter = 1;
-			while (pathExistsInTree(new_path) && counter<1000) {
-				new_path = path + ' copy '+(++counter);
-			}
-		}
-		mFileServer.userFileCommand({ command : 'Duplicate', path : path, new_path : new_path },
-			function() { 
-				updateTree(mCurrentPath); 
-			});
-	}
-
-	function deleteCurrentItem() {
-		const path = mCurrentItem.data('path');
-		if (path=='/') return;
-		mModal.hide();
-		sMainConfirmationForm.showWarning(
-			mTranslate("Delete"), 
-			mTranslate("WARNING!!! This action CANNOT be undone!!!")+'<br>'+path,
-			mTranslate("Delete"),
-			function(){
-				mFileServer.userFileCommand({ command : 'Delete', path : path },
-					function() { 
-						updateTree(mCurrentPath); 
-						mModal.show();
-					});
-				},
-			function() { mModal.show(); }
-		);
-	};
-
-	// ---- Upload action
-
-	var mUploadData = null;
-	var mUploadBasepath = '/';
-
-	$('#'+mModalID+'-upload_input').change(function(event){
-		const file = event.target.files[0];
-		/*
-		if (file.type && !file.type.startsWith('text/')) {
-			mUploadModal.hide();
-			sMessageForm.showWarning('Error',"File is not a text file!", 
-				'', function() { mUploadModal.show(); });
-			return;
-		}
-		*/
-		const filename = $('#'+mModalID+'-upload_name').val().trim();
-		if (filename.length<=0) $('#'+mModalID+'-upload_name').val(file.name);
-
-		const reader = new FileReader();
-		reader.readAsBinaryString(file)
-		reader.onload = function () {
-			mUploadData = btoa(reader.result);
-		};
-	});
-
-	$('#'+mModalID+'-upload_modal .ok_button').click(function() {
-		if (mUploadData==null) {
-			mUploadModal.hide();
-			sMessageForm.showWarning('Error',"No upload file specified!", 
-					'', function() { mUploadModal.show(); });
-			return;
-		}
-		const filename = $('#'+mModalID+'-upload_name').val().trim();
-		if (filename.length<=0) return;
-		if (filename.indexOf('/') >= 0) {
-			mUploadModal.hide();
-			sMessageForm.showWarning('Error', "File name can not contain '/' characters!",
-			filename, function () { mUploadModal.show(); });
-			return;
-		}
-		if ((mUploadBasepath == '/') && (filename.startsWith('_'))) {
-			mUploadModal.hide();
-			sMessageForm.showWarning('Error',"Names of files in the root can not begin with the '_' character!", 
-			filename, function() { mUploadModal.show(); });
-			return;
-		}
-
-		//const fullPath = mCurrentItem.data('path') + filename;
-		const fullPath = mUploadBasepath + filename;
-		console.log("Want to upload file: " + fullPath);
-		if (pathExistsInTree(fullPath)) {
-			mUploadModal.hide();
-			sMainConfirmationForm.showWarning(
-				mTranslate("Upload"), 
-				mTranslate("WARNING!!! Existing file will be overwriten!!!")+'<br>'+fullPath,
-				mTranslate("Overwrite"),
-				function () { uploadData(fullPath); },
-				function () { mUploadModal.show(); });
-		}
-		else uploadData(fullPath);
-	});
-
-	function uploadData(path) {
-		mFileServer.userFileCommand({ command : 'Upload', path : path, data : mUploadData },
-			function() { 
-				updateTree(mCurrentPath); 
-			});
-		$('#'+mModalID+'-upload_name').val('');
-		$('#'+mModalID+'-upload_input').val('');
-		mUploadData = null;
-		mUploadModal.hide();
-		mModal.show();
-	}
-
-	// ---- Subfolder actions
-
-	var mNewFolderTargetPath = '/';
-
-	$('#'+mModalID+'-new_folder_modal .ok_button').click(function() {
-		const foldername = $('#'+mModalID+'-new_folder_name').val().trim();
-		if (foldername.length>0) {
-			if (foldername.indexOf('/')>=0) {
-				mFolderModal.hide();
-				sMessageForm.showWarning('Error',"Folder name can not contain '/' characters!", 
-				foldername, function() { mFolderModal.show(); });
-				return;
-			}
-			if ((mNewFolderTargetPath == '/') && (foldername.startsWith('_'))) {
-				mFolderModal.hide();
-				sMessageForm.showWarning('Error',"Names of root folders can not begin with the '_' character!", 
-				foldername, function() { mFolderModal.show(); });
-				return;
-			}
-			const fullPath = mNewFolderTargetPath+foldername;
-			mFileServer.userFileCommand({ command : 'NewFolder', path : fullPath },
-				function(params) { 
-					updateTree(mCurrentPath); //params['final_path']); 
-				});
-		}
-		$('#'+mModalID+'-new_folder_name').val('');
-		mFolderModal.hide();
-		mModal.show();
-	});
-
-	// --------------------
-	// Drag and drop
-	// --------------------
-
-	  // --- Dragging and dropping on an element
-  
-		$('#'+mModalID).on('dragenter', '.list-group-item,.breadcrumb-item', function (event) {
-			event.preventDefault(); 
-			var target = $(event.currentTarget);
-			console.log('Currenttarget:');
-			console.log(target);
-			console.log(target.attr('class'));
-			if (!target.hasClass('breadcrumb-item')) {
-				
-			target = target.closest('.list-group-item');
-			}
-			if (target.data('path').endsWith('/')) target.addClass('bg-warning');
-		});
-		
-		$('#'+mModalID).on('dragover', '.list-group-item,.breadcrumb-item', function (event) {
-			event.preventDefault(); 
-			var target = $(event.currentTarget);
-			if (!target.hasClass('breadcrumb-item')) target = target.closest('.list-group-item');
-			if (target.data('path').endsWith('/')) target.addClass('bg-warning');
-		});
-		
-		$('#'+mModalID).on('dragleave', '.list-group-item,.breadcrumb-item', function (event) {
-			event.preventDefault(); 
-			var target = $(event.currentTarget);
-			if (!target.hasClass('breadcrumb-item')) target = target.closest('.list-group-item');
-			target.removeClass('bg-warning');
-		});
-		
-		$('#'+mModalID).on('drop', '.list-group-item,.breadcrumb-item', function (event) {
-			var info = event.originalEvent.dataTransfer.getData("text");
-			if (!info.startsWith(WebEJS_GUI.fileChooser_drag_prefix)) return;
-			info = info.substring(WebEJS_GUI.fileChooser_drag_prefix.length);
-			event.preventDefault();
-			var target = $(event.currentTarget);
-			if (!target.hasClass('breadcrumb-item')) target = target.closest('.list-group-item');
-			target.removeClass('bg-warning')
-			const path = target.data('path');
-			console.log("Element "+ path  +  " received: "+info);
-			mFileServer.userFileCommand({ command : 'Move', path : info, folder : path },
-				function() { 
-					updateTree(mCurrentPath); 
-				});
-		});
-
-	// -------------------
-	// Treeitems actions
-  // -------------------
-
-	
-	// --- Expanding/collapsing a parent node
-	$(mTreeDiv).on('click', '.state-icon', function (event) {
-	    var icon = $(event.currentTarget);
-	    if (icon.hasClass(ITEM_ICON_CLASS)) return;
-	    icon.toggleClass(EXPAND_ICON_CLASS).toggleClass(COLLAPSE_ICON_CLASS);
-	    const treeItem = $(event.currentTarget).closest('.list-group-item');
-	    // Toggle the data-bs-target. Issue with Bootstrap toggle and dynamic code
-	    $(treeItem.attr("data-bs-target")).collapse('toggle');
-	});
-	  
-	$(mTreeDiv).on('dblclick', '.cFileChooserFolder', function (event) {
-		const folderItem = $(event.currentTarget);
-		const icon = folderItem.closest('.state-icon');
-	  icon.toggleClass(EXPAND_ICON_CLASS).toggleClass(COLLAPSE_ICON_CLASS);
-		const treeItem = folderItem.closest('.list-group-item');
-	  $(treeItem.attr("data-bs-target")).collapse('toggle');
-		mCurrentPath = treeItem.data('path');
-		displayTree(mCurrentPath);
-		displayBreadCrumb(mCurrentPath);
-		mCurrentItem = null;
-		displayFilename('/'); // that is, empty it
+  $('#'+mModalID+'-rename_modal').on('show.bs.modal', function (event) {
+    const name = getItemName(mCurrentItem);
+    $('#'+mModalID+'-rename_name').val(name);
   });
 
-	  // --- clicking on an element
-		$(mTreeDiv).on('click', '.cFileChooserFolder', function (event) {
-			if (mPurpose in [PURPOSE.MANAGER,PURPOSE.READ]) {
+  $('#'+mModalID+'-rename_modal .name_input').change(function() {
+    rename();
+  });
+
+  $('#'+mModalID+'-rename_modal .ok_button').click(function() {
+    rename();
+  });
+
+  /**
+   * Checks that the name is valid and not reserved
+   * It issues a warning before returning
+   * The consulting process should abort upon a true result
+   * @param {*} filename 
+   * @param {*} workingModal 
+   * @returns true if valid, false otherwise
+   */
+  function checkValidFilename(path, filename, workingModal) {
+    function reopen() { if (workingModal) workingModal.show(); }
+    if (!TEXT_TOOLS.isValidFilename(filename)) {
+      if (workingModal) workingModal.hide();
+      sMessageForm.showWarning('Error',"This name is not a valid one!", filename, reopen);
+      return false;
+    }
+    if (path=='/' && isReservedFilename(filename)) {
+      if (workingModal) workingModal.hide();
+      sMessageForm.showWarning('Error',"This name conflicts with reserved filenames!", filename, reopen);
+      return false;
+    }
+    const new_path = path+filename;
+    if (pathExistsInTree(new_path)) {
+      if (workingModal) workingModal.hide();
+      sMessageForm.showWarning('Error',"Name is taken!", new_path, reopen);
+      //() => { if (workingModal) workingModal.show(); });
+      return;
+    }
+
+    return true;
+  }
+
+  function rename() {
+    const new_name = $('#'+mModalID+'-rename_name').val().trim();
+    const old_name = getItemName(mCurrentItem);
+    if (new_name.length<=0 || new_name==old_name) {
+      mRenameModal.hide();
+      mModal.show();
+      return;
+    }
+    const path = mCurrentItem.data('path');
+    const pan = parentAndName(path,path.endsWith('/'));
+    if (!checkValidFilename(pan.parent,new_name,mRenameModal)) return;  
+    mFileServer.userFileCommand(
+      { 'command' : 'Rename', 'path' : path, 'new_path' : pan.parent+new_name },
+      () => { updateTree(mCurrentPath); }
+    );
+    $('#'+mModalID+'-rename_name').val('');
+    mRenameModal.hide();
+    mModal.show();
+  };
+
+
+  function duplicateCurrentItem() {
+    const path = mCurrentItem.data('path');
+    if (path=='/') return;
+    var new_path;
+    if (path.endsWith('/')) { // duplicate a directory
+      const pathStripped = path.substring(0,path.length-1);
+      new_path = pathStripped + ' copy/';
+      var counter = 1;
+      while (pathExistsInTree(new_path) && counter<1000) {
+        new_path = pathStripped + ' copy '+(++counter)+'/';
+      }
+    }
+    else {
+      new_path = path + ' copy';
+      var counter = 1;
+      while (pathExistsInTree(new_path) && counter<1000) {
+        new_path = path + ' copy '+(++counter);
+      }
+    }
+    mFileServer.userFileCommand({ command : 'Duplicate', path : path, new_path : new_path },
+      function() { 
+        updateTree(mCurrentPath); 
+      });
+  }
+
+  function deleteCurrentItem() {
+    const path = mCurrentItem.data('path');
+    if (path=='/') return;
+    mModal.hide();
+    sMainConfirmationForm.showWarning(
+      mTranslate("Delete"), 
+      mTranslate("WARNING!!! This action CANNOT be undone!!!")+'<br>'+path,
+      mTranslate("Delete"),
+      function(){
+        mFileServer.userFileCommand({ command : 'Delete', path : path },
+          function() { 
+            updateTree(mCurrentPath); 
+            mModal.show();
+          });
+        },
+      function() { mModal.show(); }
+    );
+  };
+
+  // ---- Upload action
+
+  var mUploadData = null;
+  var mUploadBasepath = '/';
+
+  function arrayBufferToBase64(buffer) {
+    return new Promise((resolve, reject) => {
+        const blob = new Blob([buffer], { type: 'application/octet-binary' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64data = reader.result.split(',')[1];
+            resolve(base64data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+  }
+/*
+  function arrayBufferToBase64_Direct(buffer) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+  }
+*/
+
+  $('#'+mModalID+'-upload_input').change(function(event){
+    const file = event.target.files[0];
+    const filename = $('#'+mModalID+'-upload_name').val().trim();
+    if (filename.length<=0) $('#'+mModalID+'-upload_name').val(file.name);
+    /*
+    const reader = new FileReader();
+    reader.readAsBinaryString(file)
+    reader.onload = function () {
+      mUploadData = btoa(reader.result);
+    };
+    */
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      const arrayBuffer = event.target.result;
+      //mUploadData = arrayBufferToBase64Direct(arrayBuffer);
+      arrayBufferToBase64(arrayBuffer).then(base64 => { mUploadData = base64; });
+    }
+
+    reader.onerror = function(event) {
+      mUploadModal.hide();
+      sMessageForm.showWarning('Error',"File could not be read!",
+        event.target.error, function() { mUploadModal.show(); });
+    };
+    reader.readAsArrayBuffer(file);  
+  });
+
+  $('#'+mModalID+'-upload_modal .ok_button').click(function() {
+    if (mUploadData==null) {
+      mUploadModal.hide();
+      sMessageForm.showWarning('Error',"No upload file specified!",
+          '', function() { mUploadModal.show(); });
+      return;
+    }
+    const filename = $('#'+mModalID+'-upload_name').val().trim();
+    if (filename.length<=0) return;
+    if (!checkValidFilename(mUploadBasepath,filename,mUploadModal)) return;  
+    mFileServer.userFileCommand(
+      { 'command' : 'Upload', 'path' : mUploadBasepath+filename, 'data' : mUploadData },
+      () => {  updateTree(mCurrentPath);  }
+    );
+    $('#'+mModalID+'-upload_name').val('');
+    $('#'+mModalID+'-upload_input').val('');
+    mUploadData = null;
+    mUploadModal.hide();
+    mModal.show();
+    /*
+    if (pathExistsInTree(fullPath)) {
+      mUploadModal.hide();
+      sMainConfirmationForm.showWarning(
+        mTranslate("Upload"), 
+        mTranslate("WARNING!!! Existing file will be overwriten!!!")+'<br>'+fullPath,
+        mTranslate("Overwrite"),
+        function () { uploadData(fullPath); },
+        function () { mUploadModal.show(); });
+    }
+    else uploadData(fullPath);
+    */
+  });
+
+  // ---- Subfolder actions
+
+  var mNewFolderTargetPath = '/';
+
+  $('#'+mModalID+'-new_folder_modal .ok_button').click(function() {
+    const foldername = $('#'+mModalID+'-new_folder_name').val().trim();
+    if (foldername.length>0) {
+      if (!checkValidFile(mNewFolderTargetPath,foldername,mFolderModal)) return;  
+      const fullPath = mNewFolderTargetPath+foldername;
+      mFileServer.userFileCommand({ command : 'NewFolder', path : fullPath },
+        function(params) { 
+          updateTree(mCurrentPath); //params['final_path']); 
+        });
+    }
+    $('#'+mModalID+'-new_folder_name').val('');
+    mFolderModal.hide();
+    mModal.show();
+  });
+
+  // --------------------
+  // Drag and drop
+  // --------------------
+
+    // --- Dragging and dropping on an element
+  
+    $('#'+mModalID).on('dragenter', '.list-group-item,.breadcrumb-item', function (event) {
+      event.preventDefault(); 
+      var target = $(event.currentTarget);
+      console.log('Currenttarget:');
+      console.log(target);
+      console.log(target.attr('class'));
+      if (!target.hasClass('breadcrumb-item')) {
+        
+      target = target.closest('.list-group-item');
+      }
+      if (target.data('path').endsWith('/')) target.addClass('bg-warning');
+    });
+    
+    $('#'+mModalID).on('dragover', '.list-group-item,.breadcrumb-item', function (event) {
+      event.preventDefault(); 
+      var target = $(event.currentTarget);
+      if (!target.hasClass('breadcrumb-item')) target = target.closest('.list-group-item');
+      if (target.data('path').endsWith('/')) target.addClass('bg-warning');
+    });
+    
+    $('#'+mModalID).on('dragleave', '.list-group-item,.breadcrumb-item', function (event) {
+      event.preventDefault(); 
+      var target = $(event.currentTarget);
+      if (!target.hasClass('breadcrumb-item')) target = target.closest('.list-group-item');
+      target.removeClass('bg-warning');
+    });
+    
+    $('#'+mModalID).on('drop', '.list-group-item,.breadcrumb-item', function (event) {
+      var info = event.originalEvent.dataTransfer.getData("text");
+      if (!info.startsWith(WebEJS_GUI.fileChooser_drag_prefix)) return;
+      info = info.substring(WebEJS_GUI.fileChooser_drag_prefix.length);
+      event.preventDefault();
+      var target = $(event.currentTarget);
+      if (!target.hasClass('breadcrumb-item')) target = target.closest('.list-group-item');
+      target.removeClass('bg-warning')
+      const path = target.data('path');
+      if (!checkValidFilename(path,info.split('/').pop(),null)) return; 
+      mFileServer.userFileCommand(
+        { 'command' : 'Move', 'path' : info, 'folder' : path },
+        () => { updateTree(mCurrentPath); }
+      );
+    });
+
+  // -------------------
+  // Treeitems actions
+  // -------------------
+
+  
+  // --- Expanding/collapsing a parent node
+  $(mTreeDiv).on('click', '.cFileChooserIconActive', function (event) {
+      var icon = $(event.currentTarget);
+      if (icon.hasClass(ITEM_ICON_CLASS)) return;
+      icon.toggleClass(EXPAND_ICON_CLASS).toggleClass(COLLAPSE_ICON_CLASS);
+      const treeItem = $(event.currentTarget).closest('.list-group-item');
+      // Toggle the data-bs-target. Issue with Bootstrap toggle and dynamic code
+      $(treeItem.attr("data-bs-target")).collapse('toggle');
+  });
+    
+  $(mTreeDiv).on('dblclick', '.cFileChooserFolder', function (event) {
+    const folderItem = $(event.currentTarget);
+    const icon = folderItem.closest('.cFileChooserIconActive');
+    icon.toggleClass(EXPAND_ICON_CLASS).toggleClass(COLLAPSE_ICON_CLASS);
+    const treeItem = folderItem.closest('.list-group-item');
+    $(treeItem.attr("data-bs-target")).collapse('toggle');
+    mCurrentPath = treeItem.data('path');
+    displayTree(mCurrentPath);
+    displayBreadCrumb(mCurrentPath);
+    mCurrentItem = null;
+    displayFilename('/'); // that is, empty it
+  });
+
+    // --- clicking on an element
+    $(mTreeDiv).on('click', '.cFileChooserFolder', function (event) {
+      if (mPurpose in [PURPOSE.MANAGER,PURPOSE.READ]) {
         if (mPurpose==PURPOSE.READ && !mAllowSelectFolder) return;
         const folderItem = $(event.currentTarget).closest('.list-group-item');
         //const folderItem = $(event.currentTarget);
@@ -11398,36 +11473,36 @@ function getTree(listing, parent_folder) {
         const path = folderItem.data('path');
         displayFilename(path)
       }
-		});
-	
+    });
+  
   // --- clicking on an element
   $(mTreeDiv).on('click', '.cFileChooserElement', function (event) {
     const treeItem = $(event.currentTarget).closest('.list-group-item');
-		if (mCurrentItem) mCurrentItem.removeClass('bg-info');
-		mCurrentItem = treeItem;
-		mCurrentItem.addClass('bg-info');
-	  const path = treeItem.data('path');
-		displayFilename(path)
+    if (mCurrentItem) mCurrentItem.removeClass('bg-info');
+    mCurrentItem = treeItem;
+    mCurrentItem.addClass('bg-info');
+    const path = treeItem.data('path');
+    displayFilename(path)
   });
 
   // --- double-clicking on an element
   $(mTreeDiv).on('dblclick', '.cFileChooserElement', function (event) {
-		if (mPurpose==PURPOSE.MANAGER) return;
-		mModal.hide();
-	  const treeItem = $(event.currentTarget).closest('.list-group-item');
-	  const path = treeItem.data('path');
-		if (mPurpose==PURPOSE.WRITE) checkOverwrite(path);
-		else mListener(path);
+    if (mPurpose==PURPOSE.MANAGER) return;
+    mModal.hide();
+    const treeItem = $(event.currentTarget).closest('.list-group-item');
+    const path = treeItem.data('path');
+    if (mPurpose==PURPOSE.WRITE) checkOverwrite(path);
+    else mListener(path);
   });
 
-	return self;
+  return self;
 }
 
 
-	
-	
-	
-	/*
+  
+  
+  
+  /*
  * Copyright (C) 2021 Francisco Esquembre
  * This code is part of the Web EJS authoring and simulation tool
  * 2023 08 This code is adapted from the IODA graphic data analysis tool
@@ -11849,16 +11924,16 @@ WebEJS_GUI.inputForm = function() {
 var WebEJS_GUI = WebEJS_GUI || {};
 
 /**
- * Creates a form to ask for a new name
+ * Creates a form for messages
+ * IMPORTANT: This form displays on top of any other modal!
  */
 WebEJS_GUI.messageForm = function() {
   var self = {};
-  var mTemporalCanShow = true;
   var mIsVisible = false;
   var mListener = null;
 
   const _HTML = `
-<div class="modal fade" id="mMessageFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+<div class="modal fade cModalTop" id="mMessageFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
 		
 	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
 		
@@ -11905,12 +11980,20 @@ WebEJS_GUI.messageForm = function() {
 
   myModalEl.addEventListener('shown.bs.modal', function (event) {
     mIsVisible = true;
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) {
+      backdrop.classList.add('cModal_top');
+    }
   });
 
   myModalEl.addEventListener('hidden.bs.modal', function (event) {
     mIsVisible = false;
-	if (mListener) mListener();
-	mListener = null;
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) {
+      backdrop.classList.remove('cModal_top');
+    }
+	  if (mListener) mListener();
+	  mListener = null;
 	});
  
   $('#mMessageFormCloseButton').click(function() {
@@ -12467,9 +12550,7 @@ WebEJS_TOOLS.getBase64 = function(imageElementID) {
 		if (!path.startsWith('/org/opensourcephysics')) {
 			if (path.startsWith('/')) path = '.'+path; 
 		}
-		console.log("selected (relative) path = "+path);
 		if (path.startsWith('/org/')) checkExistence = false; 
-//		console.log("relative path = "+path);
 		if (!checkExistence) { onSuccess(path); return; } 
 		sMainComm.checkRequiredFile(path, onSuccess,
 			function(path) {

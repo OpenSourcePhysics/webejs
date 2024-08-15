@@ -1,0 +1,11 @@
+{
+	"name" : "SensorTag",
+	"icon" : "SensorTag.png",
+	"html" : "SensorTag.html",
+	"webejs"	 : "SensorTagElement.js",
+	"tooltip" : "provides access to the Sensor Tag accelerometer",
+	"classname"	 : "org.colos.ejss.model_elements.hardware.SensorTagElement",
+	"js" : [ ],
+	"lint_code" : "",
+	"source_code" : "var {{NAME}} = EJSS_HARDWARE.sensorTag();"
+}
