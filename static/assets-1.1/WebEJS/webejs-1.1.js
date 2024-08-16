@@ -12174,12 +12174,12 @@ WebEJS_GUI.searchForm = function() {
                   value=""> 
 
                 <div class="form-check ms-3">
-							    <input class="form-check-input" type="checkbox" value="" 
+							    <input class="form-check-input" type="checkbox" value="" checked
 								    name="mSearchFormCaseOption" id="mSearchFormCaseOption">
 							    <label class="sTranslatable form-check-label" for="mSearchFormCaseOption">Match case</label>
                 </div>
                 <div class="form-check ms-3">
-							    <input class="form-check-input" type="checkbox" value="" 
+							    <input class="form-check-input" type="checkbox" value="" checked 
 								    name="mSearchFormFullWordOption" id="mSearchFormFullWordOption">
 							    <label class="sTranslatable form-check-label" for="mSearchFormFullWordOption">Full word</label>
       			    </div>
@@ -14454,6 +14454,7 @@ WebEJS_TOOLS.searchTool = function(mStringToSearch, options) {
   }
 
   function findOccurrences(fullText) {
+    if (!fullText) return [];
     if (fullText.trim().length<=0) return [];
     if (!case_sensitive) fullText = fullText.toLowerCase();
     const result = [];
