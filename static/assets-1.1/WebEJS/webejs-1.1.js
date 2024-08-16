@@ -14513,8 +14513,8 @@ WebEJS_TOOLS.searchTool = function(mStringToSearch, options) {
       checkModelPiece(page.StopAtEvent,  localPrefix + ' StopAtEvent');
       checkModelCode (page.Action,       localPrefix + ' Action');
     }
-    checkModelCode (odePage.ZenoEffect.Code,            prefix + ' ZenoEffect');
-    checkModelPiece(odePage.ZenoEffect.StopAfterEffect, prefix + ' StopAfterEffect');
+    checkModelCode (odePage.ZenoEffect.Code,            prefix + '.ZenoEffect Code');
+    checkModelPiece(odePage.ZenoEffect.StopAfterEffect, prefix + '.ZenoEffect StopAfterEffect');
 
     checkModelPiece(odePage.AccelerationIndependentOfVelocity, prefix+'.AccelerationIndependentOfVelocity');
     checkModelPiece(odePage.ForceSynchronization, prefix+'.ForceSynchronization');
