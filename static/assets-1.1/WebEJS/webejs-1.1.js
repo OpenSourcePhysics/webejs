@@ -8778,6 +8778,11 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
 	var mPropertyEditorsByHash = {}; // keeps a dict of entries 'hash' : see viewPropertyEditor
 	var mCopiedList = []; // For Cut/Copy and Paste
 
+  function getPropertiesByHash(hash) {
+    if (hash<0) return mRootProperties;
+    return mPropertiesByHash[hash];
+  }
+
   // --------------------
   // Reporting changes
   // --------------------
@@ -8800,7 +8805,7 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
 		sMainGUI.setChanged();
 		const treeItem = findItemByHash(hash);
 		console.log("Sending properties of element: "+getItemName(treeItem));
-		console.log(mPropertiesByHash[hash]);
+		console.log(getPropertiesByHash(hash));
 		var report = { 
 				'panel' : 'view', 
 				'action' : 'setProperty', 
@@ -8840,7 +8845,7 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
       const hash = getItemHash(treeItem);
       const name = getItemName(treeItem);
       const group = getItemGroup(treeItem);
-      const properties = mPropertiesByHash[hash];
+      const properties = getPropertiesByHash(hash);
       var object = { 'Name' : name, 'Type' : getItemType(treeItem) };
       if (group)      object['Expanded']   = ""+group.hasClass("show");
       if (properties) object['Properties'] = properties;
@@ -8861,7 +8866,7 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
     const hash = getItemHash(treeItem);
     const name = getItemName(treeItem);
     const group = getItemGroup(treeItem);
-    const properties = mPropertiesByHash[hash];
+    const properties = getPropertiesByHash(hash);
     var object = { 'Name' : name, 'Type' : getItemType(treeItem) };
     if (parentStr)  object['Parent']     = parentStr;
     if (group)      object['Expanded']   = ""+group.hasClass("show");
@@ -8894,7 +8899,7 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
 
 	self.setPropertyByName = function(name, value, hash) {
 		const isEmpty = value.length<=0;
-		const properties = mPropertiesByHash[hash];
+		const properties = getPropertiesByHash(hash);
 		if (!properties) {
 			if (isEmpty) return properties;
 			mPropertiesByHash[hash] = [{ name : name, value : value }];
@@ -8935,7 +8940,7 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
   function recursivelyGetDetectedPropertiesOfType(valuesList, treeItem, desiredType) {
     const hash = getItemHash(treeItem);
     const group = getItemGroup(treeItem);
-    const properties = mPropertiesByHash[hash];
+    const properties = getPropertiesByHash(hash);
 		if (properties && properties.length>0) {
 			const classProps = mViewPanel.getElementClassProperties(getItemType(treeItem), desiredType);
 			for (var i=0; i<classProps.length; i++) {
@@ -8979,6 +8984,7 @@ WebEJS_GUI.viewTree = function(mTreeViewHTMLElement, mViewPanel) {
 		mPropertyEditorsByHash = {};
     if (mRootItem==null) mRootItem = buildRootTreeItem();
     if (rootProperties) mRootProperties = rootProperties;
+    else mRootProperties = {};
 
     $(mTreeViewHTMLElement).empty();
     mTreeViewHTMLElement.append(mRootItem);
@@ -14477,7 +14483,7 @@ WebEJS_TOOLS.searchTool = function(mStringToSearch, options) {
 
   function checkCode(part,text,location) {
     for (const result of findOccurrences(text)) {
-      if (result.n_of_lines>0)
+      if (result.n_of_lines>1)
         foundList.push({'part' : part, 'location' : location +' (line '+result.index+'/'+result.n_of_lines+')', 'line' : result.line});    
       else 
       foundList.push({'part' : part, 'location' : location, 'line' : result.line});    
@@ -14508,7 +14514,7 @@ WebEJS_TOOLS.searchTool = function(mStringToSearch, options) {
       checkModelCode (page.Action,       localPrefix + ' Action');
     }
     checkModelCode (odePage.ZenoEffect.Code,            prefix + ' ZenoEffect');
-    checkModelPiece(odePage.ZenoEffect.StopAfterEffect, prefix + 'StopAfterEffect');
+    checkModelPiece(odePage.ZenoEffect.StopAfterEffect, prefix + ' StopAfterEffect');
 
     checkModelPiece(odePage.AccelerationIndependentOfVelocity, prefix+'.AccelerationIndependentOfVelocity');
     checkModelPiece(odePage.ForceSynchronization, prefix+'.ForceSynchronization');
@@ -14522,14 +14528,14 @@ WebEJS_TOOLS.searchTool = function(mStringToSearch, options) {
     checkModelPiece(odePage.DelayList, prefix+'.DelayList');
     checkModelPiece(odePage.DelayMaximum, prefix+'.DelayMaximum');
     checkModelPiece(odePage.DelayAddDiscont, prefix+'.DelayAddDiscont');
-    checkModelCode (odePage.DelayInitialCondition.Code, prefix + ' DelayInitialCondition');
+    checkModelCode (odePage.DelayInitialCondition.Code, prefix + '.DelayInitialCondition');
     checkModelPiece(odePage.DirectIncidenceMatrix, prefix+'.DirectIncidenceMatrix');
 
     for (const page of odePage['Discontinuities']['pages']) {
       const localPrefix = prefix+'.Discontinuities.'+page.Name;
-      checkModelPiece(page.Tolerance,           localPrefix + 'Tolerance');
+      checkModelPiece(page.Tolerance,           localPrefix + ' Tolerance');
       checkModelCode(page.ZeroCondition,        localPrefix + ' ZeroCondition');
-      checkModelPiece(page.StopAtDiscontinuity, localPrefix + 'StopAtDiscontinuity');
+      checkModelPiece(page.StopAtDiscontinuity, localPrefix + ' StopAtDiscontinuity');
       checkModelCode (page.Action,              localPrefix + ' Action');
     }
     for (const page of odePage['ErrorHandling']['pages']) {
