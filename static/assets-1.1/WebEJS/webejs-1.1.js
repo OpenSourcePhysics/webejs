@@ -2776,6 +2776,16 @@ WebEJS_GUI.main = function() {
     mHasChanged = false;
   }
 
+  self.getSimulationPart = function(simulationPart) {
+    switch (simulationPart) {
+      case 'model'        : return mModelPanel.saveObject();
+      case 'view'         : return mViewPanel.saveObject();
+      case 'description'  : return mDescriptionPanel.saveObject();
+      case 'information'  : return sMainSimulationOptions.saveObject();
+    }
+    return {}
+  }
+
   self.saveObject = function() {
     var simulation = {}; 
     simulation['information'] = sMainSimulationOptions.saveObject();
@@ -2869,23 +2879,24 @@ WebEJS_GUI.main = function() {
 
   self.mainAction = function(action,value) {
     switch (action) {
-      case "New" : 			checkForChanges(sMainComm.newSimulation); return;
-      case "LoadLocal"   : 	checkForChanges(function() { $('#mMainLoadLocalField').click(); }); return;
-      case "OpenLibrary" : 	checkForChanges(sMainComm.openFromLibrary); return;
+      case "New"          : checkForChanges(sMainComm.newSimulation); return;
+      case "LoadLocal"    : checkForChanges(function() { $('#mMainLoadLocalField').click(); }); return;
+      case "OpenLibrary"  : checkForChanges(sMainComm.openFromLibrary); return;
       
-      case "FileManager" : 	sMainFileChooser.showManager(); return;
-      case "ZipSource"   : 	sMainComm.zipSimulation(false, function() { mHasChanged=false; }); return;
+      case "FileManager"  : sMainFileChooser.showManager(); return;
+      case "ZipSource"    : sMainComm.zipSimulation(false, function() { mHasChanged=false; }); return;
       
-      case "Search" :  		sMessageForm.showHTML("Search option","<h5>Not yet implemented</h5>"); return;
-      case "Run" 			 : 	mPreviewArea.runSimulation(); return;
-      case "ZipSimulation" : 	sMainComm.zipSimulation(true); return;
+      case "Search"       : sMainSearchForm.show(); return;
+                            // sMessageForm.showHTML("Search option","<h5>Not yet implemented</h5>"); return;
+      case "Run" 			    : mPreviewArea.runSimulation(); return;
+      case "ZipSimulation": sMainComm.zipSimulation(true); return;
 
-      case "Translate" : 		translateTo(value); return;
-      case "Options" : 		  sMainWebEJSOptions.show(); return;
+      case "Translate"    : translateTo(value); return;
+      case "Options"      : sMainWebEJSOptions.show(); return;
       
-      case "Info" : 			  window.open(sMainWebEJS_wiki,"_blank"); return;
+      case "Info"         : window.open(sMainWebEJS_wiki,"_blank"); return;
 
-      case "Disconnect" : 
+      case "Disconnect"   : 
         checkForChanges(function(){
           sMainConfirmationForm.show("Disconnection",
             "Sure you want to disconnect?",
@@ -2894,8 +2905,8 @@ WebEJS_GUI.main = function() {
         }); 
         return;
       
-      case "RefreshPreview" : mPreviewArea.updatePreview(); return;
-      case "SwitchFullmodel" : mPreviewArea.updatePreview(); return;
+      case "RefreshPreview"   : mPreviewArea.updatePreview(); return;
+      case "SwitchFullmodel"  : mPreviewArea.updatePreview(); return;
     }
   }
 
@@ -10907,8 +10918,9 @@ function getTree(listing, parent_folder) {
         iconStr  = isExtensionAccepted ? FILE_ICON_CLASS : NON_FILE_ICON_CLASS;
         itemOptions = `
           <li><hr class="dropdown-divider m-0"></li>
-          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Download">Download File</li>
-        `;      
+          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Inspect">Inspect File</li>
+          `;      
+          //<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Download">Download File</li>
       }
       html = basicHtml.replace( /#\{ID\}/g,   mModalID )
                       .replace( /#\{PADDING\}/g, leftPadding ) 
@@ -10918,7 +10930,7 @@ function getTree(listing, parent_folder) {
                       .replace( /#\{BI_CLASS\}/g, ITEM_ICON_CLASS ) 
                       .replace( /#\{CLASS_STR\}/g, classStr ) 
                       .replace( /#\{ICON_CLASS\}/g, iconStr ) 
-                      .replace( /#\{ITEM_OPTIONS\}/g, '') //itemOptions ) 
+                      .replace( /#\{ITEM_OPTIONS\}/g, itemOptions ) 
                       .replace( /#\{NAME\}/g, entry.name ) 
                       ;
       added++;
@@ -11128,30 +11140,30 @@ function getTree(listing, parent_folder) {
         mUploadBasePath = mCurrentItem.data('path');
         mUploadModal.show();
         break;
+      case "Inspect"  :
+        inspectFile(path);
+        break;
       case "Download"  :
         const index = path.lastIndexOf('/');
         const name = (index<0) ? path : path.substring(index+1);
-        sMainFilenameForm.show(name, filename => {
-          /*
-          var link = document.createElement("a");
-          link.download = filename;
-          link.href = sMainGUI.getURLpathFor(path);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          delete link;
-*/
-          var anchor = document.createElement('a');
-          anchor.download = filename;
-          anchor.href = sMainGUI.getURLpathFor(path); //(window.webkitURL || window.URL).createObjectURL(blob);
-          anchor.dataset.downloadurl = ['text/plain', anchor.download, anchor.href].join(':');
-          anchor.click();
-    
-        });
-        //mFileServer.downloadFileCommand(path);
+        sMainFilenameForm.show(name, filename => { downloadFile(path,filename); });
         break;
     }
   });  
+
+  function inspectFile(path) {
+    url = sMainGUI.getURLpathFor(path);
+    window.open(url, '_blank');
+  }
+
+  function downloadFile(path, filename) {
+    var anchor = document.createElement('a');
+    anchor.download = filename;
+    anchor.href = sMainGUI.getURLpathFor(path); //(window.webkitURL || window.URL).createObjectURL(blob);
+    anchor.dataset.downloadurl = ['text/plain', anchor.download, anchor.href].join(':');
+    anchor.click();
+    anchor.remove();
+  }
 
   // Rename actions
 
@@ -12116,6 +12128,183 @@ WebEJS_GUI.responseForm = function() {
 		mModal.show();
 	}
 	
+	return self;
+}
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ */
+WebEJS_GUI.searchForm = function() {
+	var self = {};
+	const selectedClass = "border border-dark rounded";
+	const selectedClassShort = "border";
+
+  const _HTML = `
+<div class="modal modal-dialog-scrollable fade" id="mSearchFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content h-100">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mSearchFormLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 id="mSearchFormTitle" class="sTranslatable text-primary modal-title">Search Dialog</h5>
+      	<button id="mSearchFormCloseButton" type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+
+    	<!------------------  end modal header --------------->
+
+			<div class="modal-body h-100 d-flex flex-column">
+				<div id="mSearchFormList" class="border list-group" style="flex-grow: 1">
+				</div>
+			</div>
+      	
+    	<!------------------  end modal body --------------->
+
+
+			<div class="modal-footer">
+        <div class="container-fluid">
+
+          <div class="row">
+              <div class="input-group" style="align-items: center;">
+                <span class="sTranslatable input-group-text">Search for</span> 
+                <input id="mSearchFormValue"  type="text" class="flex flex-grow form-control"   
+                  placeholder="<Type your search>" aria-label="Value"   
+                  spellcheck="off" autocorrect="off" autocapitalize="none" autocomplete="off" 
+                  value=""> 
+
+                <div class="form-check ms-3">
+							    <input class="form-check-input" type="checkbox" value="" 
+								    name="mSearchFormCaseOption" id="mSearchFormCaseOption">
+							    <label class="sTranslatable form-check-label" for="mSearchFormCaseOption">Match case</label>
+                </div>
+                <div class="form-check ms-3">
+							    <input class="form-check-input" type="checkbox" value="" 
+								    name="mSearchFormFullWordOption" id="mSearchFormFullWordOption">
+							    <label class="sTranslatable form-check-label" for="mSearchFormFullWordOption">Full word</label>
+      			    </div>
+              </div>
+          </div>
+
+          <div class="row mt-2">
+              <div class="d-flex input-group" style="align-items: center;">
+                <span class="sTranslatable input-group-text">Search in</span> 
+                <div class="form-check ms-3">
+							    <input class="form-check-input" type="checkbox" value=""  
+								    name="mSearchFormDescriptionOption" id="mSearchFormDescriptionOption">
+							    <label class="sTranslatable form-check-label" for="mSearchFormDescriptionOption">Description</label>
+      			    </div>
+                <div class="form-check ms-3">
+							    <input class="form-check-input" type="checkbox" value="" checked
+								    name="mSearchFormModelOption" id="mSearchFormModelOption">
+							    <label class="sTranslatable form-check-label" for="mSearchFormModelOption">Model</label>
+      			    </div>
+                <div class="form-check ms-3">
+							    <input class="form-check-input" type="checkbox" value="" checked
+								    name="mSearchFormViewOption" id="mSearchFormViewOption">
+							    <label class="sTranslatable form-check-label" for="mSearchFormViewOption">View</label>
+      			    </div>
+                <div class="ms-auto" style="margin-left: auto;">
+                  <button id= "mSearchFormCancelButton" class="sTranslatable btn btn-outline-secondary " type="button">Close</button>
+                  <button id= "mSearchFormOkButton"     class="sTranslatable btn btn-outline-primary"    type="button">Search</button> 
+                </div>
+              </div>
+          </div>
+
+        </div>
+			</div>
+
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+
+	var mModal = new bootstrap.Modal(document.getElementById('mSearchFormModal'))
+  $('#mSearchFormLogo').attr("src",sMainEjsLogo);
+
+	self.show = function(title, options)  {
+		$('#mSearchFormTitle').text(sMainResources.getString(title));
+
+
+		mModal.show(); 
+	}
+
+	$('#mSearchFormValue').change((event)=>{
+    doSearch($('#mSearchFormValue').val().trim())
+	});		
+
+	$('#mSearchFormOkButton').click((event)=>{
+    doSearch($('#mSearchFormValue').val().trim())
+	});		
+	
+	$('#mSearchFormCancelButton').click((event)=>{
+		mModal.hide();
+	});		
+
+  function fillOptions(found) {
+    var html = '';
+    for (var i in found) {
+      const option = found[i];
+      var locationClassStr = '';
+      switch (option.part) {
+        case 'description' : locationClassStr = 'sDescriptionColor'; break;
+        case 'model' : locationClassStr = 'sModelColor'; break;
+        case 'view'  : locationClassStr = 'sViewColor'; break;
+      }
+      html += 
+        '<button type="button" class="p-0 list-group-item list-group-item-action cSearchFormOptionChosen"'+
+          ' data-value="'+option.info+'" >'+
+          '<span><span class="'+locationClassStr+'">'+option.location+' : </span>'+option.line+'</span>'+
+        '</button>';
+    }			
+    $('#mSearchFormList').html(html);
+  
+    /*
+    $('#mSearchFormModal .cSearchFormOptionChosen').dblclick((event)=>{
+      var value = $( event.target ).closest('.cSearchFormOptionChosen').data('value');
+      console.log("Selected:");
+      console.log(value);
+      //mModal.hide();
+    });
+    */		
+  }
+
+
+  function doSearch(stringToSearch) {
+    if (stringToSearch.length<=0) {
+      sMessageForm.showWarning('Excuse me',"There is nothing to search for!");
+      return;
+    }
+    const options = {
+      'case_sensitive'  : $('#mSearchFormCaseOption').is(":checked"),
+      'full_word'       : $('#mSearchFormFullWordOption').is(":checked"),
+      'description'     : $('#mSearchFormDescriptionOption').is(":checked"),
+      'model'           : $('#mSearchFormModelOption').is(":checked"),
+      'view'            : $('#mSearchFormViewOption').is(":checked"),
+    };
+    if (! ( options['description'] || 
+            options['model']       || 
+            options['view']) ) {
+      sMessageForm.showWarning('Excuse me',"There is nowhere to search!");
+      return;                
+    }
+    const found = WebEJS_TOOLS.searchTool(stringToSearch,options);
+    if (found.length<=0) {
+      $('#mSearchFormList').html('');
+      sMessageForm.showWarning('Result',"Search found no results!");
+      return;
+    }
+    fillOptions(found);
+  }
 	return self;
 }
 var WebEJS_GUI = WebEJS_GUI || {};
@@ -14230,6 +14419,192 @@ WebEJS_GUI.editorForFont = function() {
 	return self;
 }
 /*
+ * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
+ * This code is part of the Web EJS authoring and simulation tool
+ */
+
+/**
+ * GUI tools
+ * @module coresssss
+ */
+
+var WebEJS_TOOLS = WebEJS_TOOLS || {};
+
+WebEJS_TOOLS.searchTool = function(mStringToSearch, options) {
+  var foundList = [];
+
+  const case_sensitive = options['case_sensitive'];    
+  if (!case_sensitive) mStringToSearch = mStringToSearch.toLowerCase();
+  const regex = options['full_word'] ? new RegExp(`\\b${mStringToSearch}\\b`, 'i') : null;
+
+  if (options['description']) searchDescription(sMainGUI.getSimulationPart('description'));
+  if (options['model'])       searchModel(sMainGUI.getSimulationPart('model'));
+  if (options['view'])        searchView(sMainGUI.getSimulationPart('view'));
+  
+  // -------------------------
+  // Search utilities
+  // -------------------------
+  
+  function lineContainsIt(line) {
+    const words = line.split(/\s+/); // Split in words
+    for (const word of words) {
+      if (regex ? regex.test(word) : word.includes(mStringToSearch)) return true;
+    }
+    return false;
+  }
+
+  function findOccurrences(fullText) {
+    if (fullText.trim().length<=0) return [];
+    if (!case_sensitive) fullText = fullText.toLowerCase();
+    const result = [];
+    const lines = fullText.split('\n');
+    const nOfLines = lines.length;
+    for (const [index, line] of lines.entries()) {
+      if (lineContainsIt(line)) result.push({ 'index' : (index+1), 'line' : line, 'n_of_lines' : nOfLines});
+    }
+    return result;
+  }
+
+  // ----------------------------
+  // Search each simulation part
+  // ----------------------------
+
+  function checkPiece(part,text,location) {
+    if (findOccurrences(text).length>0) 
+      foundList.push({'part' : part, 'location' : location, 'line' : text});    
+  }
+
+  function checkCode(part,text,location) {
+    for (const result of findOccurrences(text)) {
+      if (result.n_of_lines>0)
+        foundList.push({'part' : part, 'location' : location +' (line '+result.index+'/'+result.n_of_lines+')', 'line' : result.line});    
+      else 
+      foundList.push({'part' : part, 'location' : location, 'line' : result.line});    
+    }
+  }
+
+  function checkModelPiece(text,location) { checkPiece('model',text,location); }
+  function checkModelCode(text,location) { checkCode('model',text,location); }
+
+  function checkODE(odePage) {
+    const prefix = 'Model.Evolution.'+odePage.Name;
+    checkModelPiece(odePage.IndependentVariable, prefix+'.IndependentVariable');
+    checkModelPiece(odePage.Increment, prefix+'.Increment');
+    for (const [index, equation] of odePage['Equations'].entries()) {
+      checkModelPiece(equation.state, prefix+' (Equation '+index+') State');
+      checkModelPiece(equation.rate , prefix+' (Equation '+index+') Rate');
+    }
+    checkModelPiece(odePage.AbsoluteTolerance, prefix+'.AbsoluteTolerance');
+    checkModelCode(odePage.PreliminaryCode.Code, prefix+'.PreliminaryCode');
+
+    checkModelPiece(odePage.EventMaximumStep, prefix+'.EventMaximumStep');
+    for (const page of odePage['Events']['pages']) {
+      const localPrefix = prefix+'.Events.'+page.Name;
+      checkModelPiece(page.Iterations,   localPrefix + ' Iterations');
+      checkModelPiece(page.Tolerance,    localPrefix + ' Tolerance');
+      checkModelCode (page.ZeroCondition,localPrefix + ' ZeroCondition');
+      checkModelPiece(page.StopAtEvent,  localPrefix + ' StopAtEvent');
+      checkModelCode (page.Action,       localPrefix + ' Action');
+    }
+    checkModelCode (odePage.ZenoEffect.Code,            prefix + ' ZenoEffect');
+    checkModelPiece(odePage.ZenoEffect.StopAfterEffect, prefix + 'StopAfterEffect');
+
+    checkModelPiece(odePage.AccelerationIndependentOfVelocity, prefix+'.AccelerationIndependentOfVelocity');
+    checkModelPiece(odePage.ForceSynchronization, prefix+'.ForceSynchronization');
+    checkModelPiece(odePage.UseBestInterpolation, prefix+'.UseBestInterpolation');
+    checkModelPiece(odePage.EstimateFirstStep, prefix+'.EstimateFirstStep');
+    checkModelPiece(odePage.MemoryLength, prefix+'.MemoryLength');
+    checkModelPiece(odePage.InternalStep, prefix+'.InternalStep');
+    checkModelPiece(odePage.MaximumStep, prefix+'.MaximumStep');
+    checkModelPiece(odePage.MaximumNumberOfSteps, prefix+'.MaximumNumberOfSteps');
+    checkModelPiece(odePage.RelativeTolerance, prefix+'.RelativeTolerance');
+    checkModelPiece(odePage.DelayList, prefix+'.DelayList');
+    checkModelPiece(odePage.DelayMaximum, prefix+'.DelayMaximum');
+    checkModelPiece(odePage.DelayAddDiscont, prefix+'.DelayAddDiscont');
+    checkModelCode (odePage.DelayInitialCondition.Code, prefix + ' DelayInitialCondition');
+    checkModelPiece(odePage.DirectIncidenceMatrix, prefix+'.DirectIncidenceMatrix');
+
+    for (const page of odePage['Discontinuities']['pages']) {
+      const localPrefix = prefix+'.Discontinuities.'+page.Name;
+      checkModelPiece(page.Tolerance,           localPrefix + 'Tolerance');
+      checkModelCode(page.ZeroCondition,        localPrefix + ' ZeroCondition');
+      checkModelPiece(page.StopAtDiscontinuity, localPrefix + 'StopAtDiscontinuity');
+      checkModelCode (page.Action,              localPrefix + ' Action');
+    }
+    for (const page of odePage['ErrorHandling']['pages']) {
+      checkModelPiece(page.Code, prefix+'.ErrorHandling.'+page.Name);
+    }
+  }
+
+  function searchModel(model) {
+    for (const page of model['variables']['pages']) {
+      const prefix = 'Model.Variables.'+page.Name;
+      for (const [index, variable] of page['Variables'].entries()) {
+        checkModelPiece(variable.Name,      prefix+' (row '+index+') Name');
+        checkModelPiece(variable.Value,     prefix+' (row '+index+') Value');
+        checkModelPiece(variable.Dimension, prefix+' (row '+index+') Dimension');
+      }
+    }
+    for (const page of model['initialization']['pages']) {
+      const prefix = 'Model.Initialization.'+page.Name;
+      checkModelCode (page.Code, prefix);
+    }
+    for (const page of model['evolution']['pages']) {
+      const prefix = 'Model.Evolution.'+page.Name;
+      if (page.Type=='ODE_EDITOR') checkODE(page);
+      else checkModelCode (page.Code, prefix);
+    }
+    for (const page of model['fixed_relations']['pages']) {
+      const prefix = 'Model.FixedRelations.'+page.Name;
+      checkModelCode (page.Code, prefix);
+    }
+    for (const page of model['custom']['pages']) {
+      const prefix = 'Model.Custom.'+page.Name;
+      checkModelCode (page.Code, prefix);
+    }
+
+  }
+
+  function checkViewElement(element) {
+    const prefix = 'View.'+element.Name;
+    checkPiece('view', element.Name, prefix+' Name');
+    for (const property of element.Properties) {
+      checkCode('view', property.value, prefix+'.'+property.name);
+    }
+    if ('Children' in element)
+      for (const child of element['Children']) checkViewElement(child)
+  }
+
+  function searchView(view) {
+    for (const element of view['Tree']) checkViewElement(element);
+    for (const property of view['RootProperties']) {
+      checkCode('view', property.value, 'View.RootProperties.'+property.name);
+    }
+  }
+
+  function checkDescriptionPage(page) {
+    const tempDiv = $('<div>').html(page.Code);    
+    tempDiv.find('h1, h2, h3, h4, h5, h6, p').replaceWith(function() {
+      return $(this).text() + '\n';
+    });
+    tempDiv.find('br').replaceWith(function() {
+      return '\n';
+    });
+    const bodyContent = tempDiv.text().trim();
+    for (const result of findOccurrences(bodyContent)) {
+      foundList.push({'part' : 'description', 'location' : 'Description.'+page.Name, 'line' : result.line});    
+    }
+    tempDiv.remove();
+  }
+
+  function searchDescription(description) {
+    for (const page of description['pages']) {
+      if (page.External!="true") checkDescriptionPage(page);
+    }
+  }
+
+  return foundList;
+};/*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the Web EJS authoring and simulation tool
  */
