@@ -2723,10 +2723,13 @@ WebEJS_GUI.main = function() {
       mReadingWarnings = [];
       self.addReadingWarnings(warnings);
     }
-    var html = '';
-    for (var i=0; i<mReadingWarnings.length; i++) html += mReadingWarnings[i];
-    sMessageForm.showWarningHTML("Reading Warnings",'<p>'+html+'</p>');
-    mReadingWarnings = [];
+    if (mReadingWarnings.length>0) {  
+      var html = '';
+      for (var i=0; i<mReadingWarnings.length; i++) html += mReadingWarnings[i];
+      sMessageForm.showWarningHTML("Reading Warnings",'<p>'+html+'</p>');
+      mReadingWarnings = [];
+    }
+    else sMessageForm.hide();
   }
 
   self.addReadingWarnings = function(warnings) {
@@ -2761,8 +2764,7 @@ WebEJS_GUI.main = function() {
     if (result) {
       self.logLine(sLocaleFor("File successfully read!")); //+" : "+mSimulationFilename);
       if (isPreviewVisible()) mPreviewArea.updatePreview();
-      if (mReadingWarnings.length<=0) sMessageForm.hide();
-      else self.displayReadingWarnings();
+      self.displayReadingWarnings();
     }
     else {
       sMessageForm.showHTML('<h5>'+sLocaleFor("File read with errors!")+'</h5>', "Error reading file!");
