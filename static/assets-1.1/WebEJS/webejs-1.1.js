@@ -2518,27 +2518,11 @@ WebEJS_GUI.comm = function(sessionID) {
 	self.userFileCommand = function(arguments,listener) {
 		ajaxPost('/manager/command', { 'arguments' : arguments }, 
 			response => { 
-				listener(response['params']);
+				listener(response.params);
 			},
 			listener,
 			'User file command failed:'+arguments);
 	}
-
-	self.downloadFileCommand = function(filepath) {
-    const index = filepath.lastIndexOf('/');
-    const name = (index<0) ? filepath : filepath.substring(index+1);
-    sMainFilenameForm.show(name, filename => {
-      const arguments = { command : "Download", path : filepath, filename: filename };
-      ajaxPost('/manager/command', arguments, 
-        result => { 
-					sMainGUI.logLine(sMainResources.getString("File correctly downloaded "+result['filename']));
-					console.log(result);
-					window.location = result['url'];
-				},	
-        'User file command failed:'+arguments);
-      }
-    );
-	}	
 
   $.ajaxSetup({
     beforeSend: function(xhr, settings) {
@@ -2931,6 +2915,11 @@ WebEJS_GUI.main = function() {
         sMainFileChooser.addToReservedFilenameList(mSystemInformation['webejs_reserved_filenames']);
         delete mSystemInformation['webejs_reserved_filenames'];
       }
+      if (sMainLibraryChooser.setRepositories && 'allowed_repositories' in mSystemInformation) {
+        sMainLibraryChooser.setRepositories(mSystemInformation['allowed_repositories']);
+        delete mSystemInformation['allowed_repositories'];
+      }
+
       mViewIsReady = true;
   });
 
@@ -6878,6 +6867,10 @@ WebEJS_GUI.optionsSimulationPanel = function() {
 		// Create and show the jsPanel
 		const options = {
       content : _GUI_FRAGMENT,
+      panelSize: {
+  			width:  Math.min(window.innerWidth*0.7,600),
+	  		height: window.innerHeight*0.9
+      },
 	    onbeforeclose: function(panel) {
 				collectValues();
 				mPanel = null;
@@ -7064,7 +7057,7 @@ WebEJS_GUI.optionsSimulationPanel = function() {
 				'<button class="p-1 btn btn-outline-secondary btn-link text-decoration-none"'+
 									' data-bs-toggle="tooltip" data-bs-placement="bottom" '+
 									' title="'+sMainResources.getString('Click to choose a '+width+' x '+height+' PNG file)')+'">'+
-					'<img width="'+width+'" height="'+height+'" class="d-inline-block align-bottom;" src="'+logo+'" data-hash="'+hash+'" >'+
+					'<img ' + /*'width="'+width+'"' + */' height="'+height+'" class="d-inline-block align-bottom;" src="'+logo+'" data-hash="'+hash+'" >'+
 				'</button>';
 		}
 		$(selector).html(html);
@@ -10324,6 +10317,1674 @@ WebEJS_RESOURCES.main = function(locale) {
 	return self;
 	
 }
+var WebEJS_TOOLS = WebEJS_TOOLS || {};
+
+WebEJS_TOOLS.collectionChooser = function() {
+	const ITEM_LIST_PREFIX = "mCollectionChooserCollection-item-";
+  const ITEM_GROUP_PREFIX = "mCollectionChooserCollection-group-";
+  const EXPAND_ICON_CLASS = 'bi bi-chevron-down';
+  const COLLAPSE_ICON_CLASS = 'bi bi-chevron-right';
+  const ITEM_ICON_CLASS = "bi bi-dash";
+  const FOLDER_ICON_CLASS = "bi bi-folder";
+  const EJSS_ICON_CLASS = "bi bi-cloud-download";
+  const PAGE_ICON_CLASS = "bi bi-file-richtext";
+  const INDENT =  0.5;
+  const PARENTS_MARGIN_LEFT = '0.25rem';
+  var self = {};
+
+  var mServerRepositories = [];
+
+  self.setRepositories = function(serverRepositories) {
+		var html = '';
+    mServerRepositories = [];
+    for (const [index, repository] of serverRepositories.entries()) {
+      if ('repository' in repository) {
+        const name = repository['name'].trim();
+        if (mServerRepositories.length<=0)  html += '<option value="'+index+'" selected>'+name+'</option>';			
+        else html += '<option value="'+index+'">'+name+'</option>';			
+        mServerRepositories.push(repository);
+      }
+		}
+		$('#mCollectionChooserSelect').html(html);
+  }
+
+  function getLeftPadding(depth) {
+    return depth>0 ? (INDENT + depth * INDENT).toString() + "rem" : PARENTS_MARGIN_LEFT;
+  }  
+  
+  const _HTML = `
+<div class="modal modal-dialog-scrollable fade" id="mCollectionChooserModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+		
+	<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+		
+		<div class="modal-content h-100">
+      	
+			<div class="modal-header bg-light text-dark">
+    		<img id="mCollectionChooserLogo" height="40" class="me-2 d-inline-block align-bottom;">
+      		<h5 class="sTranslatable text-primary modal-title">Library explorer</h5>
+      	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    	</div>  
+    	<!------------------  end modal header --------------->
+
+      <div class="modal-body d-flex flex-column">
+        <div class="container-fluid m-0 p-0" style="flex-grow: 0">
+
+          <div class="m-0 p-0 mb-1  d-flex flex-row align-items-center">
+              <div class="d-flex input-group m-0 pe-1" style="align-items: center; flex-grow: 1">
+                <span class="sTranslatable input-group-text">Library:</span> 
+  					    <select id="mCollectionChooserSelect" class="form-select"></select>
+                <span class="sTranslatableTitle input-group-text" id="mCollectionChooserRefresh" data-title="Refresh">
+                  <i class="bi bi-repeat" style="color: black;"></i>
+						    </span>
+              </div>
+              <div class"ms-3" style="white-space: nowrap; flex-basis:0; flex-grow: 0">
+							    <input class="form-check-input" type="checkbox" value="" checked
+								    name="mCollectionChooserMainCatOption" id="mCollectionChooserMainCatOption">
+							    <label class="sTranslatable form-check-label" for="mCollectionChooserMainCatOption">Use only model's main category</label>  
+              </div>
+          </div>
+
+          <div id="mCollectionChooserSearchRow" class="d-none m-0 p-0 mt-1 d-flex flex-row align-items-center">
+              <div class="input-group mb-1 pe-1" style="align-items: center; flex-grow: 1">
+                <span class="sTranslatable input-group-text">Search:</span> 
+                <input id="mCollectionChooserSearchValue"  type="text" class="form-control"   
+                  placeholder="<Type your search>" aria-label="Value"   
+                  spellcheck="off" autocorrect="off" autocapitalize="none" autocomplete="off" 
+                  value=""> 
+                <span class="sTranslatableTitle input-group-text" id="mCollectionChooserSearchButton" data-title="search">
+                  <i class="bi bi-search" style="color: black;"></i>
+						    </span>
+              </div>
+          </div>
+
+        </div>
+
+			  <div id="mCollectionArea" class="d-flex flex-row" style="flex-grow: 1;">
+					<div id="mCollectionChooserCollection" class="bstreeview" style="flex-grow: 1;">
+					</div>
+					<div id="mCollectionChooserHelper" class="border" style="flex-basis:0; flex-grow: 0; min-width: 50%;">
+					</div>
+
+			  </div>
+      </div>
+    	<!    	<!------------------  end modal body --------------->
+		
+			<div class="modal-footer">
+					<button type="button" id="mCollectionChooserCancelButton" class="sTranslatable btn btn-secondary me-auto" data-dismiss="modal">Close</button>
+					<button type="button" id="mCollectionChooserOKButton" class="sTranslatable btn btn-primary float-left" disabled>Download</button>
+			</div>
+    	<!------------------  end modal footer --------------->
+
+		</div>
+		<!------------------  end modal content --------------->
+		
+	</div>	
+	<!------------------  end modal-dialog --------------->
+
+</div>
+<!------------------  end modal --------------->
+`;
+
+  $( "body" ).append( $(_HTML) );
+  var mModal = new bootstrap.Modal(document.getElementById('mCollectionChooserModal'));
+  $('#mCollectionChooserLogo').attr("src",sMainEjsLogo);
+  var mCollectionDiv = $('#mCollectionChooserCollection');
+  var mCurrentCollectionIndex = -1;
+  var mCurrentItem = null;
+  var mHash = 0;	
+  var mDataByHash = {}; // keeps a dict of entries 'hash' : data 
+
+  //const OSP_TOOL = WebEJS_TOOLS.ejsOspTool();
+	var mListener = null;
+
+  function readCollection(index,listener) {
+    const repo = mServerRepositories[index];
+    mCurrentCollectionIndex = index;
+    if (repo['type']=='PHP') {
+      WebEJS_TOOLS.phpCollection(repo['repository'],function(collection) {
+        if (listener) listener(collection);
+      });
+    }
+    else {
+      const primaryOnly = $('#mCollectionChooserMainCatOption').is(":checked");
+      //OSP_TOOL.getCatalog({ 'primary_only' : primaryOnly })
+      WebEJS_TOOLS.getComPADRECollectionIndex(primaryOnly, function(success, collection) { 
+        if (listener) listener(collection);
+      });				
+    }
+  }
+
+  function searchCollection(searchString,index, listener) {
+    const repo = mServerRepositories[index];
+    mCurrentCollectionIndex = index;
+    if (repo['type']=='PHP') {
+      WebEJS_TOOLS.phpCollection(repo['repository'],function(collection) {
+        if (listener) listener(collection);
+      });
+    }
+    else {
+      WebEJS_TOOLS.getComPADRESearchCollection(searchString, function(success, collection) { 
+        //console.log(collection);
+        if (listener) listener(collection);
+      });				
+    }
+  }
+
+  $('#mCollectionChooserSelect').change(function() {
+    const option = $('#mCollectionChooserSelect option:selected');
+    const index = option.val();
+    readCollection(index,function(collection) {
+      mCurrentItem = null;
+      mOriginalPath = null;
+      displayCollection(collection);
+    });
+  });
+
+  $('#mCollectionChooserRefresh').click(function() {
+    const option = $('#mCollectionChooserSelect option:selected');
+    const index = option.val();
+    readCollection(index,function(collection) {
+      mCurrentItem = null;
+      mOriginalPath = null;
+      displayCollection(collection);
+    });
+  });
+  
+  $('#mCollectionChooserSearchButton').click(function() {
+    const searchString = $('#mCollectionChooserSearchValue').val().trim();
+    if (searchString.length<=0) {
+      sMessageForm.showWarning('Excuse me',"There is nothing to search for!");
+      return;
+    }
+    searchCollection(searchString, mCurrentCollectionIndex,function(collection) {
+      mCurrentItem = null;
+      mOriginalPath = null;
+      displayCollection(collection);
+    });
+  });
+
+	self.show = function(listener) {
+    mListener = listener;
+    const option = $('#mCollectionChooserSelect option:selected');
+    const index = option ? option.val() : 0;
+    if (mCurrentCollectionIndex==index) {
+      mModal.show();
+      return;
+    }
+    readCollection(index,function(collection) {
+      mCurrentItem = null;
+      mOriginalPath = null;
+      displayCollection(collection);
+      mModal.show();
+    });
+	}
+
+  // --------------------
+  // Display functions
+  // --------------------
+
+  function displayCollection(collection) {
+    $(mCollectionDiv).empty();
+    mHash = 0;
+    mDataByHash = {};
+
+    var groupNodes = {};
+    var rootItem = null;
+    for (var index=0; index<collection.length; index++) {
+      var entry = collection[index];
+
+      const parentStr = entry['parent'];
+      const parentNode = (parentStr=="#") ? null : groupNodes[parentStr];
+      const depth = parentNode ? parentNode['depth']+1 : 0;
+      const target = ('target' in entry['data']) ?  entry['data']['target'] : "";
+      var built = buildTreeItem(depth,entry['text'],entry['data']['type'],target, index==0);
+
+      if (parentNode) parentNode['group'].append(built.tree_item);
+      else mCollectionDiv.append(built.tree_item);
+      
+    	if ('group' in built) {
+    		built.tree_item.parent().append(built.group); 
+	      // Keep for later use in this function
+	      groupNodes[entry['id']] = { 'group' : built.group, 'depth' : depth };
+    	}
+      // Keep for future use in this object  
+      mDataByHash[mHash] = correctData(entry);
+      if (index==0) {
+    	  mDataByHash[mHash]['type'] = 'ROOT';
+    	  rootItem = built.tree_item;
+      }
+      // Update unique hash   
+      mHash++;
+    }
+    groupNodes = {};
+	  if (rootItem) $('#mCollectionChooserHelper').html(getItemHtml(rootItem));
+		$('#mCollectionChooserOKButton').prop('disabled', true)
+  }
+
+  function correctData(entry) {
+  	const data = entry['data'];
+    if (!('target' in data))   data['target']   = "";
+    if (!('htmlPath' in data)) data['htmlPath'] = "";
+    data['_name_'] = entry['text'];
+    data['_id_'] = entry['id'];
+    return data;
+  }
+  
+  function addToCollection(hash, collection) {
+	  	const parentItem = findGroupByHash(hash);
+	  	var rootEntry = collection[0];
+	  	const data = mDataByHash[hash];
+	  	if (rootEntry['id']!=data['_id_']) {
+	  		alert ("Error trying to expand ID:"+rootEntry['id']);
+	  		return;
+	  	}
+	  	mDataByHash[hash] = correctData(rootEntry);
+	  	findItemByHash(hash).children('.cCollectionChooserName').removeClass('text-danger');
+	  	
+	    var groupNodes = {};
+	    groupNodes[rootEntry['id']] = { 'group' : findGroupByHash(hash), 'depth' : findDepthByHash(hash) };
+
+	    for (var index=1; index<collection.length; index++) {
+	      var entry = collection[index];
+
+	      const parentStr = entry['parent'];
+	      const parentNode = groupNodes[parentStr];
+	      const depth = parentNode['depth']+1;
+	      const target = ('target' in entry['data']) ?  entry['data']['target'] : "";
+	      var built = buildTreeItem(depth,entry['text'],entry['data']['type'],target, index==0);
+
+	      parentNode['group'].append(built.tree_item);
+	      
+	    	if ('group' in built) {
+	    		built.tree_item.parent().append(built.group); 
+		      // Keep for later use in this function
+		      groupNodes[entry['id']] = { 'group' : built.group, 'depth' : depth };
+	    	}
+	      // Keep for future use in this object   
+      	mDataByHash[mHash] = correctData(entry);
+	      // Update unique hash   
+	      mHash++;
+	    }
+	    groupNodes = {};
+	  }
+  
+  function expandItem(treeItem) {
+	  const hash = treeItem.data('hash');
+		//console.log("You selected folder :"+getItemName(treeItem));
+	  const target = getItemTarget(treeItem);
+	  if (target) {
+			//console.log("Expanding folder with target:"+target);
+      const primaryOnly = $('#mCollectionChooserMainCatOption').is(":checked");
+		  WebEJS_TOOLS.getComPADRECollection(target, getItemID(getParentItem(treeItem)), getItemID(treeItem), 
+				function(success, collection) { 
+					addToCollection(hash,collection);	
+					//console.log(collection);
+					clearItemTarget(treeItem);
+					showItemHtml(treeItem);
+			  },
+        primaryOnly ? {'primary_only' : true} : { }
+      );
+	  }
+  }
+
+  // --------------------
+  // Items info
+  // --------------------
+
+  function getItemHash(treeItem) {
+	    return treeItem.data('hash');
+	}
+
+	function findDepthByHash(hash) {
+		const itemList = $('#'+ITEM_LIST_PREFIX + hash);
+		if (itemList.length>0) return itemList.first().data('depth');
+		return 0;
+	}
+
+	function findItemByHash(hash) {
+		const itemList = $('#'+ITEM_LIST_PREFIX + hash);
+		if (itemList.length>0) return itemList.first();
+		return null;
+	}
+
+	function findGroupByHash(hash) {
+		const itemList = $('#'+ITEM_GROUP_PREFIX + hash);
+		if (itemList.length>0) return itemList.first();
+		return null;
+	}
+
+	function findGroupByID(anID) {
+		for (const hash of mDataByHash.entries()) {
+			const data = mDataByHash[hash];
+			if (data['_id_']==anID) return findItemByHash(hash);
+		}
+		return null;
+	}
+
+  function getItemData(treeItem) {
+	    return mDataByHash[treeItem.data('hash')];;
+	}
+  
+  function getItemID(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		return data['_id_'];
+	}
+
+  function getItemName(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		return data['_name_'];
+	}
+
+  function getItemType(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['type'].trim().length>0) return data['type'].trim();
+		return 'Unknown type';
+	}
+
+  function getItemTarget(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['target'].trim().length>0) return data['target'];
+		return null;
+	}
+
+  function clearItemTarget(treeItem) {
+    const data = mDataByHash[treeItem.data('hash')];
+    data['target'] = '';
+  }
+  
+  function getItemDescription(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['description'].trim().length>0) return data['description'];
+		return null;
+	}
+  
+  
+  function getItemPath(treeItem) {
+		const data = mDataByHash[treeItem.data('hash')];
+		if (data['htmlPath'].trim().length>0) return data['htmlPath'];
+		return null;
+	}
+  
+  function buildGroupForItem(treeItem, expanded) {
+	    const hash = getItemHash(treeItem);
+	    const html = 
+	      '<div role="group" class="list-group ps-2 collapse'+(expanded ? ' show' : '')+'" '+
+	        ' data-parent="'+ITEM_LIST_PREFIX + hash+'" '+
+	        ' id="'+ITEM_GROUP_PREFIX + hash+'">'+
+	      '</div>';
+	    const group = $(html);
+	    const iconClass = expanded ? EXPAND_ICON_CLASS : COLLAPSE_ICON_CLASS;
+	    treeItem.find('.state-icon').removeClass(ITEM_ICON_CLASS).addClass(iconClass);
+	    return group;
+	 }
+
+  function buildTreeItem(depth,name,type, target, expanded) {
+	    const leftPadding = getLeftPadding(depth);
+	    const isFolder = (type=="Collection");
+	    const isModel = (type=="EJS");
+			const classStr = (isFolder && target.trim().length>0) ? 'text-danger' : isModel ? 'text-primary' : '';
+	    const iconStr  = isFolder ? FOLDER_ICON_CLASS : isModel ? EJSS_ICON_CLASS : PAGE_ICON_CLASS;
+	    const html = 
+	      '<div role="treeitem" class="list-group-item py-0 border-0" style="padding-left:'+leftPadding+'" '+
+	        ' id ="'+ITEM_LIST_PREFIX + mHash+'" data-hash="'+mHash+'" data-depth="'+depth+'" '+
+	        ' data-bs-target="#' + ITEM_GROUP_PREFIX + mHash +'" "aria-level="'+depth+'" >' +
+	        '<i class="state-icon '+ITEM_ICON_CLASS+'"></i>'+
+	        '<span class="cCollectionChooserName '+classStr+'"><i class="me-1 '+ iconStr+'"></i>'+name+'</span>'+   
+	      '</div>';
+	    const treeItem = $(html); 
+	    if (isFolder) return { 'tree_item' : treeItem , 'group' : buildGroupForItem(treeItem, expanded) };
+	    return { 'tree_item' : treeItem }
+	  }
+  
+  function getParentItem(treeItem) {
+		const parentName = treeItem.parent().data('parent');
+		return $('#'+parentName);
+  }
+  
+	// ------------------
+	// Helper display
+	// ------------------
+
+	function showItemHtml(treeItem) {
+		const type = getItemType(treeItem);
+		var html='';
+		if (type!='Collection') {
+			$('#mCollectionChooserHelper').removeClass('p-2');
+			$('#mCollectionChooserHelper').html(getItemHtml(treeItem));
+		}
+		else {
+			$('#mCollectionChooserHelper').addClass('p-2');
+			$('#mCollectionChooserHelper').html(getFolderHtml(treeItem));
+		}
+	}
+
+	function getItemHtml(treeItem) {
+		const htmlPath = getItemPath(treeItem);
+		if (htmlPath) return '<iframe	src="'+htmlPath+'" style="width:100%; height:100%;"></iframe>';
+		const description = getItemDescription(treeItem);
+		if (description) return '<div class="p-2">'+description+'<div>';
+		return '<h5 class="p-1 text-danger">'+sLocaleFor("No information on this item")+'</h5>';
+	}
+
+	function getFolderHtml(treeItem) {
+		var categories = [];
+		var models = [];
+		$(treeItem.data('bs-target')).children('.list-group-item').each(function() {
+			const item = $(this);
+			const type = getItemType(item);
+			if (type=="Collection") categories.push(getItemName(item));
+			else if (type=="EJS") models.push(getItemName(item));
+		});
+		const name = getItemName(treeItem);
+		var html = '';
+		if (categories.length>0) {
+			html += '<h5 class="text-primary">'+sLocaleFor('Subcategories of ')+
+							name+'</h5><ul class="mb-2">';
+			for (var i=0; i<categories.length; i++) html += '<li>'+categories[i]+'</li>';
+			html += '</ul>';
+		}
+		if (models.length>0) {
+			html += '<h5 class="text-primary">'+sLocaleFor('Models in the ')+
+								name+' '+sLocaleFor('category')+'</h5><ul class="mb-2">';
+			for (var i=0; i<models.length; i++) html += '<li>'+models[i]+'</li>';
+			html += '</ul>';
+		}
+		else if (getItemTarget(treeItem)) {
+			html += '<h5 class="text-danger">'+
+							sLocaleFor('Double-click or expand this node to get the list of models in the ')+
+							name+' '+sLocaleFor('category')+'</h5>';
+		}
+		return html;
+	}
+
+	// ------------------
+	// Interface actions
+  // ------------------
+
+	$('#mCollectionChooserCancelButton').click(function() {
+		mModal.hide();
+	});
+	
+	$('#mCollectionChooserOKButton').click(function() {
+		var path;
+		if (!mCurrentItem) return;
+		mModal.hide();
+		const url = getItemTarget(mCurrentItem);
+		//console.log("url selected = "+url);
+		mListener(getItemTarget(mCurrentItem),getItemName(mCurrentItem));
+	});
+	
+	// --- Expanding/collapsing a parent node
+	$(mCollectionDiv).on('click', '.state-icon', function (event) {
+	    var icon = $(event.currentTarget);
+	    if (icon.hasClass(ITEM_ICON_CLASS)) return;
+	    if (icon.hasClass(COLLAPSE_ICON_CLASS)) {
+        const treeItem = $(event.currentTarget).closest('.list-group-item');
+        expandItem(treeItem);
+      }
+	    icon.toggleClass(EXPAND_ICON_CLASS).toggleClass(COLLAPSE_ICON_CLASS);
+	    const groupItem = $(event.currentTarget).closest('.list-group-item');
+	    // Toggle the data-bs-target. Issue with Bootstrap toggle and dynamic code
+	    $(groupItem.attr("data-bs-target")).collapse('toggle');
+	});
+	  
+  // --- clicking on an element
+
+  $(mCollectionDiv).on('click', '.cCollectionChooserName', function (event) {
+    const treeItem = $(event.currentTarget).closest('.list-group-item');
+		if (mCurrentItem) mCurrentItem.removeClass('bg-info');
+		mCurrentItem = treeItem;
+		mCurrentItem.addClass('bg-info');
+		const type = getItemType(treeItem);
+		$('#mCollectionChooserOKButton').prop('disabled', type!="EJS");
+		showItemHtml(treeItem);
+  });
+  
+  $(mCollectionDiv).on('dblclick', '.cCollectionChooserName', function (event) {
+	  const treeItem = $(event.currentTarget).closest('.list-group-item');
+		const type = getItemType(treeItem);
+		//console.log("You selected item "+getItemName(treeItem));
+		if (type=='Collection') {
+			expandItem(treeItem);
+			const icon = $(event.currentTarget).siblings('.state-icon');
+		  icon.addClass(EXPAND_ICON_CLASS).removeClass(COLLAPSE_ICON_CLASS);
+		  const groupItem = $(event.currentTarget).closest('.list-group-item');
+		  // Toggle the data-bs-target. Issue with Bootstrap toggle and dynamic code
+		   $(groupItem.attr("data-bs-target")).collapse('show');
+		}
+		else if (type=="EJS") {
+			mModal.hide();
+			const url = getItemTarget(treeItem);
+			//console.log("url selected = "+url);
+			mListener(getItemTarget(treeItem),getItemName(treeItem));
+		}
+		});
+
+  /*
+  $(mCollectionDiv).on('click', '.cCollectionChooserFile', function (event) {
+    const treeItem = $(event.currentTarget).closest('.list-group-item');
+		if (mCurrentItem) mCurrentItem.removeClass('bg-info');
+		mCurrentItem = treeItem;
+		mCurrentItem.addClass('bg-info');
+		$('#mCollectionChooserOKButton').prop('disabled', false)
+	  $('#mCollectionChooserHelper').html(getItemHtml(treeItem));
+  });
+
+  // --- clicking on a folder
+  $(mCollectionDiv).on('click', '.cCollectionChooserFolder', function (event) {
+  	const treeItem = $(event.currentTarget).closest('.list-group-item');
+		if (mCurrentItem) mCurrentItem.removeClass('bg-info');
+		mCurrentItem = treeItem;
+		mCurrentItem.addClass('bg-info');
+		$('#mCollectionChooserOKButton').prop('disabled', true)
+  	$('#mCollectionChooserHelper').html(getFolderHtml(treeItem));
+  });
+
+  
+  // --- double-clicking on an element
+  $(mCollectionDiv).on('dblclick', '.cCollectionChooserFile', function (event) {
+		mModal.hide();
+	  const treeItem = $(event.currentTarget).closest('.list-group-item');
+	  const hash = treeItem.data('hash');
+		console.log("You selected file with hash:"+hash+ " : data =");
+		const data = mDataByHash[hash];
+		console.log(data);
+		//mListener(path);
+  });
+
+  // --- double-clicking on an element
+  $(mCollectionDiv).on('dblclick', '.cCollectionChooserFolder', function (event) {
+	  const treeItem = $(event.currentTarget).closest('.list-group-item');
+		expandItem(treeItem);
+		//mListener(path);
+  });
+	*/
+	
+  // ------------------
+  // Final start up
+  // ------------------
+
+
+  return self;
+}
+/*
+ * Copyright 2024 - F. Esquembre
+ */
+
+var WebEJS_TOOLS = WebEJS_TOOLS || {};
+
+WebEJS_TOOLS.sEjsOspToolSingleton = null;
+
+WebEJS_TOOLS.ejsOspTool = function() {
+  if (WebEJS_TOOLS.sEjsOspToolSingleton!=null) return WebEJS_TOOLS.sEjsOspToolSingleton;
+
+  const JS_SERVER_TREE   ="https://www.compadre.org/services/rest/osp_ejss.cfm?verb=Identify&OSPType=EJSS+Model";
+  const JS_SERVER_RECORDS="https://www.compadre.org/osp/services/REST/osp_ejss.cfm?OSPType=EJSS+Model";
+  const JS_SERVER_SEARCH ="https://www.compadre.org/osp/services/REST/search_v1_02.cfm?verb=Search&OSPType=EJSS+Model&Skip=0&Max=30&q=";
+  
+  const PRIMARY_ONLY = "&OSPPrimary=Subject";
+
+  var sDbClickStr = "<p>"+sLocaleFor("DigitalLibrary.DoubleClick")+" ";
+  var sCatStr = sLocaleFor("DigitalLibrary.Category");
+  if (sCatStr.trim().length>0) sCatStr = " "+ sCatStr+".</p>";
+  else sCatStr = sCatStr+".</p>";
+
+  async function connectToCompadre (urlStr,successListener, errorListener) {
+    console.log('urlStr='+urlStr);
+    try {
+      const response = await fetch(urlStr);
+      if (!response.ok) return errorListener(`HTTP error! Status: ${response.status}`);
+      const xmlText = await response.text();
+      successListener(xmlText);
+      } 
+    catch (error) {
+      errorListener("Error getting or parsing the XML response: "+ error);
+    }
+  }
+
+  self.getCatalog = function(options) {
+    var url = JS_SERVER_TREE;
+    if ('primary_only' in options) url += PRIMARY_ONLY;
+    connectToCompadre(url, catalogListener, 
+      error => { sMessageForm.showWarning('Error',"Error reading sever catalog!", error); }
+    );
+  }
+
+  self.expandFolder = function(options) {
+    var url = JS_SERVER_RECORDS;
+    if ('primary_only' in options) url += PRIMARY_ONLY;
+    connectToCompadre(url, expandListener, 
+      error => { sMessageForm.showWarning('Error',"Error reading sever catalog!", error); }
+    );
+  }
+
+  self.searchCatalog = function(stringToSearch, options) {
+    var url = JS_SERVER_SEARCH + encodeURIComponent(stringToSearch)
+    if ('primary_only' in options) url += PRIMARY_ONLY;
+    connectToCompadre(url, searchListener, 
+      error => { sMessageForm.showWarning('Error',"Error reading sever catalog!", error); }
+    );
+  }
+
+  // ---------------------------
+	// Interpret the tree catalog
+	// ---------------------------
+
+  function findChildren(element,tag, type) {
+    let results = [];
+    for (const child of element.children) {
+      if (child.nodeType === Node.ELEMENT_NODE && child.tagName === tag) {
+        if (type) {
+          if (child.getAttribute('type')==type) results.push(child);
+        }
+        else results.push(child);
+      }    
+    }
+    return results;
+  }
+
+  function addSubtrees(parentNode, _element, _type, _depth, _serviceParameter) {
+    var nModels = 0;
+    const children =  findChildren(_element,"sub-tree-set",_type); 
+    for (const child of children) {
+      console.log ("Depth = "+_depth+" node = "+child.tagName+ " type = "+child.getAttribute("type"));
+      const subTrees = findChildren(child,"sub-tree", null);
+      var unclassifiedNodeURL = null; // NOT DONE!
+      const listBuffer = []
+      if (subTrees.length>0) {
+        listBuffer.push('<p>Subcategories of'+_parentName+':</p>');
+        listBuffer.push('<ul>');
+        for (const subtree in subTrees) {
+          console.log("Subtree = ",subtree);
+          const name = subtree.getAttribute("name");
+          var serviceParam = subtree.getAttribute("service-parameter");
+          serviceParam = _serviceParameter+"&"+FileUtils.correctUrlString(serviceParam);
+          const nodeInfo = { 'name' : name } (this,name,name,null,null);
+          if (name.equals("Unclassified")) { // The unclassified node is processed last and adds its models to the parent
+//            System.out.println ("Unclassified in "+_parentNode);
+            unclassifiedNodeURL = serviceParam;
+            continue;
+          }
+          listBuffer.push("<li>"+name+"</li>")
+          nodeInfo['children'] = [];
+          const description = subtree["description"];
+          if (description!=null) nodeInfo['user_string'] = "<p>"+description+"</p>";
+          const childNode = { 'parent' : nodeInfo['name'] };
+          const subChildren = findChildren(subtree,"sub-tree-set", null);
+          if (subChildren.length<=0) {
+            nodeInfo['expanded'] = true;
+            if ('user_info' in nodeInfo) nodeInfo['description'] = nodeInfo['user_string']+sDbClickStr+name+sCatStr;
+            else nodeInfo['description'] = sDbClickStr+name+sCatStr;
+            nodeInfo['expansion_info'] = serviceParam;
+            nModels++;
+            nModels += addSubtrees(parent,tree.Node,_type+"-detail",_depth+1,serviceParam);
+          }
+        }
+      }
+      if (listBuffer!=null) listBuffer.push("</ul>");
+      if (unclassifiedNodeURL!=null) {
+        childNode['expanded'] = true;
+        childNode['expansion_info'] = unclassifiedNodeURL;
+      }
+      if (listBuffer!=null) {
+        var newUserString = ('user_string' in childNode) ? childNode['user_string'] : '';
+        childNode['user_string'] = newUserString+ '\n'.join(listBuffer);
+        if (unclassifiedNodeURL!=null) childNode['description'] = newUserString+sDbClickStr+childNode['name']+sCatStr;
+        else childNode['description'] = newUserString;
+      }
+    }
+    return nModels;
+  }
+  
+  function catalogListener(xmlText) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, "application/xml");
+    const htmlCollection = doc.getElementsByTagName("Identify");
+//    const html = doc.querySelector('sub-tree-set[type="osp-subject"]');
+    const rootNode = { 'name' : '_root_' };
+    var nModels = 0;
+    for (const element of htmlCollection) {
+      console.log(element);
+//      findSubTreeSets(element);
+      nModels += addSubtrees(rootNode, element, "osp-subject",1,"");
+    }
+    return resultList; 
+  }
+
+  // ------------------------
+	// That's it'
+	// ------------------------
+		
+  WebEJS_TOOLS.sEjsOspToolSingleton = self;
+	return self;
+
+}    
+
+
+/*
+ * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
+ * This code is part of the WebEJS authoring and simulation tool
+ *
+ * BASED ON PREVIOUS CODE:
+ *
+ * Copyright 2015 - Félix J. García
+ * 
+ * @author Félix J. García (fgarcia@um.es)
+ */
+
+/**
+ * GUI tools
+ * @module core
+ */
+
+var WebEJS_TOOLS = WebEJS_TOOLS || {};
+
+WebEJS_TOOLS.LibraryComPADRE = {
+	OSP_INFO_URL: "https://www.compadre.org/OSP/online_help/EjsDL/OSPCollection.html",
+	EJS_SERVER_TREE_LOCAL: "osp.php?basename=tree",
+	EJS_SERVER_TREE: "https://www.compadre.org/services/rest/osp_ejss.cfm?verb=Identify&OSPType=EJSS+Model",
+	EJS_SERVER_RECORDS_LOCAL: "osp.php?basename=records",
+	EJS_SERVER_RECORDS: "https://www.compadre.org/osp/services/REST/osp_ejss.cfm?OSPType=EJSS+Model",
+	EJS_SERVER_SEARCH: "https://www.compadre.org/osp/services/REST/search_v1_02.cfm?verb=Search&OSPType=EJSS+Model&Skip=0&Max=30&q=",	  
+	
+	EJS_COLLECTION_NAME: "EJS OSP Collection",
+	EJS_INFO_URL: "http://www.compadre.org/OSP/online_help/EjsDL/DLModels.html",
+	TRACKER_SERVER_TREE: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?verb=Identify&OSPType=Tracker",
+	TRACKER_SERVER_RECORDS: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?OSPType=Tracker",
+	TRACKER_COLLECTION_NAME: "Tracker OSP Collection",
+	TRACKER_INFO_URL: "https://physlets.org/tracker/library/comPADRE_collection.html",
+	PRIMARY_ONLY: "&OSPPrimary=Subject",
+	GENERIC_COLLECTION_NAME: "AAPT-ComPADRE OSP Collection",
+	ABOUT_OSP: "About OSP and AAPT-ComPADRE",
+
+	Description_DoubleClick: "dblClick",
+	Description_Author: "Author",
+	Description_DownloadSize: "Download Size", 
+	Description_InfoField: "Info"
+}
+
+WebEJS_TOOLS.LibraryResource = {
+   	UNKNOWN_TYPE: "Unknown",
+   	COLLECTION_TYPE: "Collection",
+   	TRACKER_TYPE: "Tracker",
+   	EJS_TYPE: "EJS",
+   	VIDEO_TYPE: "Video",
+   	HTML_TYPE: "HTML",
+   	PDF_TYPE: "PDF"
+}
+
+/* 
+ * WebEJS_TOOLS.libraryResource
+ */
+WebEJS_TOOLS.libraryResource = function(parentid, name) {
+	var self = {};
+	var htmlPath=""; // rel or abs path to html that describes this resource
+	var basePath=""; // base path for target and/or info
+	var description=""; 
+	var target=""; // rel or abs path to target 
+	var type=WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE;
+  	var properties = {};
+    var thumbnail;
+    var id = parentid + "/" + name;
+
+  /**
+   * Gets the id of its parent.
+   *
+   * @return the parent id
+   */
+	self.getParent = function() {
+		return parentid;
+	}
+	
+  /**
+   * Gets the name of this resource (never null).
+   *
+   * @return the name
+   */
+	self.getName = function() {
+		return name;
+	}
+
+  /**
+   * Gets the id of this resource (never null).
+   *
+   * @return the id
+   */
+	self.getId = function() {
+		return id;
+	}
+		
+  /**
+   * Gets the base path.
+   *
+   * @return the base path
+   */
+	self.getBasePath = function() {
+		return basePath;
+	}
+	
+  /**
+   * Sets the base path of this resource.
+   * 
+   * @param path the base path
+   * @return true if changed
+   */
+	self.setBasePath = function(path) {
+		path = (!path)? "": path.trim(); 
+		if (path != basePath) {
+			basePath = path;
+			return true;
+		}
+		return false;
+	}
+	
+  /**
+   * Gets the target of this resource (file name or comPADRE command).
+   *
+   * @return the target
+   */
+	self.getTarget = function() {
+		return target;
+	}
+
+	function endsWith(str, suffix) {
+    	return str.indexOf(suffix, str.length - suffix.length) !== -1;
+	}
+
+  /**
+   * Sets the target of this resource.
+   * 
+   * @param path the target path
+   * @return true if changed
+   */
+	self.setTarget = function(path) {
+		path = (!path)? "": path.trim(); 
+		if (path != target) {
+			thumbnail = null;
+			target = path;
+			path = path.toUpperCase();
+			if (endsWith(path,".TRK")) 
+				self.setType(WebEJS_TOOLS.LibraryResource.TRACKER_TYPE);
+			else if (endsWith(path,".PDF")) 
+				self.setType(WebEJS_TOOLS.LibraryResource.PDF_TYPE);
+			else if (path.indexOf("EJS")>-1) { 
+				self.setType(WebEJS_TOOLS.LibraryResource.EJS_TYPE);
+			} else if (path == "") { 
+				if (self.getHTMLPath() == null)
+					self.setType(WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE);
+				else
+					self.setType(WebEJS_TOOLS.LibraryResource.HTML_TYPE);
+			}
+			return true;
+		}
+		return false;
+	}
+	
+  /**
+   * Gets the path to the html page displayed in the browser.
+   *
+   * @return the html path
+   */
+	self.getHTMLPath = function() {
+		return htmlPath;
+	}
+	  	
+  /**
+   * Sets the html path of this resource.
+   * 
+   * @param path the html path
+   * @return true if changed
+   */
+	self.setHTMLPath = function(path) {
+		path = (!path)? "": path.trim();
+		if (path != htmlPath) {
+			htmlPath = path;
+			if (!(self.addResource) // not collection 
+					&& self.getTarget() == "") {
+				if (path == "")	self.setType(WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE);
+				else self.setType(WebEJS_TOOLS.LibraryResource.HTML_TYPE);
+			}
+			return true;
+		}
+		return false;
+	}
+	
+  /**
+   * Gets the description, which must be in html code.
+   *
+   * @return the description
+   */
+	self.getDescription = function() {
+		return description;
+	}
+  	
+  /**
+   * Sets the description of this resource.
+   * Note: the description must be in html code, since it is displayed
+   * in the html pane of the LibraryTreePanel if the html path is empty.
+   * 
+   * @param desc the description in HTML code
+   * @return true if changed
+   */
+	self.setDescription = function(desc) {
+		desc = (!desc)? "": desc.trim();
+		if (desc != description) {
+			description = desc;
+			return true;
+		}
+		return false;
+	}
+  	
+  /**
+   * Gets the type of resource.
+   *
+   * @return the one of the static constant types defined in this class
+   */
+	self.getType = function() {
+		return type;
+	}
+  	
+  /**
+   * Sets the type of this resource.
+   * The types are static constants defined in this class.
+   * 
+   * @param type the type
+   * @return true if changed
+   */
+	self.setType = function(tp) {
+		if (type != tp) {
+			type = tp;
+			return true;
+		}
+		return false;
+	}
+	
+  /**
+   * Sets an arbitrary property.
+   * 
+   * @param name the name of the property
+   * @param value the value of the property
+   */
+	self.setProperty = function(name,value) {
+		properties[name] = value;
+	}
+	
+  /**
+   * Gets a property value. May return null.
+   * 
+   * @param name the name of the property
+   * @return the value of the property
+   */
+	self.getProperty = function(name) {
+		return properties[name];
+	}
+			
+  /**
+   * Gets the thumbnail of this resource, if any.
+   *
+   * @return the thumbnail
+   */
+	self.getThumbnail = function() {
+		return thumbnail;
+	}
+
+  /**
+   * Gets the thumbnail of this resource, if any.
+   *
+   * @param imagePath the path to a thumbnail image
+   */
+	self.setThumbnail = function(imagePath) {
+		thumbnail = imagePath;
+	}
+
+	/***
+	 * To JSON
+	 */	
+	self.toJSON = function() {
+		var json = {};
+		json["id"] = id;
+		json["parent"] = parentid;
+		json["text"] = name;
+		json["type"] = "file";		
+		json["data"] = {};
+		json["data"]["htmlPath"] = htmlPath;
+		json["data"]["basePath"] = basePath;
+		json["data"]["description"] = description; 
+		json["data"]["target"] = target; 
+		json["data"]["type"] = type;
+		json["data"]["thumbnail"] = thumbnail;		
+		return json;
+	}
+
+	return self;    
+}
+
+/* 
+ * WebEJS_TOOLS.libraryCollection
+ */
+WebEJS_TOOLS.libraryCollection = function(parentid,name) {
+	var self = WebEJS_TOOLS.libraryResource(parentid,name);	
+  	var resources = {};      
+    
+  /**
+   * Adds a resource to the end of this collection.
+   *
+   * @param resource the resource
+   */
+	self.addResource = function(resource) {
+  		if (!resources[resource.getName()]) {
+  			resources[resource.getName()] = resource;
+  		}
+  	}
+    
+  /**
+   * Removes a resource from this collection.
+   *
+   * @param resource the resource to remove
+   */
+	self.removeResource = function(resource) {
+  		if(resources[resource.getName()])
+  			delete resources[resource.getName()];
+  	}
+  
+  /**
+   * Gets the array of resources in this collection.
+   *
+   * @return an array of resources
+   */
+	self.getResources = function() {
+		return resources;
+	}
+	
+	/***
+	 * To JSON
+	 */	
+	self.toJSON = function() {
+		var coljson = [];
+		
+		// collection root
+		var json = {};
+		json["id"] = self.getId();
+		json["parent"] = self.getParent();
+		json["text"] = self.getName();
+		json["type"] = "folder";
+		if(self.getName() === WebEJS_TOOLS.LibraryComPADRE.GENERIC_COLLECTION_NAME) 
+			json["state"] = { opened: true, selected: true, disabled: false };			
+		json["data"] = {};
+		json["data"]["htmlPath"] = self.getHTMLPath();
+		json["data"]["basePath"] = self.getBasePath();
+		json["data"]["description"] = self.getDescription(); 
+		json["data"]["target"] = self.getTarget(); 
+		json["data"]["type"] = self.getType();
+		json["data"]["thumbnail"] = self.getThumbnail();		
+		coljson.push(json);
+		
+		// resources
+		for(var i in resources) {
+			var resource = resources[i];
+			coljson = coljson.concat(resource.toJSON());			
+		}
+		
+		return coljson;
+	}
+	
+	self.setType(WebEJS_TOOLS.LibraryResource.COLLECTION_TYPE);
+	return self;
+}
+
+/* 
+ * WebEJS_TOOLS.libraryComPADRE
+ */
+WebEJS_TOOLS.libraryComPADRE = function() {
+	var self = {};
+
+	self.getNameFromId = function(id) {
+		return id.substr(id.lastIndexOf("/")+1);
+	}
+
+	/**
+	 * Loads a collection using a specified comPADRE search query.
+	 * 
+	 * @param collection the LibraryCollection to load
+	 * @param query the search query
+	 * @return true if successfully loaded
+	 */
+	self.load = function(collection, doc) {		
+		var nodeList = doc.getElementsByTagName("Identify");
+		var success = false;
+		for (var i = 0; i < nodeList.length; i++) {
+			success = loadSubtrees(collection, 
+				nodeList.item(i).childNodes, "osp-subject", "") || success;
+		}
+		return success;
+	}
+
+	/**
+	 * Loads a collection with subtree collections that meet the specified requirements.
+	 * 
+	 * @param collection the LibraryCollection to load
+	 * @param nodeList a list of Nodes
+	 * @param attributeType the desired attribute
+	 * @param serviceParameter the desired service parameter
+	 * @return true if at least one subtree collection was loaded
+	 */
+	function loadSubtrees(collection, nodeList, attributeType, serviceParameter) {
+		var success = false;
+		var dblClick = WebEJS_TOOLS.LibraryComPADRE.Description_DoubleClick;
+		var parentId = collection.getId();
+		for (var i = 0; i < nodeList.length; i++) {
+			if (!(nodeList.item(i) instanceof Element))	continue;
+			
+			var node = nodeList.item(i);
+			if (node.nodeName.toLowerCase() == "sub-tree-set" && attributeType == node.getAttribute("type")) { 
+				var subTrees = getAllChildren(node, "sub-tree");
+				if (subTrees.length > 0) { // node has subcategories
+					var unclassifiedURL = null;
+					for (var j = 0; j < subTrees.length; j++) {
+						if (!(subTrees[j] instanceof Element))
+							continue;
+						var subtree =  subTrees[j];
+						var name = subtree.getAttribute("name"); 
+						var serviceParam = subtree.getAttribute("service-parameter"); 
+						serviceParam = serviceParameter + "&" + getNonURIPath(serviceParam);
+						if (name == "Unclassified") { // unclassified node is processed last and adds its records to the parent
+							unclassifiedURL = serviceParam;
+							continue;
+						}
+						var subCollection = WebEJS_TOOLS.libraryCollection(parentId,name);
+						collection.addResource(subCollection);
+						success = true;
+						if (getAllChildren(subtree, "sub-tree-set").length == 0) { // has no subcategories
+							var nodeName = "<h2>" + name + "</h2><blockquote>"; 
+							subCollection.setDescription(nodeName + dblClick + "</blockquote>"); 
+							subCollection.setTarget(serviceParam);
+						} else
+							loadSubtrees(subCollection,
+									subtree.childNodes, attributeType + "-detail", serviceParam); 
+					}
+					if (unclassifiedURL != null) {
+						collection.setTarget(unclassifiedURL);
+					}
+				}
+			}
+		}
+		return success;
+	}
+
+	/**
+	 * Get description for collection
+	 * 
+	 */
+	self.getResources = function(collection, doc) {
+		var success = false;
+		var authorTitle = WebEJS_TOOLS.LibraryComPADRE.Description_Author; 
+		var sizeTitle = WebEJS_TOOLS.LibraryComPADRE.Description_DownloadSize; 
+		var infoFieldTitle = WebEJS_TOOLS.LibraryComPADRE.Description_InfoField; 
+
+		// construct the complete tree path of the resource
+		var parentList = ""; 
+		var parentId = collection.getId();
+		
+		var list = doc.getElementsByTagName("record"); 
+		for (var i = 0; i < list.length; i++) { // process nodes
+			var node = list.item(i);
+			// String ospType = getChildValue(node, "osp-type"); 
+			var attachment = null;
+			//if (ospType.startsWith("EJS")) { 
+				attachment = getAttachment(node, "Source Code");       		
+			//} else {
+				//attachment = getAttachment(node, "EJSS Model"); 
+			//	if (attachment == null) {
+			//		attachment = getAttachment(node, "Supplemental"); 
+			//	}
+			//}
+			// ignore node if there is no associated attachment
+			if (attachment == null)
+				continue;
+			// get the node data
+			var name = getChildValue(node, "title"); 
+			var record = WebEJS_TOOLS.libraryResource(parentId,name);
+			collection.addResource(record);
+			var downloadURL = processURL(attachment[0]);
+			record.setTarget(downloadURL);
+			record.setProperty("download_filename", attachment[1]); 
+			var type = getChildValue(node, "osp-type").toUpperCase(); 
+			type = type.indexOf("EJS") === 0 ? WebEJS_TOOLS.LibraryResource.EJS_TYPE : 
+					(type == "TRACKER") ? WebEJS_TOOLS.LibraryResource.TRACKER_TYPE : WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE; 
+			record.setType(type);
+			var description = getChildValue(node, "description"); 
+			var infoURL = getChildValue(node, "information-url"); 
+			var thumbnailURL = getChildValue(node, "thumbnail-url"); 
+			var authors = "";
+			var children = getAllChildren(getFirstChild(node, "contributors"), "contributor"); 
+			for (var j in children) {
+				var el = children[j];  
+				if ("Author" == (el.getAttribute("role")))
+					authors += getNodeValue(el) + ", "; 
+			}
+			if (endsWith(authors,", ")) 
+				authors = authors.substring(0, authors.length - 2);
+			// assemble the html description
+			var buffer = [];
+			buffer.push("<p align=\"center\"><img src=\"" + thumbnailURL + "\" alt=\"" + name + "\"></p>"); 
+			buffer.push("<p><b>" + parentList + "</b></p>");
+			buffer.push("<h2>" + name + "</h2>");  
+			if (authors.length > 0)
+				buffer.push("<p><b>" + authorTitle + ":</b> " + authors + "</p>");
+			if(description) buffer.push("<p>" + description.replace(/\n([ \t]*\n)+/g, "</p><p>").replace("\n", "<br />") + "</p>");
+			buffer.push("<p><b>" + infoFieldTitle + "</b><br><a href=\"" + infoURL + "\" target=\"_blank\">" + infoURL + "</a></p>");  
+			buffer.push("<p><b>" + sizeTitle + "</b> " + attachment[2] + " bytes</p>");  
+			record.setDescription(buffer.join(""));
+			success = true;
+		}
+
+		return success;
+	}
+
+	/**
+	 * Returns data for a downloadable DOM Node attachment.
+	 * 
+	 * @param node the DOM Node
+	 * @param attachmentType the attachment type
+	 * @return String[] {URL, filename, size in Bytes}, or null if no attachment found
+	 */
+	function getAttachment(node, attachmentType) {
+		var id = getChildValue(node, "file-identifier"); 
+		var childList = node.childNodes;
+		var attachment = null;
+		for (var i = 0, n = childList.length; i < n; i++) {
+			var child = childList.item(i);
+			if (!child.nodeName.toLowerCase() == "attached-document")continue; 
+			var fileTypeNode = getFirstChild(child, "file-type"); 
+			if (fileTypeNode != null
+					&& attachmentType == getNodeValue(fileTypeNode)) {				
+				var urlNode = getFirstChild(child, "download-url"); 
+				if (urlNode != null) { // found downloadable attachment
+					// keep first attachment or (preferred) attachment with the
+					// same id as the node
+					if (attachment == null
+							|| id == getChildValue(child, "file-identifier")) { 
+						var attachmentURL = getNodeValue(urlNode);
+						var fileNode =  getFirstChild(child,
+								"file-name"); 
+						if (fileNode != null) {
+							attachment = [attachmentURL,
+									getNodeValue(fileNode),
+									fileNode.getAttribute("file-size") ]; 
+						} else
+							attachment = [attachmentURL, null, null];
+					}
+				}
+			}
+		}
+		return attachment;
+	}
+
+	/**
+	 * Returns the first child node with the given name.
+	 * 
+	 * @param parent the parent Node
+	 * @param name the child name
+	 * @return the first child Node found, or null if none
+	 */
+	function getFirstChild(parent, name) {
+		var childList = parent.childNodes;
+		for (var i = 0, n = childList.length; i < n; i++) {
+			var child = childList.item(i);
+			if (child.nodeName.toLowerCase() == name.toLowerCase())
+				return child;
+		}
+		return null;
+	}
+
+	/**
+	 * Returns all child nodes with the given name.
+	 * 
+	 * @param parent the parent Node
+	 * @param name the name
+	 * @return a list of Nodes (may be empty)
+	 */
+	function getAllChildren(parent, name) {
+		var list = [];
+		var childrenList = parent.childNodes;
+		for (var i = 0, n = childrenList.length; i < n; i++) {
+			var child = childrenList.item(i);
+			if (child.nodeName.toLowerCase() == name.toLowerCase())
+				list.push(child);
+		}
+		return list;
+	}
+
+	/**
+	 * Gets the value of a Node.
+	 * 
+	 * @param node the Node
+	 * @return the value
+	 */
+	function getNodeValue(node) {
+		for (var child = node.childNodes[0]; child != null; child = child
+				.getNextSibling()) {
+			if (child.nodeType == Node.TEXT_NODE)
+				return child.nodeValue;
+		}
+		return null;
+	}
+
+	/**
+	 * Gets the value of the first child node with a given name.
+	 * 
+	 * @param parent the parent Node
+	 * @param name the name of the child
+	 * @return the value of the first child found, or null if none
+	 */
+	function getChildValue(parent, name) {
+		var node = getFirstChild(parent, name);
+		if (node != null)
+			return getNodeValue(node);
+		return null;
+	}
+
+	/**
+	 * Replaces "&amp" with "&" in HTML code.
+	 * 
+	 * @param url the HTML code
+	 * @return the clean URL string
+	 */
+	function processURL(url) {
+		var processed = [];
+		var index = url.indexOf("&amp;"); 
+		while (index >= 0) {
+			processed.push(url.subSequence(0, index + 1));
+			url = url.substring(index + 5);
+			index = url.indexOf("&amp;"); 
+		}
+		processed.push(url);
+		return processed.toString();
+	}
+
+	/**
+	 * Returns a descriptive name for a given ComPADRE path (query).
+	 * 
+	 * @param path the query string
+	 * @return the name of the collection
+	 */
+	function getCollectionName(path) {
+		if (path.indexOf(WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_TREE) === 0)
+			return WebEJS_TOOLS.LibraryComPADRE.EJS_COLLECTION_NAME;
+		if (path.indexOf(WebEJS_TOOLS.LibraryComPADRE.TRACKER_SERVER_TREE) === 0)
+			return WebEJS_TOOLS.LibraryComPADRE.TRACKER_COLLECTION_NAME;
+		return WebEJS_TOOLS.LibraryComPADRE.GENERIC_COLLECTION_NAME;
+	}
+
+	/**
+	 * Returns the LibraryCollection for a given ComPADRE path (query).
+	 * 
+	 * @param path the query string
+	 * @return the collection
+	 */
+	self.getCollection = function(parent, path, doc) {
+		var name = getCollectionName(path);
+		var primarySubjectOnly = path.indexOf(WebEJS_TOOLS.LibraryComPADRE.PRIMARY_ONLY) > -1;
+		var collection = WebEJS_TOOLS.libraryCollection(parent, name);
+		if (name == WebEJS_TOOLS.LibraryComPADRE.EJS_COLLECTION_NAME) {
+			collection.setHTMLPath(WebEJS_TOOLS.LibraryComPADRE.EJS_INFO_URL);
+		} else if (name == WebEJS_TOOLS.LibraryComPADRE.TRACKER_COLLECTION_NAME) {
+			collection.setHTMLPath(WebEJS_TOOLS.LibraryComPADRE.TRACKER_INFO_URL);
+		}
+		var aboutOSP = WebEJS_TOOLS.libraryResource(collection.getId(),WebEJS_TOOLS.LibraryComPADRE.ABOUT_OSP);
+		aboutOSP.setHTMLPath(WebEJS_TOOLS.LibraryComPADRE.OSP_INFO_URL);
+		collection.addResource(aboutOSP);
+		
+		self.load(collection, doc);
+		var base = WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_RECORDS;
+		if (name == WebEJS_TOOLS.LibraryComPADRE.TRACKER_COLLECTION_NAME) {
+			base = WebEJS_TOOLS.LibraryComPADRE.TRACKER_SERVER_RECORDS;
+		}
+		if (primarySubjectOnly)
+			base += WebEJS_TOOLS.LibraryComPADRE.PRIMARY_ONLY;
+		collection.setBasePath(base);
+		return collection;
+	}
+
+	/**
+	 * Returns the collection path for an EJS or tracker tree.
+	 * 
+	 * @param path the ComPADRE query string
+	 * @param primarySubjectOnly true to limit results to their primary subject
+	 * @return the corrected ComPADRE query string
+	 */
+	function getCollectionPath(path, primarySubjectOnly) {
+		var isPrimary = path.endsWith(PRIMARY_ONLY);
+		if (isPrimary && primarySubjectOnly)
+			return path;
+		if (!isPrimary && !primarySubjectOnly)
+			return path;
+		if (!isPrimary && primarySubjectOnly)
+			return path + PRIMARY_ONLY;
+		return path.substring(0, path.length() - PRIMARY_ONLY.length());
+	}
+
+	function endsWith(str, suffix) {
+    	return str.indexOf(suffix, str.length - suffix.length) !== -1;
+	}
+
+	/**
+	 * Determines if a query path limits results to the primary subject only.
+	 * 
+	 * @param path the path
+	 * @return true if path contains a primary-subject-only flag
+	 */
+	function isPrimarySubjectOnly(path) {
+		return path.indexOf(PRIMARY_ONLY) > -1;
+	}
+
+	function getNonURIPath(uriPath) {
+		if (uriPath == null)
+			return null;
+		var path = uriPath;
+		// String path = XML.forwardSlash(uriPath.trim());
+		// remove file protocol, if any
+		if (path.indexOf("file:") === 0) { 
+			path = path.substring(5);
+		}
+		// remove all but one leading slash
+		while (path.indexOf("//") === 0) { 
+			path = path.substring(1);
+		}
+		// remove last leading slash if drive is specified
+		if (path.indexOf("/") === 0 && path.indexOf(":") > -1) {
+			path = path.substring(1);
+		}
+		// replace "%20" with space
+		var j = path.indexOf("%20"); 
+		while (j > -1) {
+			var s = path.substring(0, j);
+			path = s + " " + path.substring(j + 3); 
+			j = path.indexOf("%20"); 
+		}
+		// // replace "%26" with "&"
+		//	    j = path.indexOf("%26");                           
+		// while(j>-1) {
+		// String s = path.substring(0, j);
+		//	      path = s+"&"+path.substring(j+3);                
+		//	      j = path.indexOf("%26");                         
+		// }
+		return path;
+	}
+
+	return self;
+}();
+
+WebEJS_TOOLS.getComPADRECollectionIndex = function(primaryOnly,listener) {
+	return WebEJS_TOOLS.getComPADRECollection(null,null,null,listener,primaryOnly ? {'primary_only' : true} : { });
+}
+
+
+WebEJS_TOOLS.getComPADRESearchCollection = function(searchString, listener) {
+	return WebEJS_TOOLS.getComPADRECollection(null,null,null,listener, { 'search' : searchString });
+}
+
+/*
+ * Manage the download of the library from url
+ */
+WebEJS_TOOLS.getComPADRECollection = function(url, parentID, nodeID, listener, options) {
+	const isroot = (parentID == null);
+	if (url) url = WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_RECORDS + url;
+	else {
+    if ('search' in options) {
+      url = WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_SEARCH + encodeURIComponent(options['search']);
+    }
+		else {
+      url = WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_TREE;
+      if ('primary_only' in options) url += WebEJS_TOOLS.LibraryComPADRE.PRIMARY_ONLY;
+    }
+		parentID = '#';
+	}
+  //console.log('url='+url);
+    // connection
+	$.ajax({
+		type: 'POST', 
+		url: url,
+		headers: { "Content-type":"application/x-www-form-urlencoded" },
+		dataType: 'xml',
+		processData: false,
+		success : xml_data => {
+    	//console.log("Received:");
+			//console.log(xml_data); 
+	    if (isroot) { // get collections
+	    	// add elements into treeBuilder
+		    var library = WebEJS_TOOLS.libraryComPADRE.getCollection(parentID, url, xml_data);	
+				listener(true,library.toJSON());		    		
+	    } 
+			else { // get resources
+		  	// add elements into treeBuilder
+		    var nodeName = WebEJS_TOOLS.libraryComPADRE.getNameFromId(nodeID);
+		    var collection = WebEJS_TOOLS.libraryCollection(parentID,nodeName);
+		    const success = WebEJS_TOOLS.libraryComPADRE.getResources(collection, xml_data);
+		    listener(success,collection.toJSON());
+			}
+		},
+			error : error => { 
+        sMessageForm.showWarning('Error',"No XML content in OSP connection!", error);	
+			}
+		});
+
+	return;
+
+}    
+
+
+/*
+ * Copyright (C) 2024 Francisco Esquembre 
+ */
+
+/**
+ * GUI tools
+ * @module core
+ */
+
+var WebEJS_TOOLS = WebEJS_TOOLS || {};
+
+WebEJS_TOOLS.phpCollection = function (url,listener) {
+  const PHP_JS_COMMAND="/indexEJSSdl.php?prefix=ejss_src_";
+
+  const fullUrl = url+PHP_JS_COMMAND;
+
+  fetch(fullUrl, {
+    method: 'GET', // O 'POST' si necesitas enviar datos adicionales
+  })
+  .then(response => response.text()) // Cambia a .json() si la respuesta es JSON
+  .then(collection => {
+    const json = WebEJS_TOOLS.convertXmlStringToJson(collection);
+    listener(json)
+  })
+  .catch(error => console.error('Error:', error));
+	
+}    
+
+WebEJS_TOOLS.convertXmlStringToJson = function(xmlString) {
+  function xmlToJson(xml) {
+    // Crear el objeto JSON
+    let obj = {};
+
+    // Si el nodo tiene atributos, añadirlos al objeto
+    if (xml.nodeType === 1 && xml.attributes.length > 0) {
+        obj["@attributes"] = {};
+        for (let j = 0; j < xml.attributes.length; j++) {
+            const attribute = xml.attributes.item(j);
+            obj["@attributes"][attribute.nodeName] = attribute.nodeValue;
+        }
+    }
+
+    // Si el nodo tiene hijos, recorrerlos
+    if (xml.hasChildNodes()) {
+        for (let i = 0; i < xml.childNodes.length; i++) {
+            const childNode = xml.childNodes.item(i);
+            const nodeName = childNode.nodeName;
+
+            if (childNode.nodeType === 1) { // Si es un nodo de tipo elemento (element node)
+                if (!obj[nodeName]) {
+                    obj[nodeName] = xmlToJson(childNode);
+                } else {
+                    if (!Array.isArray(obj[nodeName])) {
+                        const old = obj[nodeName];
+                        obj[nodeName] = [old];
+                    }
+                    obj[nodeName].push(xmlToJson(childNode));
+                }
+            } else if (childNode.nodeType === 3 && childNode.nodeValue.trim()) { // Si es un nodo de tipo texto (text node)
+                obj = childNode.nodeValue.trim();
+            }
+        }
+    }
+    return obj;
+  }
+
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+    return xmlToJson(xmlDoc.documentElement);
+}
+
+/*
+// Tu string XML
+const xmlString = `
+<?xml version="1.0" encoding="UTF-8"?>
+<dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/" html="info.html">
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/3Ddemo/" name="3Ddemo"></dir>
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Biology/" name="Biology"></dir>
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Chemistry/" name="Chemistry"></dir>
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Computer Science/" name="Computer Science">
+        <model name="GameOfLife" html="ejss_html_GameOfLife.html" zip="ejss_src_GameOfLife.zip">ejss_src_GameOfLife</model>
+    </dir>
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Elements/" name="Elements">
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Elements/Drawables2D/" name="Drawables2D"></dir>
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Elements/Interface/" name="Interface"></dir>
+    </dir>
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Mathematics/" name="Mathematics">
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Mathematics/ODE/" name="ODE">
+            <model name="ArenstorfOrbit" html="ejss_html_ArenstorfOrbit.html" zip="ejss_src_ArenstorfOrbit.zip">ejss_src_ArenstorfOrbit</model>
+        </dir>
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Mathematics/PDE/" name="PDE"></dir>
+    </dir>
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Physics/" html="info.html" name="Physics">
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Physics/Astronomy/" name="Astronomy"></dir>
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Physics/Electromagnetism/" html="info.html" name="Electromagnetism"></dir>
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Physics/Mechanics/" html="info.html" name="Mechanics">
+            <model name="MassAndSpring" html="ejss_html_MassAndSpring.html" zip="ejss_src_MassAndSpring.zip">ejss_src_MassAndSpring</model>
+        </dir>
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/Physics/Thermodynamics/" name="Thermodynamics"></dir>
+    </dir>
+    <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/TechnicalExamples/" name="TechnicalExamples">
+        <dir url="https://www.um.es/fem/EjsDL/JavaEJSExamples/TechnicalExamples/HtmlView/" name="HtmlView">
+            <model name="ZoomViewExample" html="ejss_html_ZoomViewExample.html" zip="ejss_src_ZoomViewExample.zip">ejss_src_ZoomViewExample</model>
+        </dir>
+    </dir>
+</dir>`;
+
+// Convertir el string XML a JSON
+const json = convertXmlStringToJson(xmlString);
+console.log(json);
+*/
 /*
  * Copyright (C) 2023 Francisco Esquembre
  * 2023 08 This code is adapted from the IODA graphic data analysis tool
@@ -10896,6 +12557,8 @@ function getTree(listing, parent_folder) {
           <li><hr class="dropdown-divider m-0"></li>
           <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Upload">Upload File</li>
           <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Subfolder">Create Subfolder</li>
+          <li><hr class="dropdown-divider m-0"></li>
+          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Download">Download Folder</li>
         `;
       }
       html = basicHtml.replace( /#\{ID\}/g,   mModalID )
@@ -10926,9 +12589,9 @@ function getTree(listing, parent_folder) {
         iconStr  = isExtensionAccepted ? FILE_ICON_CLASS : NON_FILE_ICON_CLASS;
         itemOptions = `
           <li><hr class="dropdown-divider m-0"></li>
-          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Inspect">Inspect File</li>
+          <li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Download">Download File</li>
           `;      
-          //<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Download">Download File</li>
+          //<li class="dropdown-item sTranslatable  cFileChooserMenuItem" data-action="Inspect">Inspect File</li>
       }
       html = basicHtml.replace( /#\{ID\}/g,   mModalID )
                       .replace( /#\{PADDING\}/g, leftPadding ) 
@@ -11130,7 +12793,7 @@ function getTree(listing, parent_folder) {
     const treeItem = $( event.target ).closest('.list-group-item');
     const action   = $( event.target ).data('action');
     const path = treeItem.data('path');
-    console.log("Action "+action + " for path: "+path);
+    //console.log("Action "+action + " for path: "+path);
     switch (action) {
       case "Rename" :
         mModal.hide();
@@ -11152,9 +12815,7 @@ function getTree(listing, parent_folder) {
         inspectFile(path);
         break;
       case "Download"  :
-        const index = path.lastIndexOf('/');
-        const name = (index<0) ? path : path.substring(index+1);
-        sMainFilenameForm.show(name, filename => { downloadFile(path,filename); });
+        downloadFile(path);
         break;
     }
   });  
@@ -11164,6 +12825,32 @@ function getTree(listing, parent_folder) {
     window.open(url, '_blank');
   }
 
+  function downloadFile(filepath) {
+    if (filepath.endsWith('/')) // download a directory
+      filepath = filepath.substring(0,filepath.length-1);
+
+    const index = filepath.lastIndexOf('/');
+    const name = (index<0) ? filepath : filepath.substring(index+1);
+    sMainFilenameForm.show(name+'.zip', filename => {
+      if (!TEXT_TOOLS.isValidFilename(filename)) {
+        sMainGUI.errorLine(sMainResources.getString("This filename may cause problems")+" : "+filename); 
+        sMainGUI.errorLine(sMainResources.getString("Please, consider instead: ")+" : "+TEXT_TOOLS.sanitizeFilename(filename)); 
+        sMessageForm.showWarning("Filename invalid", filename, "Check out the output area.");
+        return;
+      }
+      mFileServer.userFileCommand({ command : 'Download', path : filepath, filename: filename },
+        (params) => { 
+					sMainGUI.logLine(sMainResources.getString("File correctly downloaded "+params['filename']));
+					console.log(params);
+					sMainCheckUnload = false;
+          window.location = params['url'];
+				},	
+        'User file command failed:'+arguments);
+      }
+    );
+  };
+
+  /*
   function downloadFile(path, filename) {
     var anchor = document.createElement('a');
     anchor.download = filename;
@@ -11172,7 +12859,7 @@ function getTree(listing, parent_folder) {
     anchor.click();
     anchor.remove();
   }
-
+*/
   // Rename actions
 
   $('#'+mModalID+'-rename_modal').on('show.bs.modal', function (event) {
@@ -11246,17 +12933,17 @@ function getTree(listing, parent_folder) {
     var new_path;
     if (path.endsWith('/')) { // duplicate a directory
       const pathStripped = path.substring(0,path.length-1);
-      new_path = pathStripped + ' copy/';
+      new_path = pathStripped + '_copy/';
       var counter = 1;
       while (pathExistsInTree(new_path) && counter<1000) {
-        new_path = pathStripped + ' copy '+(++counter)+'/';
+        new_path = pathStripped + '_copy_'+(++counter)+'/';
       }
     }
     else {
-      new_path = path + ' copy';
+      new_path = path + '_copy';
       var counter = 1;
       while (pathExistsInTree(new_path) && counter<1000) {
-        new_path = path + ' copy '+(++counter);
+        new_path = path + '_copy_'+(++counter);
       }
     }
     mFileServer.userFileCommand({ command : 'Duplicate', path : path, new_path : new_path },
@@ -11373,7 +13060,7 @@ function getTree(listing, parent_folder) {
   $('#'+mModalID+'-new_folder_modal .ok_button').click(function() {
     const foldername = $('#'+mModalID+'-new_folder_name').val().trim();
     if (foldername.length>0) {
-      if (!checkValidFile(mNewFolderTargetPath,foldername,mFolderModal)) return;  
+      if (!checkValidFilename(mNewFolderTargetPath,foldername,mFolderModal)) return;  
       const fullPath = mNewFolderTargetPath+foldername;
       mFileServer.userFileCommand({ command : 'NewFolder', path : fullPath },
         function(params) { 
@@ -11394,9 +13081,6 @@ function getTree(listing, parent_folder) {
     $('#'+mModalID).on('dragenter', '.list-group-item,.breadcrumb-item', function (event) {
       event.preventDefault(); 
       var target = $(event.currentTarget);
-      console.log('Currenttarget:');
-      console.log(target);
-      console.log(target.attr('class'));
       if (!target.hasClass('breadcrumb-item')) {
         
       target = target.closest('.list-group-item');
@@ -12910,8 +14594,8 @@ WebEJS_GUI.libraryChooser = function() {
 	var mListener = null;
 
 	self.show = function(listener) {
-		WebEJS_TOOLS.getComPADRECollectionIndex(function(success, collection) { 
-				console.log(collection);
+		WebEJS_TOOLS.getComPADRECollectionIndex(false,function(success, collection) { 
+				//console.log(collection);
 				mListener = listener;
 				mOriginalPath = null;
 				_show(collection);
@@ -13015,17 +14699,19 @@ WebEJS_GUI.libraryChooser = function() {
   
   function expandItem(treeItem) {
 	  const hash = treeItem.data('hash');
-		console.log("You selected folder :"+getItemName(treeItem));
+		//console.log("You selected folder :"+getItemName(treeItem));
 	  const target = getItemTarget(treeItem);
 	  if (target) {
-			console.log("Expanding folder with target:"+target);
+			//console.log("Expanding folder with target:"+target);
 		  WebEJS_TOOLS.getComPADRECollection(target, getItemID(getParentItem(treeItem)), getItemID(treeItem), 
 				function(success, collection) { 
 					addToCollection(hash,collection);	
-					console.log(collection);
+					//console.log(collection);
 					clearItemTarget(treeItem);
 					showItemHtml(treeItem);
-			});				
+			  },
+        {'primary_only' : true }
+      );				
 	  }
   }
 
@@ -13212,7 +14898,7 @@ WebEJS_GUI.libraryChooser = function() {
 		if (!mCurrentItem) return;
 		mModal.hide();
 		const url = getItemTarget(mCurrentItem);
-		console.log("url selected = "+url);
+		//console.log("url selected = "+url);
 		mListener(getItemTarget(mCurrentItem),getItemName(mCurrentItem));
 	});
 	
@@ -13241,7 +14927,7 @@ WebEJS_GUI.libraryChooser = function() {
   $(mCollectionDiv).on('dblclick', '.cLibraryChooserName', function (event) {
 	  const treeItem = $(event.currentTarget).closest('.list-group-item');
 		const type = getItemType(treeItem);
-		console.log("You selected item "+getItemName(treeItem));
+		//console.log("You selected item "+getItemName(treeItem));
 		if (type=='Collection') {
 			expandItem(treeItem);
 			const icon = $(event.currentTarget).siblings('.state-icon');
@@ -13253,7 +14939,7 @@ WebEJS_GUI.libraryChooser = function() {
 		else if (type=="EJS") {
 			mModal.hide();
 			const url = getItemTarget(treeItem);
-			console.log("url selected = "+url);
+			//console.log("url selected = "+url);
 			mListener(getItemTarget(treeItem),getItemName(treeItem));
 		}
 		});
@@ -13305,807 +14991,6 @@ WebEJS_GUI.libraryChooser = function() {
 
   return self;
 }
-/*
- * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
- * This code is part of the WebEJS authoring and simulation tool
- *
- * BASED ON PREVIOUS CODE:
- *
- * Copyright 2015 - Félix J. García
- * 
- * @author Félix J. García (fgarcia@um.es)
- */
-
-/**
- * GUI tools
- * @module core
- */
-
-var WebEJS_TOOLS = WebEJS_TOOLS || {};
-
-WebEJS_TOOLS.LibraryComPADRE = {
-	OSP_INFO_URL: "https://www.compadre.org/OSP/online_help/EjsDL/OSPCollection.html",
-	EJS_SERVER_TREE_LOCAL: "osp.php?basename=tree",
-	EJS_SERVER_TREE: "https://www.compadre.org/services/rest/osp_ejss.cfm?verb=Identify&OSPType=EJSS+Model",
-	EJS_SERVER_RECORDS_LOCAL: "osp.php?basename=records",
-	EJS_SERVER_RECORDS: "https://www.compadre.org/osp/services/REST/osp_ejss.cfm?OSPType=EJSS+Model",
-	EJS_SERVER_SEARCH: "https://www.compadre.org/osp/services/REST/search_v1_02.cfm?verb=Search&OSPType=EJSS+Model&Skip=0&Max=30&q=",	  
-	
-	EJS_COLLECTION_NAME: "EJS OSP Collection",
-	EJS_INFO_URL: "http://www.compadre.org/OSP/online_help/EjsDL/DLModels.html",
-	TRACKER_SERVER_TREE: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?verb=Identify&OSPType=Tracker",
-	TRACKER_SERVER_RECORDS: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?OSPType=Tracker",
-	TRACKER_COLLECTION_NAME: "Tracker OSP Collection",
-	TRACKER_INFO_URL: "https://physlets.org/tracker/library/comPADRE_collection.html",
-	PRIMARY_ONLY: "&OSPPrimary=Subject",
-	GENERIC_COLLECTION_NAME: "AAPT-ComPADRE OSP Collection",
-	ABOUT_OSP: "About OSP and AAPT-ComPADRE",
-
-	Description_DoubleClick: "dblClick",
-	Description_Author: "Author",
-	Description_DownloadSize: "Download Size", 
-	Description_InfoField: "Info"
-}
-
-WebEJS_TOOLS.LibraryResource = {
-   	UNKNOWN_TYPE: "Unknown",
-   	COLLECTION_TYPE: "Collection",
-   	TRACKER_TYPE: "Tracker",
-   	EJS_TYPE: "EJS",
-   	VIDEO_TYPE: "Video",
-   	HTML_TYPE: "HTML",
-   	PDF_TYPE: "PDF"
-}
-
-/* 
- * WebEJS_TOOLS.libraryResource
- */
-WebEJS_TOOLS.libraryResource = function(parentid, name) {
-	var self = {};
-	var htmlPath=""; // rel or abs path to html that describes this resource
-	var basePath=""; // base path for target and/or info
-	var description=""; 
-	var target=""; // rel or abs path to target 
-	var type=WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE;
-  	var properties = {};
-    var thumbnail;
-    var id = parentid + "/" + name;
-
-  /**
-   * Gets the id of its parent.
-   *
-   * @return the parent id
-   */
-	self.getParent = function() {
-		return parentid;
-	}
-	
-  /**
-   * Gets the name of this resource (never null).
-   *
-   * @return the name
-   */
-	self.getName = function() {
-		return name;
-	}
-
-  /**
-   * Gets the id of this resource (never null).
-   *
-   * @return the id
-   */
-	self.getId = function() {
-		return id;
-	}
-		
-  /**
-   * Gets the base path.
-   *
-   * @return the base path
-   */
-	self.getBasePath = function() {
-		return basePath;
-	}
-	
-  /**
-   * Sets the base path of this resource.
-   * 
-   * @param path the base path
-   * @return true if changed
-   */
-	self.setBasePath = function(path) {
-		path = (!path)? "": path.trim(); 
-		if (path != basePath) {
-			basePath = path;
-			return true;
-		}
-		return false;
-	}
-	
-  /**
-   * Gets the target of this resource (file name or comPADRE command).
-   *
-   * @return the target
-   */
-	self.getTarget = function() {
-		return target;
-	}
-
-	function endsWith(str, suffix) {
-    	return str.indexOf(suffix, str.length - suffix.length) !== -1;
-	}
-
-  /**
-   * Sets the target of this resource.
-   * 
-   * @param path the target path
-   * @return true if changed
-   */
-	self.setTarget = function(path) {
-		path = (!path)? "": path.trim(); 
-		if (path != target) {
-			thumbnail = null;
-			target = path;
-			path = path.toUpperCase();
-			if (endsWith(path,".TRK")) 
-				self.setType(WebEJS_TOOLS.LibraryResource.TRACKER_TYPE);
-			else if (endsWith(path,".PDF")) 
-				self.setType(WebEJS_TOOLS.LibraryResource.PDF_TYPE);
-			else if (path.indexOf("EJS")>-1) { 
-				self.setType(WebEJS_TOOLS.LibraryResource.EJS_TYPE);
-			} else if (path == "") { 
-				if (self.getHTMLPath() == null)
-					self.setType(WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE);
-				else
-					self.setType(WebEJS_TOOLS.LibraryResource.HTML_TYPE);
-			}
-			return true;
-		}
-		return false;
-	}
-	
-  /**
-   * Gets the path to the html page displayed in the browser.
-   *
-   * @return the html path
-   */
-	self.getHTMLPath = function() {
-		return htmlPath;
-	}
-	  	
-  /**
-   * Sets the html path of this resource.
-   * 
-   * @param path the html path
-   * @return true if changed
-   */
-	self.setHTMLPath = function(path) {
-		path = (!path)? "": path.trim();
-		if (path != htmlPath) {
-			htmlPath = path;
-			if (!(self.addResource) // not collection 
-					&& self.getTarget() == "") {
-				if (path == "")	self.setType(WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE);
-				else self.setType(WebEJS_TOOLS.LibraryResource.HTML_TYPE);
-			}
-			return true;
-		}
-		return false;
-	}
-	
-  /**
-   * Gets the description, which must be in html code.
-   *
-   * @return the description
-   */
-	self.getDescription = function() {
-		return description;
-	}
-  	
-  /**
-   * Sets the description of this resource.
-   * Note: the description must be in html code, since it is displayed
-   * in the html pane of the LibraryTreePanel if the html path is empty.
-   * 
-   * @param desc the description in HTML code
-   * @return true if changed
-   */
-	self.setDescription = function(desc) {
-		desc = (!desc)? "": desc.trim();
-		if (desc != description) {
-			description = desc;
-			return true;
-		}
-		return false;
-	}
-  	
-  /**
-   * Gets the type of resource.
-   *
-   * @return the one of the static constant types defined in this class
-   */
-	self.getType = function() {
-		return type;
-	}
-  	
-  /**
-   * Sets the type of this resource.
-   * The types are static constants defined in this class.
-   * 
-   * @param type the type
-   * @return true if changed
-   */
-	self.setType = function(tp) {
-		if (type != tp) {
-			type = tp;
-			return true;
-		}
-		return false;
-	}
-	
-  /**
-   * Sets an arbitrary property.
-   * 
-   * @param name the name of the property
-   * @param value the value of the property
-   */
-	self.setProperty = function(name,value) {
-		properties[name] = value;
-	}
-	
-  /**
-   * Gets a property value. May return null.
-   * 
-   * @param name the name of the property
-   * @return the value of the property
-   */
-	self.getProperty = function(name) {
-		return properties[name];
-	}
-			
-  /**
-   * Gets the thumbnail of this resource, if any.
-   *
-   * @return the thumbnail
-   */
-	self.getThumbnail = function() {
-		return thumbnail;
-	}
-
-  /**
-   * Gets the thumbnail of this resource, if any.
-   *
-   * @param imagePath the path to a thumbnail image
-   */
-	self.setThumbnail = function(imagePath) {
-		thumbnail = imagePath;
-	}
-
-	/***
-	 * To JSON
-	 */	
-	self.toJSON = function() {
-		var json = {};
-		json["id"] = id;
-		json["parent"] = parentid;
-		json["text"] = name;
-		json["type"] = "file";		
-		json["data"] = {};
-		json["data"]["htmlPath"] = htmlPath;
-		json["data"]["basePath"] = basePath;
-		json["data"]["description"] = description; 
-		json["data"]["target"] = target; 
-		json["data"]["type"] = type;
-		json["data"]["thumbnail"] = thumbnail;		
-		return json;
-	}
-
-	return self;    
-}
-
-/* 
- * WebEJS_TOOLS.libraryCollection
- */
-WebEJS_TOOLS.libraryCollection = function(parentid,name) {
-	var self = WebEJS_TOOLS.libraryResource(parentid,name);	
-  	var resources = {};      
-    
-  /**
-   * Adds a resource to the end of this collection.
-   *
-   * @param resource the resource
-   */
-	self.addResource = function(resource) {
-  		if (!resources[resource.getName()]) {
-  			resources[resource.getName()] = resource;
-  		}
-  	}
-    
-  /**
-   * Removes a resource from this collection.
-   *
-   * @param resource the resource to remove
-   */
-	self.removeResource = function(resource) {
-  		if(resources[resource.getName()])
-  			delete resources[resource.getName()];
-  	}
-  
-  /**
-   * Gets the array of resources in this collection.
-   *
-   * @return an array of resources
-   */
-	self.getResources = function() {
-		return resources;
-	}
-	
-	/***
-	 * To JSON
-	 */	
-	self.toJSON = function() {
-		var coljson = [];
-		
-		// collection root
-		var json = {};
-		json["id"] = self.getId();
-		json["parent"] = self.getParent();
-		json["text"] = self.getName();
-		json["type"] = "folder";
-		if(self.getName() === WebEJS_TOOLS.LibraryComPADRE.GENERIC_COLLECTION_NAME) 
-			json["state"] = { opened: true, selected: true, disabled: false };			
-		json["data"] = {};
-		json["data"]["htmlPath"] = self.getHTMLPath();
-		json["data"]["basePath"] = self.getBasePath();
-		json["data"]["description"] = self.getDescription(); 
-		json["data"]["target"] = self.getTarget(); 
-		json["data"]["type"] = self.getType();
-		json["data"]["thumbnail"] = self.getThumbnail();		
-		coljson.push(json);
-		
-		// resources
-		for(var i in resources) {
-			var resource = resources[i];
-			coljson = coljson.concat(resource.toJSON());			
-		}
-		
-		return coljson;
-	}
-	
-	self.setType(WebEJS_TOOLS.LibraryResource.COLLECTION_TYPE);
-	return self;
-}
-
-/* 
- * WebEJS_TOOLS.libraryComPADRE
- */
-WebEJS_TOOLS.libraryComPADRE = function() {
-	var self = {};
-
-	self.getNameFromId = function(id) {
-		return id.substr(id.lastIndexOf("/")+1);
-	}
-
-	/**
-	 * Loads a collection using a specified comPADRE search query.
-	 * 
-	 * @param collection the LibraryCollection to load
-	 * @param query the search query
-	 * @return true if successfully loaded
-	 */
-	self.load = function(collection, doc) {		
-		var nodeList = doc.getElementsByTagName("Identify");
-		var success = false;
-		for (var i = 0; i < nodeList.length; i++) {
-			success = loadSubtrees(collection, 
-				nodeList.item(i).childNodes, "osp-subject", "") || success;
-		}
-		return success;
-	}
-
-	/**
-	 * Loads a collection with subtree collections that meet the specified requirements.
-	 * 
-	 * @param collection the LibraryCollection to load
-	 * @param nodeList a list of Nodes
-	 * @param attributeType the desired attribute
-	 * @param serviceParameter the desired service parameter
-	 * @return true if at least one subtree collection was loaded
-	 */
-	function loadSubtrees(collection, nodeList, attributeType, serviceParameter) {
-		var success = false;
-		var dblClick = WebEJS_TOOLS.LibraryComPADRE.Description_DoubleClick;
-		var parentId = collection.getId();
-		for (var i = 0; i < nodeList.length; i++) {
-			if (!(nodeList.item(i) instanceof Element))	continue;
-			
-			var node = nodeList.item(i);
-			if (node.nodeName.toLowerCase() == "sub-tree-set" && attributeType == node.getAttribute("type")) { 
-				var subTrees = getAllChildren(node, "sub-tree");
-				if (subTrees.length > 0) { // node has subcategories
-					var unclassifiedURL = null;
-					for (var j = 0; j < subTrees.length; j++) {
-						if (!(subTrees[j] instanceof Element))
-							continue;
-						var subtree =  subTrees[j];
-						var name = subtree.getAttribute("name"); 
-						var serviceParam = subtree.getAttribute("service-parameter"); 
-						serviceParam = serviceParameter + "&" + getNonURIPath(serviceParam);
-						if (name == "Unclassified") { // unclassified node is processed last and adds its records to the parent
-							unclassifiedURL = serviceParam;
-							continue;
-						}
-						var subCollection = WebEJS_TOOLS.libraryCollection(parentId,name);
-						collection.addResource(subCollection);
-						success = true;
-						if (getAllChildren(subtree, "sub-tree-set").length == 0) { // has no subcategories
-							var nodeName = "<h2>" + name + "</h2><blockquote>"; 
-							subCollection.setDescription(nodeName + dblClick + "</blockquote>"); 
-							subCollection.setTarget(serviceParam);
-						} else
-							loadSubtrees(subCollection,
-									subtree.childNodes, attributeType + "-detail", serviceParam); 
-					}
-					if (unclassifiedURL != null) {
-						collection.setTarget(unclassifiedURL);
-					}
-				}
-			}
-		}
-		return success;
-	}
-
-	/**
-	 * Get description for collection
-	 * 
-	 */
-	self.getResources = function(collection, doc) {
-		var success = false;
-		var authorTitle = WebEJS_TOOLS.LibraryComPADRE.Description_Author; 
-		var sizeTitle = WebEJS_TOOLS.LibraryComPADRE.Description_DownloadSize; 
-		var infoFieldTitle = WebEJS_TOOLS.LibraryComPADRE.Description_InfoField; 
-
-		// construct the complete tree path of the resource
-		var parentList = ""; 
-		var parentId = collection.getId();
-		
-		var list = doc.getElementsByTagName("record"); 
-		for (var i = 0; i < list.length; i++) { // process nodes
-			var node = list.item(i);
-			// String ospType = getChildValue(node, "osp-type"); 
-			var attachment = null;
-			//if (ospType.startsWith("EJS")) { 
-				attachment = getAttachment(node, "Source Code");       		
-			//} else {
-				//attachment = getAttachment(node, "EJSS Model"); 
-			//	if (attachment == null) {
-			//		attachment = getAttachment(node, "Supplemental"); 
-			//	}
-			//}
-			// ignore node if there is no associated attachment
-			if (attachment == null)
-				continue;
-			// get the node data
-			var name = getChildValue(node, "title"); 
-			var record = WebEJS_TOOLS.libraryResource(parentId,name);
-			collection.addResource(record);
-			var downloadURL = processURL(attachment[0]);
-			record.setTarget(downloadURL);
-			record.setProperty("download_filename", attachment[1]); 
-			var type = getChildValue(node, "osp-type").toUpperCase(); 
-			type = type.indexOf("EJS") === 0 ? WebEJS_TOOLS.LibraryResource.EJS_TYPE : 
-					(type == "TRACKER") ? WebEJS_TOOLS.LibraryResource.TRACKER_TYPE : WebEJS_TOOLS.LibraryResource.UNKNOWN_TYPE; 
-			record.setType(type);
-			var description = getChildValue(node, "description"); 
-			var infoURL = getChildValue(node, "information-url"); 
-			var thumbnailURL = getChildValue(node, "thumbnail-url"); 
-			var authors = "";
-			var children = getAllChildren(getFirstChild(node, "contributors"), "contributor"); 
-			for (var j in children) {
-				var el = children[j];  
-				if ("Author" == (el.getAttribute("role")))
-					authors += getNodeValue(el) + ", "; 
-			}
-			if (endsWith(authors,", ")) 
-				authors = authors.substring(0, authors.length - 2);
-			// assemble the html description
-			var buffer = [];
-			buffer.push("<p align=\"center\"><img src=\"" + thumbnailURL + "\" alt=\"" + name + "\"></p>"); 
-			buffer.push("<p><b>" + parentList + "</b></p>");
-			buffer.push("<h2>" + name + "</h2>");  
-			if (authors.length > 0)
-				buffer.push("<p><b>" + authorTitle + ":</b> " + authors + "</p>");
-			if(description) buffer.push("<p>" + description.replace(/\n([ \t]*\n)+/g, "</p><p>").replace("\n", "<br />") + "</p>");
-			buffer.push("<p><b>" + infoFieldTitle + "</b><br><a href=\"" + infoURL + "\" target=\"_blank\">" + infoURL + "</a></p>");  
-			buffer.push("<p><b>" + sizeTitle + "</b> " + attachment[2] + " bytes</p>");  
-			record.setDescription(buffer.join(""));
-			success = true;
-		}
-
-		return success;
-	}
-
-	/**
-	 * Returns data for a downloadable DOM Node attachment.
-	 * 
-	 * @param node the DOM Node
-	 * @param attachmentType the attachment type
-	 * @return String[] {URL, filename, size in Bytes}, or null if no attachment found
-	 */
-	function getAttachment(node, attachmentType) {
-		var id = getChildValue(node, "file-identifier"); 
-		var childList = node.childNodes;
-		var attachment = null;
-		for (var i = 0, n = childList.length; i < n; i++) {
-			var child = childList.item(i);
-			if (!child.nodeName.toLowerCase() == "attached-document")continue; 
-			var fileTypeNode = getFirstChild(child, "file-type"); 
-			if (fileTypeNode != null
-					&& attachmentType == getNodeValue(fileTypeNode)) {				
-				var urlNode = getFirstChild(child, "download-url"); 
-				if (urlNode != null) { // found downloadable attachment
-					// keep first attachment or (preferred) attachment with the
-					// same id as the node
-					if (attachment == null
-							|| id == getChildValue(child, "file-identifier")) { 
-						var attachmentURL = getNodeValue(urlNode);
-						var fileNode =  getFirstChild(child,
-								"file-name"); 
-						if (fileNode != null) {
-							attachment = [attachmentURL,
-									getNodeValue(fileNode),
-									fileNode.getAttribute("file-size") ]; 
-						} else
-							attachment = [attachmentURL, null, null];
-					}
-				}
-			}
-		}
-		return attachment;
-	}
-
-	/**
-	 * Returns the first child node with the given name.
-	 * 
-	 * @param parent the parent Node
-	 * @param name the child name
-	 * @return the first child Node found, or null if none
-	 */
-	function getFirstChild(parent, name) {
-		var childList = parent.childNodes;
-		for (var i = 0, n = childList.length; i < n; i++) {
-			var child = childList.item(i);
-			if (child.nodeName.toLowerCase() == name.toLowerCase())
-				return child;
-		}
-		return null;
-	}
-
-	/**
-	 * Returns all child nodes with the given name.
-	 * 
-	 * @param parent the parent Node
-	 * @param name the name
-	 * @return a list of Nodes (may be empty)
-	 */
-	function getAllChildren(parent, name) {
-		var list = [];
-		var childrenList = parent.childNodes;
-		for (var i = 0, n = childrenList.length; i < n; i++) {
-			var child = childrenList.item(i);
-			if (child.nodeName.toLowerCase() == name.toLowerCase())
-				list.push(child);
-		}
-		return list;
-	}
-
-	/**
-	 * Gets the value of a Node.
-	 * 
-	 * @param node the Node
-	 * @return the value
-	 */
-	function getNodeValue(node) {
-		for (var child = node.childNodes[0]; child != null; child = child
-				.getNextSibling()) {
-			if (child.nodeType == Node.TEXT_NODE)
-				return child.nodeValue;
-		}
-		return null;
-	}
-
-	/**
-	 * Gets the value of the first child node with a given name.
-	 * 
-	 * @param parent the parent Node
-	 * @param name the name of the child
-	 * @return the value of the first child found, or null if none
-	 */
-	function getChildValue(parent, name) {
-		var node = getFirstChild(parent, name);
-		if (node != null)
-			return getNodeValue(node);
-		return null;
-	}
-
-	/**
-	 * Replaces "&amp" with "&" in HTML code.
-	 * 
-	 * @param url the HTML code
-	 * @return the clean URL string
-	 */
-	function processURL(url) {
-		var processed = [];
-		var index = url.indexOf("&amp;"); 
-		while (index >= 0) {
-			processed.push(url.subSequence(0, index + 1));
-			url = url.substring(index + 5);
-			index = url.indexOf("&amp;"); 
-		}
-		processed.push(url);
-		return processed.toString();
-	}
-
-	/**
-	 * Returns a descriptive name for a given ComPADRE path (query).
-	 * 
-	 * @param path the query string
-	 * @return the name of the collection
-	 */
-	function getCollectionName(path) {
-		if (path.indexOf(WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_TREE) === 0)
-			return WebEJS_TOOLS.LibraryComPADRE.EJS_COLLECTION_NAME;
-		if (path.indexOf(WebEJS_TOOLS.LibraryComPADRE.TRACKER_SERVER_TREE) === 0)
-			return WebEJS_TOOLS.LibraryComPADRE.TRACKER_COLLECTION_NAME;
-		return WebEJS_TOOLS.LibraryComPADRE.GENERIC_COLLECTION_NAME;
-	}
-
-	/**
-	 * Returns the LibraryCollection for a given ComPADRE path (query).
-	 * 
-	 * @param path the query string
-	 * @return the collection
-	 */
-	self.getCollection = function(parent, path, doc) {
-		var name = getCollectionName(path);
-		var primarySubjectOnly = path.indexOf(WebEJS_TOOLS.LibraryComPADRE.PRIMARY_ONLY) > -1;
-		var collection = WebEJS_TOOLS.libraryCollection(parent, name);
-		if (name == WebEJS_TOOLS.LibraryComPADRE.EJS_COLLECTION_NAME) {
-			collection.setHTMLPath(WebEJS_TOOLS.LibraryComPADRE.EJS_INFO_URL);
-		} else if (name == WebEJS_TOOLS.LibraryComPADRE.TRACKER_COLLECTION_NAME) {
-			collection.setHTMLPath(WebEJS_TOOLS.LibraryComPADRE.TRACKER_INFO_URL);
-		}
-		var aboutOSP = WebEJS_TOOLS.libraryResource(collection.getId(),WebEJS_TOOLS.LibraryComPADRE.ABOUT_OSP);
-		aboutOSP.setHTMLPath(WebEJS_TOOLS.LibraryComPADRE.OSP_INFO_URL);
-		collection.addResource(aboutOSP);
-		
-		self.load(collection, doc);
-		var base = WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_RECORDS;
-		if (name == WebEJS_TOOLS.LibraryComPADRE.TRACKER_COLLECTION_NAME) {
-			base = WebEJS_TOOLS.LibraryComPADRE.TRACKER_SERVER_RECORDS;
-		}
-		if (primarySubjectOnly)
-			base += WebEJS_TOOLS.LibraryComPADRE.PRIMARY_ONLY;
-		collection.setBasePath(base);
-		return collection;
-	}
-
-	/**
-	 * Returns the collection path for an EJS or tracker tree.
-	 * 
-	 * @param path the ComPADRE query string
-	 * @param primarySubjectOnly true to limit results to their primary subject
-	 * @return the corrected ComPADRE query string
-	 */
-	function getCollectionPath(path, primarySubjectOnly) {
-		var isPrimary = path.endsWith(PRIMARY_ONLY);
-		if (isPrimary && primarySubjectOnly)
-			return path;
-		if (!isPrimary && !primarySubjectOnly)
-			return path;
-		if (!isPrimary && primarySubjectOnly)
-			return path + PRIMARY_ONLY;
-		return path.substring(0, path.length() - PRIMARY_ONLY.length());
-	}
-
-	function endsWith(str, suffix) {
-    	return str.indexOf(suffix, str.length - suffix.length) !== -1;
-	}
-
-	/**
-	 * Determines if a query path limits results to the primary subject only.
-	 * 
-	 * @param path the path
-	 * @return true if path contains a primary-subject-only flag
-	 */
-	function isPrimarySubjectOnly(path) {
-		return path.indexOf(PRIMARY_ONLY) > -1;
-	}
-
-	function getNonURIPath(uriPath) {
-		if (uriPath == null)
-			return null;
-		var path = uriPath;
-		// String path = XML.forwardSlash(uriPath.trim());
-		// remove file protocol, if any
-		if (path.indexOf("file:") === 0) { 
-			path = path.substring(5);
-		}
-		// remove all but one leading slash
-		while (path.indexOf("//") === 0) { 
-			path = path.substring(1);
-		}
-		// remove last leading slash if drive is specified
-		if (path.indexOf("/") === 0 && path.indexOf(":") > -1) {
-			path = path.substring(1);
-		}
-		// replace "%20" with space
-		var j = path.indexOf("%20"); 
-		while (j > -1) {
-			var s = path.substring(0, j);
-			path = s + " " + path.substring(j + 3); 
-			j = path.indexOf("%20"); 
-		}
-		// // replace "%26" with "&"
-		//	    j = path.indexOf("%26");                           
-		// while(j>-1) {
-		// String s = path.substring(0, j);
-		//	      path = s+"&"+path.substring(j+3);                
-		//	      j = path.indexOf("%26");                         
-		// }
-		return path;
-	}
-
-	return self;
-}();
-
-WebEJS_TOOLS.getComPADRECollectionIndex = function(listener) {
-	return WebEJS_TOOLS.getComPADRECollection(null,null,null,listener);
-}
-/*
- * Manage the download of the library from url
- */
-WebEJS_TOOLS.getComPADRECollection = function(url, parentID, nodeID, listener) {
-	const isroot = (parentID == null);
-	if (url) url = WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_RECORDS + url;
-	else {
-		url = WebEJS_TOOLS.LibraryComPADRE.EJS_SERVER_TREE + WebEJS_TOOLS.LibraryComPADRE.PRIMARY_ONLY;
-		parentID = '#';
-	}
-    // connection
-	$.ajax({
-		type: 'POST', 
-		url: url,
-		headers: { "Content-type":"application/x-www-form-urlencoded" },
-		dataType: 'xml',
-		processData: false,
-		success : xml_data => {
-    	console.log("Received:");
-			console.log(xml_data); 
-	    if (isroot) { // get collections
-	    	// add elements into treeBuilder
-		    var library = WebEJS_TOOLS.libraryComPADRE.getCollection(parentID, url, xml_data);	
-				listener(true,library.toJSON());		    		
-	    } 
-			else { // get resources
-		  	// add elements into treeBuilder
-		    var nodeName = WebEJS_TOOLS.libraryComPADRE.getNameFromId(nodeID);
-		    var collection = WebEJS_TOOLS.libraryCollection(parentID,nodeName);
-		    const success = WebEJS_TOOLS.libraryComPADRE.getResources(collection, xml_data);
-		    listener(success,collection.toJSON());
-			}
-		},
-			error : error => { 
-	    	console.log("No XML content in OSP connection!");
-				console.log(error); 
-			}
-		});
-
-	return;
-
-}    
-
-
 var WebEJS_GUI = WebEJS_GUI || {};
 
 /**
