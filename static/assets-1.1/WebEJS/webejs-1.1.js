@@ -12843,6 +12843,7 @@ function getTree(listing, parent_folder) {
 					sMainGUI.logLine(sMainResources.getString("File correctly downloaded "+params['filename']));
 					console.log(params);
 					sMainCheckUnload = false;
+          //_doDownloadFile(params['url'],filename);
           window.location = params['url'];
 				},	
         'User file command failed:'+arguments);
@@ -12850,11 +12851,12 @@ function getTree(listing, parent_folder) {
     );
   };
 
+
   /*
-  function downloadFile(path, filename) {
+  function _doDownloadFile(url, filename) {
     var anchor = document.createElement('a');
     anchor.download = filename;
-    anchor.href = sMainGUI.getURLpathFor(path); //(window.webkitURL || window.URL).createObjectURL(blob);
+    anchor.href = url; //(window.webkitURL || window.URL).createObjectURL(blob);
     anchor.dataset.downloadurl = ['text/plain', anchor.download, anchor.href].join(':');
     anchor.click();
     anchor.remove();
