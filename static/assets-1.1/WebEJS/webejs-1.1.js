@@ -13868,14 +13868,14 @@ WebEJS_GUI.searchForm = function() {
                   value=""> 
 
                 <div class="form-check ms-3">
-							    <input class="form-check-input" type="checkbox" value="" checked
+							    <input class="form-check-input" type="checkbox" value="" 
 								    name="mSearchFormCaseOption" id="mSearchFormCaseOption">
 							    <label class="sTranslatable form-check-label" for="mSearchFormCaseOption">Match case</label>
                 </div>
                 <div class="form-check ms-3">
-							    <input class="form-check-input" type="checkbox" value="" checked 
+							    <input class="form-check-input" type="checkbox" value=""  
 								    name="mSearchFormFullWordOption" id="mSearchFormFullWordOption">
-							    <label class="sTranslatable form-check-label" for="mSearchFormFullWordOption">Full word</label>
+							    <label class="sTranslatable form-check-label" for="mSearchFormFullWordOption">Whole word</label>
       			    </div>
               </div>
           </div>
