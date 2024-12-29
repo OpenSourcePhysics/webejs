@@ -14446,7 +14446,8 @@ WebEJS_TOOLS.html_tools = {
 	
   TO_RELATIVE_TO_XML_FILE : 0,
 	TO_ABSOLUTE_URL : 1,
-	
+
+  /*
   convertSRCtags: function (_text, _type) {
     //const prefix = window.location.protocol + "//" + window.location.host+'/'+sMainGUI.getURLpathFor('');
     const prefix = window.location.origin+sMainGUI.getURLpathFor('');
@@ -14507,13 +14508,92 @@ WebEJS_TOOLS.html_tools = {
     textChanged+=(_text);
     return textChanged;
   },
+  */
+ 
+  convertTags: function (_text, _type) {
+    const TAGS = [ { tag: '<img ', src : 'src=', len:5 } , { tag: '<a ', src : 'href=', len:6} ];
+
+    function findFirstTagOccurrence(inputString) {
+      let firstIndex = -1;
+      let tagObject = null;  
+      for (let i = 0; i < TAGS.length; i++) {
+          const currentIndex = inputString.indexOf(TAGS[i].tag); 
+          if (currentIndex !== -1 && (firstIndex === -1 || currentIndex < firstIndex)) {
+              firstIndex = currentIndex;
+              tagObject = TAGS[i];
+          }
+      }
+      return { index : firstIndex, tagObject : tagObject };
+    }
+
+    const prefix = window.location.origin+sMainGUI.getURLpathFor('');
+    const prefix_length = prefix.length;
+    var textLowercase = _text.toLowerCase();
+    var textChanged = '';
+    var tagOcurrence = findFirstTagOccurrence(textLowercase);
+    while (tagOcurrence.index>=0) {
+      const index = tagOcurrence.index;
+      const tagObj = tagOcurrence.tagObject;
+      var hasSlash = true;
+      var index2 = textLowercase.indexOf("/>",index);
+      if (index2<0) {
+        hasSlash = false;
+        index2 = textLowercase.indexOf('>',index);
+      }
+      if (index2<0) {
+        console.log("Index2 = 0 Syntax error when processing :"+_text);
+        break; // This is a syntax error , actually
+      }
+      var tag = textLowercase.substring(index,index2);
+      // Process the tag
+      var srcEnd = -1;
+      var srcBegin = tag.indexOf(tagObj.src+'\"');
+      if (srcBegin>=0) {
+        srcBegin += tagObj.len;
+        srcEnd   = index+tag.indexOf('"',srcBegin);
+      }
+      else {
+        srcBegin = tag.indexOf(tagObj.src+'\\\"')+tagObj.len+1;
+        srcEnd   = index+tag.indexOf('\\\"',srcBegin);
+      }
+      srcBegin = index + srcBegin;
+
+      var filename = _text.substring(srcBegin,srcEnd);
+
+      switch (_type) {
+        case WebEJS_TOOLS.html_tools.TO_RELATIVE_TO_XML_FILE : 
+        	if (filename.startsWith(prefix)) {
+				    filename = './'+filename.substring(prefix_length);
+			     }
+        	break;
+        //case TO_REQUIRED_BY_HTML : filename = convertToRequiredByHTML(_ejs,filename,relativePath,pathToLib); break;
+        default :
+        case WebEJS_TOOLS.html_tools.TO_ABSOLUTE_URL :
+          //if (filename.startsWith('./')) {
+          if (filename.indexOf(':')<0) {
+            if (filename.startsWith('./')) filename = prefix+filename.substring(2);
+            else filename = prefix+filename;
+			     }
+          break;
+      }
+      textChanged+=(_text.substring(0,srcBegin)+filename);
+      textChanged+=(_text.substring(srcEnd,index2));
+      if (!hasSlash) textChanged+=("/");
+      // Search next tag
+      textLowercase = textLowercase.substring(index2);
+      _text = _text.substring(index2);
+      tagOcurrence = findFirstTagOccurrence(textLowercase);
+    }
+    textChanged+=(_text);
+    return textChanged;
+  },
 
   convertToRelative : function(htmlCode) { 
-    return WebEJS_TOOLS.html_tools.convertSRCtags(htmlCode,WebEJS_TOOLS.html_tools.TO_RELATIVE_TO_XML_FILE); 
+    return WebEJS_TOOLS.html_tools.convertTags(htmlCode,WebEJS_TOOLS.html_tools.TO_RELATIVE_TO_XML_FILE); 
   },
   
   convertToAbsolute : function(htmlCode) { 
-    return WebEJS_TOOLS.html_tools.convertSRCtags(htmlCode,WebEJS_TOOLS.html_toolsTO_ABSOLUTE_URL); 
+    return WebEJS_TOOLS.html_tools.convertTags(htmlCode,WebEJS_TOOLS.html_toolsTO_ABSOLUTE_URL); 
   }
 		
 };
