@@ -2448,7 +2448,8 @@ WebEJS_GUI.comm = function(sessionID) {
     }
 
 		var name = simulation.information.Title.trim();
-		if ( name == "" || name == null) name = 'YourSimulation';
+    const hadNoTitle = (name == "" || name == null);
+		if (hadNoTitle) name = 'YourSimulation';
 		else if (name.endsWith('.')) name = name.substring(0,name.length-1);
     name = TEXT_TOOLS.sanitizeFilename(name);
 		if (generate) name = 'webejs_model_'+name+'.zip';
@@ -2460,6 +2461,14 @@ WebEJS_GUI.comm = function(sessionID) {
         sMainGUI.errorLine(sMainResources.getString("Please, consider instead: ")+" : "+TEXT_TOOLS.sanitizeFilename(filename)); 
         sMessageForm.showWarning("Filename invalid", filename, "Check out the output area.");
         return;
+      }
+      if (hadNoTitle) { // Extract title from the given name
+        const regex = /^(?:webejs_src_|webejs_model_)(.*?)(?:\.zip)?$/i;
+        const match = filename.match(regex);
+        const title = match ? match[1] : filename;
+        sMainSimulationOptions.setTitle(title);
+        simulation['information']['Title'] = title;
+        //info['source']['information']['Title'] = title;
       }
       info['filename'] = encodeURI(filename);
 			ajaxPost('/output/zip', info, 
@@ -2843,22 +2852,19 @@ WebEJS_GUI.main = function() {
   
   function checkForChanges(listener) {
     if (mHasChanged) {
+      /*
       sMainConfirmationForm.showWarning("The simulation has changed", 
         "Proceeding will make you lose the changes!","Proceed",
         listener);
-/*
-      sYesNoCancelForm.show("The simulation has changed!",
-        mSimulationFilename,
-        '<h5 class="text-primary">'+
-          sLocaleFor("Do you want to save it?")+
-        '</h5>',
+      */
+      sYesNoCancelForm.show("The simulation has changed!", '',
+          "Do you want to save it before proceeding?",
         function(answer) { 
           if (answer=="CANCEL") return;
-          if (answer=="YES") sMainComm.saveSimulation();
+          if (answer=="YES") return sMainComm.zipSimulation(false,listener);
           listener();
         }
       );
-      */
     }
     else listener();
   }
@@ -6967,6 +6973,9 @@ WebEJS_GUI.optionsSimulationPanel = function() {
 		return mOptions['Title'];
 	}
 
+  self.setTitle = function(title) {
+    $('#mSimulationOptionsTitle').val(title);
+  }
 	// ----------------------------
 	// Consulting
 	// ----------------------------
