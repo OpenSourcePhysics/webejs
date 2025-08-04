@@ -3399,7 +3399,7 @@ function sMainInitializeHTML() {
       setTimeout(() => waitForCsrfToken(callback, retries - 1, delay), delay);
     }
     else {
-      console.error("❌ CSRF token no disponible tras varios intentos.");
+      console.error("❌ CSRF token not available after "+((retries*delay)/1000.)+" seconds!");
     }
   }
 
@@ -3468,8 +3468,7 @@ function sMainInitializeHTML() {
 
   $(document).ready(function () {
     waitForCsrfToken(50,100,function (token) {
-      console.log("====== Min CSRFToken = " + sMainCsrfToken)
-      initializeGUI();
+      initializeGUI(); 
       modifyConsole();
       controlQuit();
       sMainComm.getSimulation();
