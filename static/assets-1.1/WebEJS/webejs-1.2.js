@@ -2161,6 +2161,7 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
 
   console.log ("====== Session ID = "+sessionID)
   console.log ("====== Server subrout = "+mServerSubroute)
+  
 
 	// ----------------------------
 	// Ajax functions
@@ -2188,10 +2189,12 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
 
 	function ajaxPost(url, message, onSuccess, onErrorMessage, onErrorData, onErrorListener) {
     message['session_id'] = sessionID;
+		console.log ("====== COMM CSRFToken = "+sMainCsrfToken)
 		$.ajax({
 			type: 'POST', 
 			url: mServerSubroute + url,
-			headers: { "X-CSRFToken": sMainCsrfToken },
+//			headers: { "X-CSRFToken": sMainCsrfToken },
+//			xhrFields: { withCredentials: true },
 			contentType: 'application/json; charset=UTF-8',
 			processData: false,
 			data: JSON.stringify(message),
@@ -2358,7 +2361,9 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
       return $.ajax({
         url: mServerSubroute + url,
         type: 'POST',
-        contentType: 'application/json',
+				headers: { "X-CSRFToken": sMainCsrfToken },
+				xhrFields: { withCredentials: true },        
+				contentType: 'application/json',
         data: JSON.stringify(data),
         dataType: 'json'
       });
@@ -2536,6 +2541,7 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
 			'User file command failed:'+arguments);
 	}
 
+	/*
   $.ajaxSetup({
     beforeSend: function(xhr, settings) {
       function getCookie(name) {
@@ -2556,9 +2562,12 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
         xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
       }
 			console.log("CRSF token = <"+getCookie('csrftoken')+">");
-    }
+    },
+		xhrFields: {
+			withCredentials: true // Send cookies if the origin is different
+		}
   });
-
+*/
   return self;
 }
 /*
@@ -3372,6 +3381,136 @@ WebEJS_GUI.optionsWebEJSPanel = function() {
 	return self;
 }
 
+/*
+ * Copyright (C) 2025 Francisco Esquembre
+ * This code is part of the WebEJS authoring and simulation tool
+ */
+
+function sMainInitializeHTML() {
+
+  // --------------------------
+  // Cookies
+  // --------------------------
+
+  function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie != '') {
+      var cookies = document.cookie.split(';');
+      for (var i = 0; i < cookies.length; i++) {
+        var cookie = $.trim(cookies[i]);
+        if (cookie.substring(0, name.length + 1) == (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function setupAjax(token) {
+    sMainCsrfToken = token;
+    $.ajaxSetup({
+      beforeSend: function (xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+          xhr.setRequestHeader("X-CSRFToken", token);
+        }
+      },
+      xhrFields: {
+        withCredentials: true
+      }
+    });
+  }
+
+  function waitForCsrfToken(retries, delay, callback) {
+    const token = getCookie('csrftoken');
+    if (token) {
+      console.log("✅ CSRF token =", token);
+      setupAjax(token);      // configura $.ajaxSetup
+      callback(token);       // ejecuta el resto del código
+    }
+    else if (retries > 0) {
+      console.log("⏳ Waiting for CSRF token...");
+      setTimeout(() => waitForCsrfToken(callback, retries - 1, delay), delay);
+    }
+    else {
+      console.error("❌ CSRF token no disponible tras varios intentos.");
+    }
+  }
+
+  // --------------------------
+  // Console
+  // --------------------------
+
+  function modifyConsole() {
+    // define a new console for current html page
+    var console = (function (oldCons) {
+      return {
+        log: function (...text) {
+          oldCons.log(...text);
+          // Your code
+          sMainGUI.logLine(text);
+        },
+        info: function (...text) {
+          oldCons.info(...text);
+          // Your code
+          //sMainGUI.infoLine(text);
+        },
+        warn: function (...text) {
+          oldCons.warn(...text);
+          // Your code
+          sMainGUI.warningLine(text);
+        },
+        error: function (...text) {
+          oldCons.error(...text);
+          // Your code
+          sMainGUI.errorLine(text);
+        }
+      };
+    }(window.console));
+    window.console = console;
+  }
+
+  // capture messages from iframe
+  window.addEventListener("message", (event) => {
+    console.log(event.data);
+  }, false);
+
+  // --------------------------
+  // Controlling user's quit
+  // --------------------------
+
+  function controlQuit() {
+    var sMainCheckUnload = true;
+    window.addEventListener('beforeunload', function (event) {
+      if (!sMainCheckUnload) { // works only once
+        sMainCheckUnload = true;
+        return;
+      }
+      sMainComm.updateSimulation();
+      var message = 'Are you sure you want to leave WebEJS?';
+      event.returnValue = message; // Standard way to trigger the confirmation dialog
+      return message; // For some older browsers
+    });
+  }
+
+  function initializeGUI() {
+    sMainComm = WebEJS_GUI.comm(sMainSessionID, sMainServerSubroute);
+    sMainGUI = WebEJS_GUI.main();
+    sMainFileChooser = WebEJS_GUI.fileChooser(sMainComm, 'xl', sMainResources);
+    sMainFilenameForm = WebEJS_GUI.filenameForm(sMainResources);
+  }
+
+  $(document).ready(function () {
+    waitForCsrfToken(50,100,function (token) {
+      console.log("====== Min CSRFToken = " + sMainCsrfToken)
+      initializeGUI();
+      modifyConsole();
+      controlQuit();
+      sMainComm.getSimulation();
+    });
+  });
+
+}
 /*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the Web EJS authoring and simulation tool
@@ -11863,7 +12002,8 @@ WebEJS_TOOLS.getComPADRECollection = function(url, parentID, nodeID, listener, o
 	$.ajax({
 		type: 'POST', 
 		url: url,
-		headers: { "Content-type":"application/x-www-form-urlencoded" },
+		headers: { "Content-Type":"application/x-www-form-urlencoded" },
+	  xhrFields: { withCredentials: false }, // ⬅️ esto sobrescribe la configuración global
 		dataType: 'xml',
 		processData: false,
 		success : xml_data => {
