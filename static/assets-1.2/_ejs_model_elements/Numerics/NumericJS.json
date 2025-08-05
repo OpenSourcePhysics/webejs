@@ -1,0 +1,11 @@
+{
+	"name" : "NumericJS",
+	"icon" : "NumericJS.png",
+	"html" : "NumericJS.html",
+	"webejs"	 : "NumericJSElement.js",
+	"tooltip" : "performs numerical computations in pure javascript",
+	"classname"	 : "org.colos.ejss.model_elements.numerics.NumericJavascriptElement",
+	"js" : [ "numeric-1.2.6.min.js"],
+	"lint_code" : "var numeric = {};",
+	"source_code" : " var {{NAME}} = numeric;"
+}

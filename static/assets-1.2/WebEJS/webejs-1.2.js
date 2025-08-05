@@ -3352,7 +3352,111 @@ WebEJS_GUI.optionsWebEJSPanel = function() {
  * This code is part of the WebEJS authoring and simulation tool
  */
 
-function sMainInitializeHTML() {
+var WebEJS_MAIN = WebEJS_MAIN || {};
+
+// --------------------------
+// Constants
+// --------------------------
+
+const sMainNoAutocorrect = ' spellcheck="off" autocorrect="off" autocapitalize="none" autocomplete="off" ';
+
+// --------------------------
+// Global Variables
+// --------------------------
+
+var sMainEjsLogo;
+var sMainResources;
+var sLocaleFor;
+
+// --- FORMS
+var sMessageForm;
+var sInputForm;
+var sCustomElementForm;
+var sMainConfirmationForm;
+var sMainResponseForm;
+var sYesNoCancelForm;
+var sMainSelectCodeForm;
+var sMainSelectChoiceForm;
+var sMainSearchForm;
+
+// --- PANELS AND UTILITIES
+var sMainWebEJSOptions;
+var sMainLibraryChooser;
+var sMainSimulationOptions;
+var sMainEditorForColor;
+var sMainEditorForFont;
+
+var sMainCsrfToken;
+var sMainComm;
+var sMainGUI;
+var sMainFileChooser;
+var sMainFilenameForm;
+
+// --------------------------
+// Functions
+// --------------------------
+
+WebEJS_MAIN.initializeHTML = function() {
+
+  sMainEjsLogo = sMainAssetsURL + 'WebEJS/icons/WebEJS_logo.png';
+
+  sMainResources = WebEJS_RESOURCES.main();
+  sLocaleFor = function (text) { return sMainResources.getString(text); }
+
+  // --- FORMS
+  sMessageForm = WebEJS_GUI.messageForm();
+  sMessageForm.show("Initializing...", "WebEJS is starting");
+  sInputForm = WebEJS_GUI.inputForm();
+  sCustomElementForm = WebEJS_GUI.customElementForm();
+  sMainConfirmationForm = WebEJS_GUI.confirmationForm();
+  sMainResponseForm = WebEJS_GUI.responseForm();
+  sYesNoCancelForm = WebEJS_GUI.YesNoCancelForm();
+  sMainSelectCodeForm = WebEJS_GUI.selectCodeForm();
+  sMainSelectChoiceForm = WebEJS_GUI.selectChoiceForm();
+  sMainSearchForm = WebEJS_GUI.searchForm();
+
+
+
+  // --- PANELS AND UTILITIES
+  sMainWebEJSOptions = WebEJS_GUI.optionsWebEJSPanel();
+  sMainLibraryChooser = WebEJS_TOOLS.collectionChooser();
+  //sMainLibraryChooser    = WebEJS_GUI.libraryChooser();
+  sMainSimulationOptions = WebEJS_GUI.optionsSimulationPanel();
+  sMainEditorForColor = WebEJS_GUI.editorForColor();
+  sMainEditorForFont = WebEJS_GUI.editorForFont();
+
+
+  $('#mMainLoadLocalField').change(function (event) {
+    const [file] = this.files;
+    sMainComm.uploadUserZIPFile(file);
+    $('#mMainLoadLocalField').val("");
+  });
+
+
+  // --------------------------
+  // Tooltips
+  // --------------------------
+
+  const mMain_tooltip_config = {
+    container: '#mMainWindow',
+    mode: 'default',
+    connector: true,
+    theme: 'secondary filled',
+    borderRadius: '.5rem',
+    panelSize: '200 40',
+    header: false
+  };
+
+  const sMainCreateTooltip = function (target, message, position) {
+    mMain_tooltip_config['target'] = target;
+    mMain_tooltip_config['content'] = '<div class="text-center p-2">' + sLocaleFor(message) + '</div>';
+    if (position) mMain_tooltip_config['position'] = position;
+    else mMain_tooltip_config['position'] = { my: 'right-top', at: 'right-bottom' }
+    jsPanel.tooltip.create(mMain_tooltip_config);
+  }
+  $('.sTranslatableTitle').each(function (i, ttEl) {
+    sMainCreateTooltip('#' + $(ttEl).attr('id'), $(ttEl).data('title'));
+  });
 
   // --------------------------
   // Cookies
@@ -11210,9 +11314,9 @@ WebEJS_TOOLS.LibraryComPADRE = {
 	EJS_SERVER_SEARCH: "https://www.compadre.org/osp/services/REST/search_v1_02.cfm?verb=Search&OSPType=EJSS+Model&Skip=0&Max=30&q=",	  
 	
 	EJS_COLLECTION_NAME: "EJS OSP Collection",
-	EJS_INFO_URL: "http://www.compadre.org/OSP/online_help/EjsDL/DLModels.html",
-	TRACKER_SERVER_TREE: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?verb=Identify&OSPType=Tracker",
-	TRACKER_SERVER_RECORDS: "http://www.compadre.org/osp/services/REST/osp_tracker.cfm?OSPType=Tracker",
+	EJS_INFO_URL: "https://www.compadre.org/OSP/online_help/EjsDL/DLModels.html",
+	TRACKER_SERVER_TREE: "https://www.compadre.org/osp/services/REST/osp_tracker.cfm?verb=Identify&OSPType=Tracker",
+	TRACKER_SERVER_RECORDS: "https://www.compadre.org/osp/services/REST/osp_tracker.cfm?OSPType=Tracker",
 	TRACKER_COLLECTION_NAME: "Tracker OSP Collection",
 	TRACKER_INFO_URL: "https://physlets.org/tracker/library/comPADRE_collection.html",
 	PRIMARY_ONLY: "&OSPPrimary=Subject",
