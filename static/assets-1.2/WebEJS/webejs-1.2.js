@@ -3491,19 +3491,26 @@ WebEJS_MAIN.initializeHTML = function() {
     });
   }
 
-  function waitForCsrfToken(retries, delay, callback) {
-    const token = getCookie('csrftoken');
+  const MAX_TOKEN_RETRIES = 50;
+  const TOKEN_DELAY = 100;
+
+  function waitForCsrfToken(retry, callback) {
+    console.log("Trying to get CSRF: attempt # "+retry+"...");
+    var token = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (token) console.log("CSRF found by QuerySelector!");
+    else token = getCookie('csrftoken');
+
     if (token) {
-      console.log("✅ CSRF token =", token);
-      setupAjax(token);      // configura $.ajaxSetup
-      callback(token);       // ejecuta el resto del código
+      console.log("✅ CSRF found in attempt "+retry+": token =", token);
+      setupAjax(token);
+      callback(token);
     }
-    else if (retries > 0) {
+    else if (retry < MAX_TOKEN_RETRIES) {
       console.log("⏳ Waiting for CSRF token...");
-      setTimeout(() => waitForCsrfToken(callback, retries - 1, delay), delay);
+      setTimeout(() => waitForCsrfToken(retry+1, callback), TOKEN_DELAY);
     }
     else {
-      console.error("❌ CSRF token not available after "+((retries*delay)/1000.)+" seconds!");
+      console.error("❌ CSRF token not available after "+((MAX_TOKEN_RETRIES*TOKEN_DELAY)/1000.)+" seconds!");
     }
   }
 
@@ -3571,7 +3578,7 @@ WebEJS_MAIN.initializeHTML = function() {
   }
 
   $(document).ready(function () {
-    waitForCsrfToken(50,100,function (token) {
+    waitForCsrfToken(1,function (token) {
       initializeGUI(); 
       modifyConsole();
       controlQuit();
