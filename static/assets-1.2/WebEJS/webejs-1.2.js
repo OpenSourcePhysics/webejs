@@ -2348,6 +2348,7 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
 			"Error updating the simulation in the server!");
 	}
 
+	/*
   self.updateSimulationBeforeLeaving = function() {
     function postData(url, data) {
       return $.ajax({
@@ -2371,6 +2372,7 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
         console.error('Error trying to update simulation for session:'+sessionID, textStatus, errorThrown);
       });
   }
+*/
 
   /**
    * Creates a blank new simulation
@@ -2434,6 +2436,18 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
 	// Exporting the simulation
 	// ----------------------------
 
+	self.downloadViaIframe = function(url) {
+
+		console.log("Downloading via iFrame: <"+url+">");
+		const iframe = document.createElement('iframe');
+		iframe.style.display = 'none';
+		iframe.src = url;
+		document.body.appendChild(iframe);
+
+		// Clean after a minute
+		setTimeout(() => iframe.remove(), 60000);
+	}
+
 	self.zipSimulation = function(generate, listener) {
     const simulation = sMainGUI.saveObject();
     var info = { 'source' : simulation };
@@ -2474,16 +2488,18 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
 			ajaxPost('/output/zip', info, 
 				result => { 
 					sMainGUI.logLine(sMainResources.getString("ZIP simulation file correctly created."));
-					console.log("Zip ok created");
-					console.log(result);
-          sMainCheckUnload = false;
+					console.log("Zip created correctly");
+					//console.log(JSON.stringify(result, null, 2));
+          //sMainCheckUnload = false;
           //ajaxDownload(result['url']);
-					window.location = result['url'];
+					//window.location = result['url'];
+					self.downloadViaIframe(result['url']);
           if (listener) listener();
 				},	
 				"Error creating ZIP simulation file!");
 		})
 	}		
+
 
 	// ----------------------------
 	// List workspace methods
@@ -2631,6 +2647,12 @@ WebEJS_GUI.main = function() {
       sMainSimulationOptions.toggle();
     });
   
+  self.setTextInputRadio = function(on) {
+      if (on) $("#sMainRadioButtons .sTextAccessBtn").removeClass('sRadioButtonOff').addClass('sRadioButtonOn');
+      else    $("#sMainRadioButtons .sTextAccessBtn").removeClass('sRadioButtonOn').addClass('sRadioButtonOff');
+  }
+
+
   $('#sPreviewPanel').css('min-width',previewSize+'vw');
   $("#sMainRadioButtons .sPreviewBtn").click(()=>{ 
     switchVisibility('sPreview');
@@ -3557,12 +3579,14 @@ WebEJS_MAIN.initializeHTML = function() {
   // --------------------------
 
   function controlQuit() {
-    var sMainCheckUnload = true;
+    //var sMainCheckUnload = true;
     window.addEventListener('beforeunload', function (event) {
+      /*
       if (!sMainCheckUnload) { // works only once
-        sMainCheckUnload = true;
-        return;
-      }
+          sMainCheckUnload = true;
+          return;
+        }
+      */
       sMainComm.updateSimulation();
       var message = 'Are you sure you want to leave WebEJS?';
       event.returnValue = message; // Standard way to trigger the confirmation dialog
@@ -4918,6 +4942,55 @@ WebEJS_GUI.evolutionPanel = function(mMainPanelSelector) {
 		};
 	}
 	
+  // --------------
+  // JSON editing
+  // --------------
+
+  const JSON_FIELDS = [
+    'Comment', 'IndependentVariable', 'Increment', 
+    'Equations', 'PreliminaryCode',
+    'Method', 'AbsoluteTolerance'
+  ];
+
+  self.selectJSONfields = function(originalJSON) {
+    return Object.fromEntries(
+      Object.entries(originalJSON).filter(([key]) => JSON_FIELDS.includes(key))
+    );
+  } 
+
+  self.checkValidJSON = function(data) {
+    // Validación de estructura mínima
+    const hasEquations = Object.hasOwn ? Object.hasOwn(data, 'Equations')
+      : Object.prototype.hasOwnProperty.call(data, 'Equations');
+    if (!hasEquations) return "Error: 'Equations' field is missing";
+    const eqnsOk = Array.isArray(data?.Equations);
+    if (!eqnsOk) return "Error: 'Equations' must be an array";
+    return null; // meaning ok
+  }
+
+  self.setPageContent = function(mPageHash, json, cleanFirst) {
+    if ('Comment' in json) $('#mEvolutionPageComment_' + mPageHash).val(json.Comment);
+    if (self.isPageSecondType(TABBED_PANEL.getDivPageByHash(self,mPageHash))) {
+      const JSON_FIELD_ID_PREFIX = {
+        IndependentVariable: 'mEvolutionPageEditor_IndependentVariable_',
+        Increment: 'mEvolutionPageEditor_Increment_',
+        Method: 'mEvolution_PageEditor_Method_',
+        AbsoluteTolerance: 'mEvolution_PageEditor_Tolerance_'
+      };
+      // Recorremos los campos
+      JSON_FIELDS.forEach(field => {
+        if (JSON_FIELD_ID_PREFIX[field] && field in json) {
+          $('#' + JSON_FIELD_ID_PREFIX[field] + mPageHash).val(json[field]);
+        }
+      });
+      if ('PreliminaryCode' in json) mPrelimCodeEditors[mPageHash].setPageContent(json.PreliminaryCode);
+      if ('Equations' in json) mTablePanel.addRowsFromJSON(mPageHash, json.Equations, cleanFirst);
+    }
+    else {
+      if ('Code' in json) mCodeEditors[mPageHash].setValue(json.Code);
+    }
+  }
+
 	// ---------------------------------------
 	// TabbedPanel implementation (continued)
 	// ---------------------------------------
@@ -6542,6 +6615,17 @@ WebEJS_GUI.odePreliminaryCodePanel = function(mEvolutionPanel, mPageDiv, mPageOb
     };
   }
 
+  self.setPageContent = function(json) {
+    if (mPanel) {
+      if ('Code' in json) mEditor.setValue(json.Code);
+      if ('Comment' in json) $('#'+mID+'-Comment').val(json.Comment);
+    }
+    else {
+      if ('Code' in json) mContents.Code  = json.Code;
+      if ('Comment' in json) mContents.Comment  = json.Comment;
+    }
+  }
+
   // --------------------------
   // Interface
   // --------------------------
@@ -6565,7 +6649,10 @@ WebEJS_GUI.odePreliminaryCodePanel = function(mEvolutionPanel, mPageDiv, mPageOb
   // Create and show the jsPanel
   function createPanel() {
     const options = {
-      content: '<div id="'+mID+'-ace" class="ace h-100" style="flex-grow:1"></div>',
+    content: '<div id="' + mID + '-ace-wrapper" class="d-flex flex-column flex-grow-1" style="min-height:0; min-width:0;">'
+            +' <div id="' + mID + '-ace" class="flex-grow-1" style="min-height:0; min-width:0;"></div>'
+            +'</div>',
+    //content: '<div id="'+mID+'-ace" class="ace h-100" style="flex-grow:1"></div>',
       onbeforeclose: function(panel) {
         collectContents();
         mPanel = null;
@@ -6588,6 +6675,7 @@ WebEJS_GUI.odePreliminaryCodePanel = function(mEvolutionPanel, mPageDiv, mPageOb
           ()=>{ mEvolutionPanel.nonReportableChange('PrelimCode'); }, // onBlur
           ()=>{ mEvolutionPanel.nonReportableChange('PrelimCode'); });
         $('#'+mID+'-Comment').val(mContents.Comment);
+        new ResizeObserver(() => mEditor.resize()).observe(document.getElementById(mID + '-ace-wrapper'));
       }
     };
     mPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mPreferredSize);
@@ -6683,8 +6771,35 @@ WebEJS_GUI.variablesPanel = function(mMainPanelSelector) {
 	}
 
 	self.saveObject = function() {
-		return { 'pages' : TABBED_PANEL.getAllPagesObject(self) };
+    return { 'pages' : TABBED_PANEL.getAllPagesObject(self) };
 	}
+
+  // --------------
+  // JSON editing
+  // --------------
+  
+  self.selectJSONfields = function(originalJSON) {
+    const FIELDS = ['PageComment','Variables'];
+    return Object.fromEntries(
+      Object.entries(originalJSON).filter(([key]) => FIELDS.includes(key))
+    );
+  } 
+
+  self.checkValidJSON = function(data) {
+    // Validación de estructura mínima
+    const hasVariables = Object.hasOwn ? Object.hasOwn(data, 'Variables')
+      : Object.prototype.hasOwnProperty.call(data, 'Variables');
+    if (!hasVariables) return "Error: 'Variables' field is missing";
+    const variablesOk = Array.isArray(data?.Variables);
+    if (!variablesOk) return "Error: 'Variables' must be an array";
+    return null; // meaning ok
+  }
+
+  self.setPageContent = function(mPageHash, json, cleanFirst) {
+    if ('PageComment' in json) $('#mVariablesPageComment_'+mPageHash).val(json.PageComment);
+    if ('Variables' in json) mTablePanel.addRowsFromJSON(mPageHash, json.Variables, cleanFirst);
+  }
+
 	
 	// ---------------------
 	// Setters and getters
@@ -6821,7 +6936,7 @@ WebEJS_GUI.variablesPanel = function(mMainPanelSelector) {
   // ---------------------------------------
   // TablePanel implementation 
   // ---------------------------------------
- 
+
 	self.tableRowInitialization = function(pageHash, variableHash, variableTr) {
 		// Action for the type menu in each row
 		variableTr.find('.cTypeMenuItem').on("click", (event)=>{ 
@@ -8121,7 +8236,7 @@ WebEJS_GUI.tabbedPage = function(title) {
 /**
  * WebEJS_GUI.tabbedPanel
  * Base class (needs owewriting some methods) for a panel with tabs.
- * Each tab hosts a given pagem which is a 'subclass' of  WebEJS_GUI.tabbedPage
+ * Each tab hosts a given page, which is a 'subclass' of  WebEJS_GUI.tabbedPage
  */
 /**
  * @class tabbedPannel 
@@ -10371,12 +10486,6 @@ function createTabsHTML(panelCounter,tabs) {
         deleteUserCustomElement(tag); 
       }
     );
-  });
-
-  $('#sViewEditBtn').on('click', function () {
-    console.log('Show text pulsado');
-    // Tu función de exportación aquí
-    // exportAction();
   });
 
   return self;
@@ -13075,10 +13184,11 @@ function getTree(listing, parent_folder) {
       mFileServer.userFileCommand({ command : 'Download', path : filepath, filename: filename },
         (params) => { 
 					sMainGUI.logLine(sMainResources.getString("File correctly downloaded "+params['filename']));
-					console.log(params);
-					sMainCheckUnload = false;
+					//console.log(JSON.stringify(params, null, 2));
+					//sMainCheckUnload = false;
           //_doDownloadFile(params['url'],filename);
-          window.location = params['url'];
+          //window.location = params['url'];
+          sMainComm.downloadViaIframe(params['url']);
 				},	
         'User file command failed:'+arguments);
       }
@@ -14617,7 +14727,13 @@ WebEJS_TOOLS.createJSPanel = function(title, options, controls, size, titleClass
 	const panel = jsPanel.create(options);
 	//$('.jsPanel').addClass(["bg-light"]);
 	$('.jsPanel-hdr').addClass(["p-1","bg-light"]);
-	$('.jsPanel-content').addClass(["m-1", "p-2","bg-light",'border', "border-dark", "rounded"]);
+	$('.jsPanel-content').css({
+		minHeight: 0,
+		minWidth: 0,
+		display: 'flex',
+		flexDirection: 'column'
+	});
+	$('.jsPanel-content').addClass(["d-flex", "flex-column", "m-1", "p-2","bg-light",'border', "border-dark", "rounded"]);
 	return panel;		
 }
 
@@ -14831,6 +14947,165 @@ WebEJS_TOOLS.html_tools = {
   }
 		
 };
+/*
+ * Copyright (C) 2025 Francisco Esquembre
+ * This code is part of the Web EJS authoring and simulation tool
+ */
+
+var WebEJS_TOOLS = WebEJS_TOOLS || {};
+
+WebEJS_TOOLS.JSON_EDITORS = {};
+
+WebEJS_TOOLS.jsonEditor = function (mTabbedPanel, mPageHash) {
+  const mID = "mJSONEditor-" + mTabbedPanel.getKeyword() + "-" + mPageHash;
+  
+  if (mID in WebEJS_TOOLS.JSON_EDITORS) {
+    const panel = WebEJS_TOOLS.JSON_EDITORS[mID];
+    try { panel.normalize && panel.normalize(); } catch {}
+    try { panel.front && panel.front(); } catch {}
+    try { panel.reposition && panel.reposition('center'); } catch {}
+    return;
+  }
+  
+  // Create a new panel and editor
+  const mPageName=mTabbedPanel.getPageObject(mPageHash).Name;
+  var mPanel = null;
+  var mEditor = null;
+
+  const options = {
+    content: '<div id="' + mID + '-ace-wrapper" class="d-flex flex-column flex-grow-1" style="min-height:0; min-width:0;">'
+            +' <div id="' + mID + '-ace" class="flex-grow-1" style="min-height:0; min-width:0;"></div>'
+            +'</div>',
+    onbeforeclose: function (panel) {
+      delete WebEJS_TOOLS.JSON_EDITORS[mID];
+      return true;
+    },
+    position: { at: 'center', of: '#sMainWorkpanel' },
+    panelSize: {
+      width: Math.min(window.innerWidth * 0.7, 600),
+      height: window.innerHeight * 0.9
+    },
+    onclosed: function (panel, closedByUser) {
+      delete WebEJS_TOOLS.JSON_EDITORS[mID];
+    },
+    footerToolbar: `
+      <div class="h-100 d-flex justify-content-between align-items-center w-100">
+        <button type="button" id="`+mID+`-RefreshBtn" class="sTranslatable btn btn-secondary" data-dismiss="modal">Revert</button>
+        <button type="button" id="`+mID+`-ReplaceBtn" class="sTranslatable btn btn-danger">Replace</button>
+        <button type="button" id="`+mID+`-DoneBtn"    class="sTranslatable btn btn-primary">Done</button>
+        </div>
+        `,
+        //<button type="button" id="`+mID+`-AppendBtn"  class="sTranslatable btn btn-secondary">Append</button>
+    callback: function (panel) {
+      initializeEditor();
+    }
+  };
+
+  // ----------------------------
+  // Parsing tools
+  // ----------------------------
+
+  function indexToRowCol(text, index) {
+    const i = Math.min(Math.max(index, 0), text.length);
+    let row = 0, col = 0, lastNL = -1;
+    for (let j = 0; j < i; j++) {
+      if (text.charCodeAt(j) === 10) { // \n
+        row++;
+        lastNL = j;
+      }
+    }
+    col = i - (lastNL + 1);
+    return { row, col };
+  }
+
+  function checkStructure(text) {
+    var data;
+    try {
+      data = JSON.parse(text);
+    } 
+    catch (e) {
+      // Intenta extraer posición/linea/columna del mensaje del SyntaxError
+      const posMatch = /position\s+(\d+)/i.exec(e.message);
+      const lcMatch  = /line\s+(\d+)\s*column\s+(\d+)/i.exec(e.message);
+
+      let row = 0, column = 0;
+      if (lcMatch) {
+        row = Math.max(0, parseInt(lcMatch[1], 10) - 1);
+        column = Math.max(0, parseInt(lcMatch[2], 10) - 1);
+      }
+      else if (posMatch) {
+        const pos = parseInt(posMatch[1], 10);
+        const rc = indexToRowCol(text, pos);
+        row = rc.row; column = rc.col;
+      }
+      mEditor.session.setAnnotations([{
+        row, column, type: 'error', text: `Invalid JSON: ${e.message}`
+      }]);
+      sMessageForm.showWarning("Parse error", "Error: JSON is invalid", "Please see editor.");
+      return null;
+    }
+    if (mTabbedPanel.checkValidJSON) {
+      const errorMessage = mTabbedPanel.checkValidJSON(data);
+      if (errorMessage) {
+        mEditor.session.setAnnotations([{
+          row: 0, column: 0, type: 'error', text: errorMessage
+        }]);
+        sMessageForm.showWarning("Parse error", errorMessage, "Please see editor.");
+        return null;
+      }
+    }
+    mEditor.session.clearAnnotations();
+    return data;
+  }
+
+  // ----------------------------
+  // Displaying and overwritting
+  // ----------------------------
+
+  function refreshJSON(json) {
+    if (mTabbedPanel.selectJSONfields) json = mTabbedPanel.selectJSONfields(json);
+    mEditor.setValue(JSON.stringify(json, null, 2), -1);
+    mEditor.clearSelection();
+  }
+  
+  function updateEditor(cleanFirst) {
+    mEditor.session.clearAnnotations();
+    const data = checkStructure(mEditor.getValue());
+    if (data) sMainConfirmationForm.show(mPageName,
+      "This action cannot be undone. Do you really want to replace the editor's contents?",
+      "Replace",
+      function() { mTabbedPanel.setPageContent(mPageHash, data, cleanFirst); }
+    );
+  }
+
+  function initializeEditor() {
+    mEditor = ace.edit(mID + '-ace');
+    mEditor.setTheme("ace/theme/xcode");
+    mEditor.session.setMode("ace/mode/json");
+    mEditor.resize();
+    mEditor.session.setTabSize(2);
+    mEditor.session.setUseWrapMode(true);
+    
+    refreshJSON(mTabbedPanel.getPageObject(mPageHash));
+
+    $('#' + mID + '-RefreshBtn').click(function () { refreshJSON(mTabbedPanel.getPageObject(mPageHash)); });
+    $('#' + mID + '-ReplaceBtn').click(function () { updateEditor(true); });
+    //$('#' + mID + '-AppendBtn').click(function () { updateEditor(false); });
+    $('#' + mID + '-DoneBtn').click(function () { mPanel.close(); });
+
+   //window.addEventListener('resize', () => mEditor.resize());
+   //new ResizeObserver(() => mEditor.resize()).observe(document.getElementById('ace-wrapper'));
+    new ResizeObserver(() => mEditor.resize()).observe(document.getElementById(mID + '-ace-wrapper'));
+
+  }
+
+  var title = sLocaleFor("JSON Editor for")
+  if (mTabbedPanel.getKeyword) title += " "+mTabbedPanel.getKeyword();
+  title += " : "+mPageName;
+
+  mPanel = WebEJS_TOOLS.createJSPanel(title, options, {  minimize: 'remove' });
+  WebEJS_TOOLS.JSON_EDITORS[mID] = mPanel;
+}
 var WebEJS_GUI = WebEJS_GUI || {};
 
 WebEJS_GUI.libraryChooser = function() {
@@ -15975,6 +16250,9 @@ WebEJS_TOOLS.tabbedPanel = function() {
 								(mTabbedPanel.getDefaultPageType()=='DESCRIPTION_EDITOR' ? 
 									'<li class="dropdown-item sTranslatable cPageMenuItem" data-action="PageToggleInternal">Tag/Untag as Internal</li>' : '')+
 
+								(['VARIABLE_EDITOR','ODE_EDITOR'].includes(mPage.Type) ? //mTabbedPanel.getDefaultPageType()=='VARIABLE_EDITOR' ? 
+									'<li class="dropdown-item sTranslatable cPageMenuItem" data-action="PageShowJSON">Show JSON</li>' : '')+
+
 								'<li class="dropdown-item sTranslatable cPageMenuItem" data-action="PageToggle">Enable/Disable this page</li>'+
 								'<li class="dropdown-item sTranslatable cPageMenuItem" data-action="PageDelete">Remove this page</li>'+
 						'</ul>'+
@@ -16135,10 +16413,10 @@ WebEJS_TOOLS.tabbedPanel = function() {
 		if (button) return button.closest('li');
 		return null;
 	}
-	
+
 	self.getPageObject = function(mTabbedPanel, mPageHash) {
 		const button = getTabButton(mTabbedPanel,mPageHash);
-		const pageDiv = self.getDivPageByHash(mTabbedPanel,mPageHash);
+		//const pageDiv = self.getDivPageByHash(mTabbedPanel,mPageHash);
 		return { 
 			'Name' : button.data('name'), 
 			'Active' : button.data('active') ? "true": "false",
@@ -16196,6 +16474,15 @@ WebEJS_TOOLS.tabbedPanel = function() {
 			}
 		})
 		if (mTabbedPanel.reportableChange) mTabbedPanel.reportableChange('page tagged/untagged internal');
+	}
+
+	function showJSONPage(mTabbedPanel,mPageHash) {
+		$(mTabbedPanel.getMainPanelSelector()+' .cPageTabButton').each(function() {
+			if ($(this).data('hash')==mPageHash) {
+				WebEJS_TOOLS.jsonEditor(mTabbedPanel,mPageHash);
+				return false;
+			}
+		})
 	}
 
 	function setDivDisabled(mTabbedPanel,mPageHash,disabled) {
@@ -16309,6 +16596,9 @@ WebEJS_TOOLS.tabbedPanel = function() {
 				break;
 			case "PageToggleInternal" : 
 				tagUntagInternalPage(mTabbedPanel,mPageHash);
+				break;
+			case "PageShowJSON" : 
+				showJSONPage(mTabbedPanel,mPageHash);
 				break;
 		}
 	}
@@ -16689,6 +16979,29 @@ WebEJS_TOOLS.tablePanel = function(mTableParent) {
     mTableParent.tableRowInitialization(pageHash, mRowHash, row);
   }
   
+  self.addRowsFromJSON = function(pageHash, rowList, cleanFirst) {
+    const tableBody = getBody(pageHash); 
+    if (cleanFirst) tableBody.empty();
+    
+    const base = mTableParent.getTableEmptyRow(); 
+
+    const frag = document.createDocumentFragment();
+    const createdRows = [];
+
+    rowList.forEach(v => {
+      const rowData = Object.assign({}, base, v); // merge: defaults + data
+      const $row = $(rowHTML(pageHash, rowData));
+      createdRows.push($row);
+      frag.appendChild($row[0]);
+      mTableParent.tableRowInitialization(pageHash, mRowHash, $row);
+    });
+
+    tableBody.append(frag);
+    self.processRowsToSet();
+		const name = mTableParent.getKeyword();
+    mTableParent.nonReportableChange(`Loaded ${createdRows.length} rows in ${name}`);
+  }
+
   function insertRow(pageHash, position, before) {
     const rowData = mTableParent.getTableEmptyRow();
     const tableBody = getBody(pageHash); 
