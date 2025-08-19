@@ -2485,7 +2485,8 @@ WebEJS_GUI.comm = function(sessionID, mServerSubroute) {
         simulation['information']['Title'] = title;
       }
       info['filename'] = encodeURI(filename);
-			ajaxPost('/output/zip', info, 
+			//ajaxPost('/output/zip', info, 
+			ajaxPost('/simulation/zip', info, 
 				result => { 
 					sMainGUI.logLine(sMainResources.getString("ZIP simulation file correctly created."));
 					console.log("Zip created correctly");
