@@ -12,311 +12,313 @@ var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
  * @class AnalyticCurve 
  * @constructor  
  */
-EJSS_DRAWING2D.AnalyticCurve = {	
-	
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
+EJSS_DRAWING2D.AnalyticCurve = {
 
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
-  	
-		dest.setNumPoints(source.getNumPoints());
-		dest.setMinimun(source.getMinimun());
-		dest.setMaximun(source.getMaximun());
-		dest.setVariable(source.getVariable());
-		dest.setFunctionX(source.getFunctionX());
-		dest.setFunctionY(source.getFunctionY());  	
-  	},
-  
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Element.registerProperties(element, controller);
-		// super class
+  // ----------------------------------------------------
+  // Static methods
+  // ----------------------------------------------------
 
-		controller.registerProperty("NumPoints", element.setNumPoints, element.getNumPoints);
-		controller.registerProperty("Minimum", element.setMinimun, element.getMinimun);
-		controller.registerProperty("Maximum", element.setMaximun, element.getMaximun);
-		controller.registerProperty("Variable", element.setVariable, element.getVariable);
-		controller.registerProperty("FunctionX", element.setFunctionX, element.getFunctionX);
-		controller.registerProperty("FunctionY", element.setFunctionY, element.getFunctionY);		
-    
-        controller.registerAction("OnError");
+  /**
+    * Copies one element into another
+    */
+  copyTo: function (source, dest) {
+    EJSS_DRAWING2D.Element.copyTo(source, dest); // super class copy
 
-	}
-			
+    dest.setNumPoints(source.getNumPoints());
+    dest.setMinimun(source.getMinimun());
+    dest.setMaximun(source.getMaximun());
+    dest.setVariable(source.getVariable());
+    dest.setFunctionX(source.getFunctionX());
+    dest.setFunctionY(source.getFunctionY());
+  },
+
+  /**
+   * static registerProperties method
+   */
+  registerProperties: function (element, controller) {
+    EJSS_DRAWING2D.Element.registerProperties(element, controller);
+    // super class
+
+    controller.registerProperty("NumPoints", element.setNumPoints, element.getNumPoints);
+    controller.registerProperty("Minimum", element.setMinimun, element.getMinimun);
+    controller.registerProperty("Maximum", element.setMaximun, element.getMaximun);
+    controller.registerProperty("Variable", element.setVariable, element.getVariable);
+    controller.registerProperty("FunctionX", element.setFunctionX, element.getFunctionX);
+    controller.registerProperty("FunctionY", element.setFunctionY, element.getFunctionY);
+
+    controller.registerAction("OnError");
+
+  }
+
 };
 
 /**
  * Creates a 2D AnalyticCurve
  * @method analyticCurve
  */
-EJSS_DRAWING2D.analyticCurve = function(name) {
-	var self = EJSS_DRAWING2D.element(name);
- 
- 	var mMinimun; 	
- 	var mMaximun;
- 	var mVariable = "t";
- 	var mFunctionX = "t";
- 	var mFunctionY = "0";
-	var mParameters = {};
- 	var mNumPoints = screen.width * 5;
+EJSS_DRAWING2D.analyticCurve = function (name) {
+  var self = EJSS_DRAWING2D.element(name);
 
-	self.getClass = function() {
-		return "ElementAnalyticCurve";
-	}
-	 
-	/**
-	 * Sets parameters for the evaluation of the function
-	 * @method setParameters
-	 * @param parameters Object { "p1" : value1, "p2" : value2, ...}
-	 * @return void
-	 */
-	self.setParameters = function(parameters) {
-	  for (var param in parameters) { 
-          mParameters[param] = parameters[param];
-	    }
-	  self.setChanged(true);
+  var mMinimun;
+  var mMaximun;
+  var mVariable = "t";
+  var mFunctionX = "t";
+  var mFunctionY = "0";
+  var mParameters = {};
+  var mNumPoints = screen.width * 5;
+
+  self.getClass = function () {
+    return "ElementAnalyticCurve";
+  }
+
+  /**
+   * Sets parameters for the evaluation of the function
+   * @method setParameters
+   * @param parameters Object { "p1" : value1, "p2" : value2, ...}
+   * @return void
+   */
+  self.setParameters = function (parameters) {
+    for (var param in parameters) {
+      mParameters[param] = parameters[param];
+    }
+    self.setChanged(true);
+  }
+
+  /**
+   * Gets parameters for the evaluation of the function
+   * @method getParameters
+   * @return Object { "p1" : value1, "p2" : value2, ...}
+   */
+  self.getParameters = function () {
+    return mParameters;
+  }
+
+  /**
+   * Returns bounds for an element
+   * @method getBounds
+   * @return Object{left,rigth,top,bottom}
+   */
+  self.getBounds = function (element) {
+    var x = self.getX(), y = self.getY();
+    var sx = self.getSizeX(), sy = self.getSizeY();
+    var mx = sx / 2, my = sy / 2;
+    var d = self.getRelativePositionOffset(sx, sy);
+    // calculate points
+    var parser = EJSS_DRAWING2D.functionsParser();
+    var exprfx;
+    var exprfy;
+    var mustReturn = false;
+    try {
+      exprfx = parser.parse(mFunctionX);
+    }
+    catch (errorfx) {
+      console.log("Analytic curve error parsing FunctionX: " + mFunctionX);
+      mustReturn = true;
+    }
+    if (!mustReturn) {
+      try {
+        exprfy = parser.parse(mFunctionY);
+      }
+      catch (errorfy) {
+        console.log("Analytic curve error parsing FunctionY: " + mFunctionY);
+        mustReturn = true;
+      }
+    }
+    if (mustReturn) {
+      self.getController().invokeAction("OnError");
+      return {
+        left: ((x + d[0]) - mx) - sx,
+        right: ((x + d[0]) - mx) + sx,
+        top: ((y + d[1]) - my) + sy,
+        bottom: ((y + d[1]) - my) - sy
+      };
     }
 
-	/**
-	 * Gets parameters for the evaluation of the function
-	 * @method getParameters
-	 * @return Object { "p1" : value1, "p2" : value2, ...}
-	 */
-	self.getParameters = function() {
-	  return mParameters;
+    var min = ((typeof mMinimun == "undefined" || mMinimun === null) ? self.getPanel().getRealWorldXMin() : mMinimun);
+    //		console.log ("Minimumm = "+mMinimun+" : min = "+min);
+    var max = ((typeof mMaximun == "undefined" || mMaximun === null) ? self.getPanel().getRealWorldXMax() : mMaximun);
+
+    var step = (max - min) / mNumPoints;
+    var points = [];
+    var vblevalue = {};
+    for (var param in mParameters) {
+      vblevalue[param] = mParameters[param];
     }
-	 
-	/**
-	 * Returns bounds for an element
-	 * @method getBounds
-	 * @return Object{left,rigth,top,bottom}
-	 */
-	self.getBounds = function(element) {
-	    var x = self.getX(), y = self.getY();
-	    var sx = self.getSizeX(), sy = self.getSizeY();
-	  	var mx = sx/2, my = sy/2;  	
-	  	var d = self.getRelativePositionOffset(sx,sy);
-	   	// calculate points
-	   	var parser = EJSS_DRAWING2D.functionsParser();
-	   	var exprfx;
-	   	var exprfy;
-	   	var mustReturn = false;
-	   	try {
-	   	  exprfx = parser.parse(mFunctionX);
-	   	}
-	   	catch (errorfx) {
-  	   	  console.log ("Analytic curve error parsing FunctionX: "+mFunctionX);
-	   	  mustReturn = true;
-	   	}
-	   	if (!mustReturn) {
-	   	  try {
-	   	    exprfy = parser.parse(mFunctionY);
-	   	  }
-	   	  catch (errorfy) {
-  	   	    console.log ("Analytic curve error parsing FunctionY: "+mFunctionY);
-	   	    mustReturn = true;
-	   	  }
-	   	}
-	   	if (mustReturn) {
-	   	  self.getController().invokeAction("OnError");
-	   	  return {
-	   	    left: ((x+d[0])-mx)-sx,
-			right: ((x+d[0])-mx)+sx,
-			top: ((y+d[1])-my)+sy,
-			bottom: ((y+d[1])-my)-sy
-	   	  };
-	   	}  	
+    try {
+      for (var j = 0, i = min; i < max; i += step) {
+        vblevalue[mVariable] = i;
+        var fxvalue = exprfx.evaluate(vblevalue);
+        var fyvalue = exprfy.evaluate(vblevalue);
+        if (!isNaN(fxvalue) && !isNaN(fyvalue)) {
+          points[j] = [];
+          points[j][0] = fxvalue;
+          points[j++][1] = fyvalue;
+        }
+      }
+    }
+    catch (errorEvaluate) {
+      console.log("Analytic curve error parsing variables : ");
+      console.log(errorEvaluate);
+      self.getController().invokeAction("OnError");
+      return {
+        left: ((x + d[0]) - mx) - sx,
+        right: ((x + d[0]) - mx) + sx,
+        top: ((y + d[1]) - my) + sy,
+        bottom: ((y + d[1]) - my) - sy
+      };
+    }
 
-		var min = ( (typeof mMinimun == "undefined" || mMinimun === null) ?  self.getPanel().getRealWorldXMin() : mMinimun);
-//		console.log ("Minimumm = "+mMinimun+" : min = "+min);
-		var max = ( (typeof mMaximun == "undefined" || mMaximun === null) ?  self.getPanel().getRealWorldXMax() : mMaximun);
+    // calculate max and min
+    var maxfx = 0;
+    var maxfy = 0;
+    var minfx = 0;
+    var minfy = 0;
+    if (points.length > 0) {
+      maxfx = points[0][0], minfx = points[0][0];
+      maxfy = points[0][1], minfy = points[0][1];
+      for (var k = 0; k < points.length; k++) {
+        if (points[k][0] > maxfx) maxfx = points[k][0];
+        if (points[k][0] < minfx) minfx = points[k][0];
+        if (points[k][1] > maxfy) maxfy = points[k][1];
+        if (points[k][1] < minfy) minfy = points[k][1];
+      }
+    }
 
-	   	var step = (max-min)/mNumPoints;
-		var points = [];	   	
-	    var vblevalue = {};
-	    for (var param in mParameters) { 
-          vblevalue[param] = mParameters[param];
-	    }
-	    try {
-	   	  for(var j=0, i=min; i<max; i+=step) {
-	   		vblevalue[mVariable] = i;
-	   		var fxvalue = exprfx.evaluate(vblevalue);
-	   		var fyvalue = exprfy.evaluate(vblevalue);
-	   		  if(!isNaN(fxvalue) && !isNaN(fyvalue)) {
-		   		points[j] = [];		   		   		
-		    	points[j][0] = fxvalue;	
-				points[j++][1] = fyvalue;
-			}
-		  }
-		}
-		catch (errorEvaluate) {
-	      self.getController().invokeAction("OnError");
-		  return {
-	   	    left: ((x+d[0])-mx)-sx,
-			right: ((x+d[0])-mx)+sx,
-			top: ((y+d[1])-my)+sy,
-			bottom: ((y+d[1])-my)-sy
-	   	  };
-		} 
-	
-		// calculate max and min
-		var maxfx = 0;
-		var maxfy = 0;
-		var minfx = 0;
-		var minfy = 0;
-		if(points.length > 0) {
-			maxfx = points[0][0], minfx = points[0][0];
-			maxfy = points[0][1], minfy = points[0][1];
-		  	for(var k=0; k<points.length; k++) {
-		    	if(points[k][0] > maxfx) maxfx = points[k][0];
-		    	if(points[k][0] < minfx) minfx = points[k][0];
-		    	if(points[k][1] > maxfy) maxfy = points[k][1];
-		    	if(points[k][1] < minfy) minfy = points[k][1];
-			}
-		} 
-		
-		return {
-			left: ((x+d[0])-mx)+minfx*sx,
-			right: ((x+d[0])-mx)+maxfx*sx,
-			top: ((y+d[1])-my)+maxfy*sy,
-			bottom: ((y+d[1])-my)+minfy*sy
-		}
-	};
-  	 		 
-	/** 
-	 * @method setNumPoint
-	 * @param numpoint
-	 */
-	self.setNumPoints = function (numpoints) {
-	  	if(mNumPoints != numpoints) {
-	  		mNumPoints = numpoints;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getNumPoint
-	 * @return
-	 */
-	self.getNumPoints = function() { 
-		return mNumPoints; 
-	}
+    return {
+      left: ((x + d[0]) - mx) + minfx * sx,
+      right: ((x + d[0]) - mx) + maxfx * sx,
+      top: ((y + d[1]) - my) + maxfy * sy,
+      bottom: ((y + d[1]) - my) + minfy * sy
+    }
+  };
 
-	/** 
-	 * @method setMinimun
-	 * @param minimun
-	 */
-	self.setMinimun = function (minimun) {
-	  	if(mMinimun != minimun) {
-	  		mMinimun = minimun;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getMinimun
-	 * @return
-	 */
-	self.getMinimun = function() { 
-		return mMinimun; 
-	}
+  /** 
+   * @method setNumPoint
+   * @param numpoint
+   */
+  self.setNumPoints = function (numpoints) {
+    if (mNumPoints != numpoints) {
+      mNumPoints = numpoints;
+      self.setChanged(true);
+    }
+  }
 
-	/** 
-	 * @method setMaximun
-	 * @param maximun
-	 */
-	self.setMaximun = function (maximun) {
-	  	if(mMaximun != maximun) {
-	  		mMaximun = maximun;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getMaximun
-	 * @return
-	 */
-	self.getMaximun = function() { 
-		return mMaximun; 
-	}
+  /**
+   * @method getNumPoint
+   * @return
+   */
+  self.getNumPoints = function () {
+    return mNumPoints;
+  }
 
-	/** 
-	 * @method setVariable
-	 * @param variable
-	 */
-	self.setVariable = function (variable) {
-	  	if(mVariable != variable) {
-	  		mVariable = variable;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getVariable
-	 * @return
-	 */
-	self.getVariable = function() { 
-		return mVariable; 
-	}
+  /** 
+   * @method setMinimun
+   * @param minimun
+   */
+  self.setMinimun = function (minimun) {
+    if (mMinimun != minimun) {
+      mMinimun = minimun;
+      self.setChanged(true);
+    }
+  }
 
-	/** 
-	 * @method setFunctionX
-	 * @param functionx
-	 */
-	self.setFunctionX = function (functionx) {
-	  	if(mFunctionX != functionx) {
-	  		mFunctionX = functionx;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getFunctionX
-	 * @return
-	 */
-	self.getFunctionX = function() { 
-		return mFunctionX; 
-	}
+  /**
+   * @method getMinimun
+   * @return
+   */
+  self.getMinimun = function () {
+    return mMinimun;
+  }
 
-	/** 
-	 * @method setFunctionY
-	 * @param functiony
-	 */
-	self.setFunctionY = function (functiony) {
-	  	if(mFunctionY != functiony) {
-	  		mFunctionY = functiony;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getFunctionY
-	 * @return
-	 */
-	self.getFunctionY = function() { 
-		return mFunctionY; 
-	}
+  /** 
+   * @method setMaximun
+   * @param maximun
+   */
+  self.setMaximun = function (maximun) {
+    if (mMaximun != maximun) {
+      mMaximun = maximun;
+      self.setChanged(true);
+    }
+  }
+
+  /**
+   * @method getMaximun
+   * @return
+   */
+  self.getMaximun = function () {
+    return mMaximun;
+  }
+
+  /** 
+   * @method setVariable
+   * @param variable
+   */
+  self.setVariable = function (variable) {
+    if (mVariable != variable) {
+      mVariable = variable;
+      self.setChanged(true);
+    }
+  }
+
+  /**
+   * @method getVariable
+   * @return
+   */
+  self.getVariable = function () {
+    return mVariable;
+  }
+
+  /** 
+   * @method setFunctionX
+   * @param functionx
+   */
+  self.setFunctionX = function (functionx) {
+    if (mFunctionX != functionx) {
+      mFunctionX = functionx;
+      self.setChanged(true);
+    }
+  }
+
+  /**
+   * @method getFunctionX
+   * @return
+   */
+  self.getFunctionX = function () {
+    return mFunctionX;
+  }
+
+  /** 
+   * @method setFunctionY
+   * @param functiony
+   */
+  self.setFunctionY = function (functiony) {
+    if (mFunctionY != functiony) {
+      mFunctionY = functiony;
+      self.setChanged(true);
+    }
+  }
+
+  /**
+   * @method getFunctionY
+   * @return
+   */
+  self.getFunctionY = function () {
+    return mFunctionY;
+  }
 
 
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.AnalyticCurve.registerProperties(self, controller);
-	};
-  
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
+  self.registerProperties = function (controller) {
+    EJSS_DRAWING2D.AnalyticCurve.registerProperties(self, controller);
+  };
 
-	self.setSize([1,1]);
-    self.setRelativePosition("SOUTH_WEST");
-		
-	return self;
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1, 1]);
+  self.setRelativePosition("SOUTH_WEST");
+
+  return self;
 };
 
 /*
@@ -17161,6 +17163,8 @@ EJSS_SVGGRAPHICS.analyticCurve = function(mGraphics, mElement) {
 		}
 	}
 	catch(error) {
+    console.log("Analytic curve error parsing variables : ");
+    console.log(error);
 	  mElement.getController().invokeAction("OnError");
 	 } // do not complain
 	
