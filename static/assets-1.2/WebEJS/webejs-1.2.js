@@ -4342,7 +4342,81 @@ WebEJS_GUI.elementsPanel = function() {
 		return html;
 	};
 
-	function showElementHelp(name,url) {
+	function showElementHelp(name, url) {
+		const absUrl = (mMODEL_ELEMENTS_FOLDER || '') + url;
+
+		// id único para el iframe (por si abres varios paneles)
+		const iframeId = `helpframe_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+		const options = {
+			theme: "bootstrap-light",
+			headerLogo: sMainGUI.getWebEJSLogo(),
+			headerTitle: '<h5 class="sTranslatable text-primary modal-title">' + name + '</h5>',
+			headerControls: { smallify: 'remove', minimize: 'remove' },
+			position: { at: 'center', of: '#sMainWorkpanel' },
+			borderRadius: '.3rem',
+			panelSize: {
+				width: Math.min(window.innerWidth * 0.7, 600),
+				height: Math.min(window.innerHeight * 0.6, 800)
+			},
+			// Usa un iframe “vacío” de inicio; lo rellenaremos con srcdoc
+			content: `<iframe id="${iframeId}" style="width:100%;height:100%;border:0;"
+                sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox">
+              </iframe>`,
+			onwindowresize: true
+		};
+
+		jsPanel.modal.create(options);
+		$('.jsPanel-hdr').addClass(["p-1", "bg-light"]);
+		$('.jsPanel-content').addClass(["m-1", "p-2", "bg-light", "border", "border-dark", "rounded"]);
+
+		// Cargar el HTML como texto y rehidratarlo en el iframe
+		(async () => {
+			try {
+				const res = await fetch(absUrl, { mode: "cors" });
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const text = await res.text();
+
+				// Inyecta <base href="..."> para resolver rutas relativas dentro del iframe
+				const baseHref = absUrl.replace(/[^/]+$/, "");
+				const hasHead = /<head[\s>]/i.test(text);
+				const hasBase = /<base\s[^>]*href=/i.test(text);
+
+				let patched = text;
+				if (hasHead && !hasBase) {
+					patched = text.replace(/<head([\s>])/i, `<head$1<base href="${baseHref}">`);
+				} else if (!hasHead && !hasBase) {
+					// Contenido sin <head>: añade uno mínimo al principio
+					patched = `<head><base href="${baseHref}"></head>` + text;
+				}
+
+				const iframe = document.getElementById(iframeId);
+
+				// Opción 1: srcdoc (simple y rápido)
+				iframe.srcdoc = patched;
+
+				// Si prefieres URL de Blob (por políticas CSP concretas), usa esto en vez de srcdoc:
+				// const blob = new Blob([patched], { type: "text/html;charset=utf-8" });
+				// const blobURL = URL.createObjectURL(blob);
+				// iframe.src = blobURL;
+				// iframe.addEventListener("load", () => URL.revokeObjectURL(blobURL), { once: true });
+
+			} catch (err) {
+				console.error(err);
+
+				// Fallback: intenta cargar directo por src (por si el servidor ya corrigió Content-Type)
+				const iframe = document.getElementById(iframeId);
+				iframe.removeAttribute("srcdoc"); // por si acaso
+				iframe.src = absUrl;
+
+				// (Opcional) muestra un aviso discreto
+				// toast / alert minimal:
+				// alert("No se pudo rehidratar el HTML; cargando la URL directamente.");
+			}
+		})();
+	}
+
+	function showElementHelpOLD(name,url) {
     const options = 
 		{
 			theme : "bootstrap-light",
