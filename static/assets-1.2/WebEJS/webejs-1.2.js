@@ -1957,8 +1957,10 @@ WebEJS_GEN.generate = function(mOptions) {
   const WEB_SITE = "https://t.um.es/webejs";
   
   const EJS_CSS            = "css/ejss.css";
-  const LIB_MAX_FILENAME   =  "ejsS.v1.max.js"  // prety JS libray
-	const LIB_MIN_FILENAME   = "ejsS.v1.min.js"  // uglified JS library
+  //const LIB_MAX_FILENAME   =  "ejsS.v1.max.js"  // prety JS libray
+	//const LIB_MIN_FILENAME   = "ejsS.v1.min.js"  // uglified JS library
+  const LIB_MAX_FILENAME   =  "ejs-1.2.js"  // prety JS libray
+	const LIB_MIN_FILENAME   = "ejs-1.2.min.js"  // uglified JS library
 	const COMMON_SCRIPTS     = "scripts/common_script.js"
 	const TEXT_SIZE_DETECTOR = "scripts/textresizedetector.js"
 
@@ -4048,6 +4050,1405 @@ WebEJS_GUI.descriptionWorkpanel = function(mMainPanelSelector) {
  * This code is part of the Web EJS authoring and simulation tool
  */
 
+/**
+ * WebEJS_GUI
+ * @module core
+ */
+
+var WebEJS_GUI = WebEJS_GUI || {};
+
+/**
+ * WebEJS_GUI.modelPanel
+ */
+
+/**
+ * @class modelPanel 
+ * @constructor  
+ */
+WebEJS_GUI.modelWorkpanel = function() {
+	var self = {};
+		 
+	var mVariablesPanel 		= WebEJS_GUI.variablesPanel('#sModelVariablesPanel');
+	var mInitializationPanel	= WebEJS_GUI.codePanel('initialization','#sModelInitializationPanel');
+	var mEvolutionPanel			= WebEJS_GUI.evolutionPanel('#sModelEvolutionMain');
+	var mFixedRelationsPanel	= WebEJS_GUI.codePanel('fixed_relations','#sModelFixedRelationsPanel');
+	var mCustomPanel			= WebEJS_GUI.codePanel('custom','#sModelCustomPanel');
+	var mElementsPanel			= WebEJS_GUI.elementsPanel('#sModelElementsPanel');
+
+	self.getVariables = function() { return mVariablesPanel; }
+	self.getCustomCode = function() { return mCustomPanel; }
+	self.getElementsPanel = function() { return mElementsPanel; }
+
+	// --------------------------
+	// Prepare GUI
+	// --------------------------
+
+	function switchPage(activeTab) {
+		$('.sModelContentDiv').each(function () {
+			if ($(this).index()==activeTab) $(this).removeClass('d-none');
+			else $(this).addClass('d-none');
+		});
+		$('.sModelTabButton').each(function () {
+			const index = $(this).closest('li').index();
+      if (index==activeTab) $(this).removeClass('bi-circle').addClass('bi-record-circle'); 
+      else $(this).removeClass('bi-record-circle').addClass('bi-circle');
+		});
+	}
+
+	function initPage() {
+		// This is required for flex working fine with tabs!!!
+		$('.sModelTabButton').click((event)=>{
+			var activeTab = $(event.target).closest("li").index();
+			switchPage(activeTab);
+		});		
+		switchPage(0);
+	}
+
+	// --------------------------
+	// API
+	// --------------------------
+	
+	self.saveObject = function() {
+		var model = {};
+		model['variables']			= mVariablesPanel.saveObject();
+		model['initialization']	= mInitializationPanel.saveObject();
+		model['evolution']			= mEvolutionPanel.saveObject();
+		model['fixed_relations']	= mFixedRelationsPanel.saveObject();
+		model['custom']					= mCustomPanel.saveObject();
+		model['elements']				= mElementsPanel.saveObject();
+		return model;
+	}
+
+	self.readObject = function(saved) {
+		var model;
+		if ('model' in saved) model = saved['model'];
+		else model = { 
+			'variables' : {}, 
+			'initialization' : {}, 
+			'evolution' : {}, 
+			'fixed_relations' : {}, 
+			'custom' : {}, 
+			'elements' : {} 
+		}
+		var result = true;
+		result &= mVariablesPanel.readObject		(model['variables'] ); 
+		result &= mInitializationPanel.readObject	(model['initialization']);
+		result &= mEvolutionPanel.readObject		(model['evolution']);
+		result &= mFixedRelationsPanel.readObject	(model['fixed_relations']);
+		result &= mCustomPanel.readObject			(model['custom']);
+    result &= mElementsPanel.readObject		(model['elements']);
+		return result;					
+	}
+
+	self.getDetectedFiles = function() {
+		return [];
+	}
+
+	// --------------------------
+	// Tabs API
+	// --------------------------
+
+	initPage();
+	
+	return self;
+}
+
+
+/*
+ * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
+ * This code is part of the Web EJS authoring and simulation tool
+ */
+
+/**
+ * GUI tools
+ * @module core
+ */
+
+
+ 
+/**
+ * @class evolutionPanel 
+ * @constructor  
+ */
+WebEJS_GUI.odeEventsPanel = function(mEvolutionPanel, mEvolutionPageDiv, mEvolutionPageObject) {
+  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
+  const mEvolutionPageHash = TABBED_PANEL.getPageDivHash(mEvolutionPageDiv);
+  const mEvolutionPageName = TABBED_PANEL.getPageDivName(mEvolutionPanel,mEvolutionPageDiv);
+  
+  const mKeyword = "ODEEventsEditor_"+mEvolutionPageHash;
+  const mID = 'm'+mKeyword; 
+  const mMainPanelSelector = '#'+mID+"-Panel";
+
+	var self = {};
+	
+	var mEventMaximumStep = "";
+  var mEventContents = { pages : [] };
+  var mZenoContents  = { Code : '', Comment : '', StopAfterEffect : 'true' };
+  if (mEvolutionPageObject) {
+    mEventMaximumStep = mEvolutionPageObject.EventMaximumStep;
+    if ('Events'     in mEvolutionPageObject) {
+      if (typeof mEvolutionPageObject.Events === 'object' && 
+          'pages' in mEvolutionPageObject.Events) 
+        mEventContents = mEvolutionPageObject.Events;
+    }
+    if ('ZenoEffect' in mEvolutionPageObject) {
+      if (typeof mEvolutionPageObject.ZenoEffect === 'object' && 
+          'Code' in mEvolutionPageObject.ZenoEffect) 
+        mZenoContents  = mEvolutionPageObject.ZenoEffect;
+    }
+    mEvolutionPanel.showNumberOfEvents(mEventContents.pages.length, mEvolutionPageDiv);
+  } 
+
+  var mPanel = null; // The panel for the event tabbed panel 
+  var mZenoPanel = null; // The single Zeno Effect panel
+  var mConditionEditorByHash = {};
+  var mActionEditorByHash = {};
+  var mZenoEditor = null;
+
+	// Implementation of TabbedPanel (begin)
+
+	self.getMainPanelSelector	= function() { return mMainPanelSelector; }
+	self.getKeyword	= function() { return mKeyword; }
+	self.getPageName	= function() { return 'Event'; }
+
+	self.getDefaultPageType = function() { return 'EVENT_EDITOR'; }
+  
+	// ----- optional functions for TabbedPanel
+
+  self.pageDeleted = function(mPageDiv) {
+    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
+    delete mConditionEditorByHash[hash];
+    delete mActionEditorByHash[hash];
+    mEvolutionPanel.showNumberOfEvents(TABBED_PANEL.getPagesCount(self)-1, mEvolutionPageDiv);
+  }
+
+  self.reportableChange = function(message) {
+    mEvolutionPanel.reportableChange(message);
+  }
+    
+	// ----- end of optional functions for TabbedPanel
+
+	// Rest of the implementation of TabbedPanel at the end
+
+  // --------------------------
+  // read and write
+  // --------------------------
+
+  self.getContent = function(contents) {
+    if (mPanel) collectContents();
+    if (mZenoPanel) collectZenoContents();
+    contents.EventMaximumStep = mEventMaximumStep;
+    contents.Events     = mEventContents;
+    contents.ZenoEffect = mZenoContents;
+  }
+
+  function collectContents() {
+    mEventMaximumStep = $('#'+mID+'-ZenoSteps').val();
+    mEventContents = { 'pages' : TABBED_PANEL.getAllPagesObject(self) };
+  }
+
+  function collectZenoContents() {
+    mZenoContents = { 
+      Code : mZenoEditor.getValue(),
+      Comment : $('#'+mID+'-ZenoComment').val(),
+      StopAfterEffect : $('#'+mID+'-ZenoStopCheckbox').is(":checked") ? "true" : "false" 
+    };
+  }
+  
+  // --------------------------
+  // Interface
+  // --------------------------
+
+  const mPreferredSize = {
+    width: Math.min(window.innerWidth*0.9,1000),
+    height: Math.min(window.innerHeight*0.9,800)
+  }; 
+
+  const mZenoPreferredSize = {
+    width: Math.min(window.innerWidth*0.7,800),
+    height: Math.min(window.innerHeight*0.7,600)
+  };
+  
+  self.show = function() {
+    if (mPanel) {
+      mPanel.resize(mPreferredSize); 
+      mPanel.reposition();
+      mPanel.front();
+    }
+    else createPanel();
+  }
+
+  self.hide = function() {
+    if (mPanel) mPanel.close(); 
+  }
+
+  function showZeno() {
+    if (mZenoPanel) {
+      mZenoPanel.resize(mZenoPreferredSize); 
+      mZenoPanel.reposition();
+      mZenoPanel.front();
+    }
+    else createZenoPanel();
+  }
+  
+  function readObject() {
+    var pages = mEventContents.pages;
+    if (pages==null || pages.length<=0) self.setNoPages();
+    else {
+      $(mMainPanelSelector).html(TABBED_PANEL.panelHTML(self,pages));
+      TABBED_PANEL.initPanel(self,pages);
+    }
+    return true;
+  }
+
+  // Create and show the jsPanel
+  function createPanel() {
+    const options = {
+      content: 
+				'<div id="'+mID+'-Panel" class="sModelSubpanel h-100 col-12 d-flex flex-column" style="flex-grow:1"></div>',
+      onbeforeclose: function(panel) {
+        if (mZenoPanel) mZenoPanel.close();
+        collectContents();
+        mPanel = null;
+        return true;
+      },
+      position: { at: 'center', of : '#sMainWorkpanel' },
+      footerToolbar: 
+        '<div class="h-100 d-flex flex-row" style="flex-grow:1">'+
+          '<div class="input-group input-group-sm" style="flex-grow:1;">'+
+            '<button type="button" id="'+mID+'-ZenoButton" '+
+                ' class="sTranslatable sModelBtn btn btn-outline-secondary">'+
+                sLocaleFor("Zeno effect action")+
+            '</button>'+
+            '<span id="'+mID+'-ZenoLabel" class="sTranslatable sModelBtn input-group-text">'+
+              sLocaleFor("Check events at steps not larger than")+
+            '</span>'+
+            '<input type="text" class="ms-1 form-control" id="'+mID+'-ZenoSteps"'+
+              sMainNoAutocorrect+
+              ' aria-describedby="'+mID+'-ZenoLabel" '+
+              ' style="width:4em;" aria-label="'+sLocaleFor("Zeno step")+'">'+
+//            '<button type="button" '+
+//                ' class="sTranslatable sModelBtn btn btn-outline-secondary ">'+
+            '<span class="input-group-text" >'+
+              '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                ' data-types="int|double" '+
+                ' data-field="#'+mID+'-ZenoSteps" '+
+                ' style="font-size: 1rem;"></i>'+
+            '</span>'+
+//            '</button>'+
+          '</div>'+
+          '<button type="button" id="'+mID+'-Button" style="flex-grow:0; flex-basis:0;" '+
+            'class="sTranslatable ms-1 input-group-button btn btn-primary float-left">Done</button>'+
+        '</div>',
+
+      callback : function(panel) {
+        $('#'+mID+'-Button').click(function() { panel.close(); });
+        $('#'+mID+'-ZenoButton').click(function() { showZeno(); });
+        $('#'+mID+'-ZenoSteps').change(function() { mEvolutionPanel.reportableChange('ODE ZenoSteps'); });
+    		$(panel).find('.cVariableChooser').on("click", (event)=>{ 
+	        mEvolutionPanel.selectVariable(event,mEvolutionPageName);
+    });   
+				readObject();
+      }
+    };
+		const titleString = sMainResources.getString('Events for ODE')+' : '+mEvolutionPageName;
+    mPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mPreferredSize);
+    $('#'+mID+'-ZenoSteps').val(mEventMaximumStep);
+  }
+  
+  // Create and show the jsPanel
+  function createZenoPanel() {
+    const options = {
+      content: 
+        '<div class="h-100 col-12 d-flex flex-column" style="flex-grow:1">'+
+          '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
+            '<div class="row">'+
+              
+              '<div class="col">'+
+                '<span class="sTranslatable sModelBtn input-group-text btn text-decoration-none">'+
+                  sLocaleFor("Action")+
+                '</span>'+
+              '</div>'+
+
+              '<div class="col input-group">'+
+                '<span class="form-check">'+
+                  '<input class="form-check-input" type="checkbox" value="" checked '+
+                    ' name="'+mID+'-ZenoStopCheckbox" id="'+mID+'-ZenoStopCheckbox">'+
+                  '<label class="sTranslatable form-check-label" for="'+mID+'-ZenoStopCheckbox">'+
+                    sLocaleFor("End step after effect")+
+                  '</label>'+
+                '</span>'+
+              '</div>'+
+              
+            '</div>'+ // end of row
+          '</div>'+ // end of header for Action
+          '<div class="ace h-100" id="'+mID+'-ZenoEditor" style="flex-grow:1"></div>'+
+        '</div>',
+      onbeforeclose: function(panel) {
+        collectZenoContents();
+        mZenoPanel = null;
+        return true;
+      },
+      position: { at: 'center', of : '#sMainWorkpanel' },
+      footerToolbar: 
+        '<div class="h-100 d-flex flex-row" style="flex-grow:1">'+
+          '<div class="input-group input-group-sm" style="flex-grow:1;">'+
+            '<span class="sTranslatable sModelBtn input-group-text">'+sLocaleFor("Comment")+'</span>'+
+            '<input type="text" class="flex flex-grow form-control" id="'+mID+'-ZenoComment"'+
+              ' placeholder="'+sLocaleFor("Page comment")+'" aria-label="'+sLocaleFor("Page comment")+'">'+
+          '</div>'+
+          '<button type="button" id="'+mID+'-ZenoCloseButton" style="flex-grow:0; flex-basis:0;" '+
+            'class="sTranslatable ms-1 input-group-button btn btn-primary float-left">Done</button>'+
+        '</div>',
+      callback : function(panel) {
+        $('#'+mID+'-ZenoCloseButton').click(function() { 
+          mZenoPanel.close(); 
+        });
+        
+        mZenoEditor = TABBED_PANEL.initializeCodeEditor(mID+"-ZenoEditor",mZenoContents.Code,
+          ()=>{ mEvolutionPanel.reportableChange('Zeno Action'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('Zeno Action'); });
+        $('#'+mID+'-ZenoStopCheckbox').prop("checked", (mZenoContents.StopAfterEffect=="true"));
+        $('#'+mID+'-ZenoComment').val(mZenoContents.Comment);
+        
+        $('#'+mID+'-ZenoStopCheckbox').on("change", ()=>{ 
+          mEvolutionPanel.reportableChange('Zeno stop'); 
+          });
+        $('#'+mID+'-ZenoComment').on("change", ()=>{ mEvolutionPanel.reportableChange('Zeno Comment'); });
+      }
+    };
+		const titleString = sMainResources.getString('Zeno effect action for ODE')+' : '+mEvolutionPageName;
+    mZenoPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mZenoPreferredSize);
+  }
+  
+  
+  // ---------------------------------------
+  // TabbedPanel implementation (continued)
+  // ---------------------------------------
+
+  self.setNoPages = function() {
+    $(mMainPanelSelector).html(
+      '<button class="sModelBtn sPanelNoPageBtn active" style="flex-grow:1;">'+
+        '<h5 class="sTranslatable">'+sLocaleFor('Click to create a page of')+' '+sLocaleFor('Events')+'</h5>'+
+      '</button>');
+    TABBED_PANEL.initPanel(self,null);
+  }
+
+  self.pageInitialization = function(mPageDiv, mPageObject) {
+    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
+		const pageName = TABBED_PANEL.getPageDivName(self,mPageDiv);
+		
+    var zeroCode   = (mPageObject ? mPageObject.ZeroCondition : "return 1.0; // Condition for "+ pageName);
+    var actionCode = (mPageObject ? mPageObject.Action        : "// Action for "+ pageName);
+
+    mConditionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ZeroEditor-'+hash,zeroCode,
+          ()=>{ mEvolutionPanel.reportableChange('Event Zero Condition'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('Event Zero Condition'); });
+    mActionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ActionEditor-'+hash,actionCode,
+          ()=>{ mEvolutionPanel.reportableChange('Event Action'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('Event Action'); });
+    
+    mPageDiv.find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Event change '+event.target.id); });
+    mPageDiv.find('select').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Event change '+event.target.id); });
+   
+   /*
+    $('#'+mID+'-TypeSelector-'+hash).on("change", ()=>{ nonReportableChange('Event Type'); });
+    $('#'+mID+'-IterationsField-'+hash).on("change", ()=>{ nonReportableChange('Event Iterations'); });
+    $('#'+mID+'-MethodSelector-'+hash).on("change", ()=>{ nonReportableChange('Event Method'); });
+    $('#'+mID+'-TolField-'+hash).on("change", ()=>{ nonReportableChange('Event Tolerance'); });
+    $('#'+mID+'-EndCheckbox-'+hash).on("change", ()=>{ nonReportableChange('Event ends step'); });
+    $('#'+mID+'-Comment-'+hash).on("change", ()=>{ nonReportableChange('Event Comment'); });
+*/
+    if (mPageObject) {
+      $('#'+mID+'-TypeSelector-'+hash+' option[value="'+mPageObject.EventType+'"]').attr('selected', true);    
+      $('#'+mID+'-IterationsField-'+hash).val(mPageObject.Iterations);
+      $('#'+mID+'-MethodSelector-'+hash+' option[value="'+mPageObject.Method+'"]').attr('selected', true);    
+
+      $('#'+mID+'-TolField-'+hash).val(mPageObject.Tolerance);
+      $('#'+mID+'-EndCheckbox-'+hash).prop("checked", (mPageObject.StopAtEvent=="true"));
+      $('#'+mID+'-Comment-'+hash).val(mPageObject.Comment);
+    }
+    
+    mPageDiv.find('.cVariableChooser').on("click", (event)=>{ 
+      if (TABBED_PANEL.isPageDisabled(self,mPageDiv)) return;
+        mEvolutionPanel.selectVariable(event,TABBED_PANEL.getPageDivName(self, mPageDiv));
+    });   
+
+    mEvolutionPanel.showNumberOfEvents(TABBED_PANEL.getPagesCount(self), mEvolutionPageDiv);
+  }
+
+  self.getPageObject = function(mPageHash) {
+    var page = TABBED_PANEL.getPageObject(self,mPageHash);
+    page.Action = mActionEditorByHash[mPageHash].getValue();
+    page.Comment = $('#'+mID+'-Comment-'+mPageHash).val();
+    page.EventType = $('#'+mID+'-TypeSelector-'+mPageHash+' option:selected').val();
+    page.Iterations = $('#'+mID+'-IterationsField-'+mPageHash).val();
+    page.Method = $('#'+mID+'-MethodSelector-'+mPageHash+' option:selected').val();
+    page.StopAtEvent = $('#'+mID+'-EndCheckbox-'+mPageHash).is(":checked") ? "true" : "false";
+    page.Tolerance = $('#'+mID+'-TolField-'+mPageHash).val();
+    page.ZeroCondition = mConditionEditorByHash[mPageHash].getValue();
+    return page;
+  }
+        
+  self.pageMainBuilder = function(mHash, mPage) {
+    return ''+
+      '<div class="h-100 d-flex flex-column" style="flex-grow:1">'+
+      
+          '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
+            '<div class="row">'+
+          
+              '<div class="col input-group">'+
+                '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Type")+
+                '</span>'+
+                '<select id="'+mID+'-TypeSelector-'+mHash+'" class="form-select" >'+
+                  '<option value="STATE_EVENT">State event</option>'+
+                  '<option value="CROSSING_EVENT" selected>Zero crossing</option>'+
+                  '<option value="POSITIVE_EVENT">Positive crossing</option>'+
+                '</select>'+
+              '</div>'+
+  
+              '<div class="col input-group">'+
+                '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Iterations")+
+                '</span>'+
+                '<input id="'+mID+'-IterationsField-'+mHash+'" type="text" class="form-control" '+
+                  sMainNoAutocorrect+
+                  'style="width:4em;" value="100">'+
+                '<span class="input-group-text" >'+
+                  '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                    ' data-types="int|double" '+
+                    ' data-field="#'+mID+'-IterationsField-'+mHash+'" '+
+                    ' style="font-size: 1rem;"></i>'+
+                '</span>'+
+              '</div>'+
+  
+              '<div class="col input-group">'+
+                '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Method")+
+                '</span>'+
+                '<select id="'+mID+'-MethodSelector-'+mHash+'" class="form-select">'+
+                  '<option value="BISECTION" selected>BISECTION</option>'+
+                  '<option value="SECANT">SECANT</option>'+
+                '</select>'+
+              '</div>'+
+  
+            '</div>'+
+          '</div>'+
+
+          '<div class="container" style="flex-grow:1;">'+
+          
+            '<div class="row d-flex flex-column" style="height:50%;">'+
+            
+              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
+                '<div class="row">'+
+                  '<div class="col">'+
+                      '<span id="'+mID+'-ZeroLabel-'+mHash+'" class="sTranslatable sModelBtn input-group-text btn text-decoration-none" >'+
+                        sLocaleFor("Zero condition")+
+                      '</span>'+
+                  '</div>'+
+
+                  '<div class="col input-group">'+
+                    '<span class="sTranslatable sModelBtn input-group-text">'+
+                      sLocaleFor("Tol")+
+                    '</span>'+
+                    '<input id="'+mID+'-TolField-'+mHash+'" type="text" class="form-control" '+
+                      sMainNoAutocorrect+
+                      'style="width:8em;" value="1.0e-5" >'+
+                    '<span class="input-group-text" >'+
+                      '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                        ' data-types="int|double" '+
+                        ' data-field="#'+mID+'-TolField-'+mHash+'" '+
+                        ' style="font-size: 1rem;"></i>'+
+                    '</span>'+
+                  '</div>'+
+                '</div>'+ // end of row
+              '</div>'+ // end of container for Zero condition header
+
+
+              '<div class="ace" id="'+mID+'-ZeroEditor-'+mHash+'" style="flex-grow:1"></div>'+
+            '</div>'+ // end of first BIG 50% row
+              
+            '<div class="row d-flex flex-column" style="height:50%;">'+
+
+              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
+                '<div class="row">'+
+                  
+                  '<div class="col">'+
+                    '<span class="sTranslatable sModelBtn input-group-text btn text-decoration-none">'+
+                      sLocaleFor("Action")+
+                    '</span>'+
+                  '</div>'+
+
+                  '<div class="col input-group">'+
+                    '<span class="form-check">'+
+                      '<input class="form-check-input" type="checkbox" value="" checked '+
+                        ' name="'+mID+'-EndCheckbox-'+mHash+'" id="'+mID+'-EndCheckbox-'+mHash+'">'+
+                      '<label class="sTranslatable form-check-label" for="'+mID+'-EndCheckbox">'+
+                        sLocaleFor("End step at event")+
+                      '</label>'+
+                    '</span>'+
+                  '</div>'+
+                  
+                '</div>'+ // end of row
+              '</div>'+ // end of header for Action
+
+              '<div class="ace" id="'+mID+'-ActionEditor-'+mHash+'" style="flex-grow:1"></div>'+
+            '</div>'+ // end of second BIG 50% row
+
+          '</div>'+ // end of container
+            
+        '</div>';
+        
+  }
+  
+  self.pageCommentBuilder = function(mHash, mPage) {
+    return ''+ 
+      '<div class="input-group input-group-sm dropup drop-start" style="flex-grow: 1;">'+
+        '<span class="sTranslatable sModelBtn input-group-text">Comment</span>'+
+        '<input type="text" class="sPageCommentField form-control" id="'+mID+'-Comment-'+mHash+'"'+
+          ' placeholder="Page comment" aria-label="Page comment">' + 
+      '</div>';
+  }     
+  
+	
+	return self;
+}
+
+/*
+ * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
+ * This code is part of the Web EJS authoring and simulation tool
+ */
+
+/**
+ * GUI tools
+ * @module core
+ */
+
+
+ 
+/**
+ * @class evolutionPanel 
+ * @constructor  
+ */
+WebEJS_GUI.odeParametersPanel = function(mEvolutionPanel, mEvolutionPageDiv, mEvolutionPageObject) {
+  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
+  const mEvolutionPageHash = TABBED_PANEL.getPageDivHash(mEvolutionPageDiv);
+  const mEvolutionPageName = TABBED_PANEL.getPageDivName(mEvolutionPanel,mEvolutionPageDiv);
+  
+  const mKeyword = "ODEParametersEditor_"+mEvolutionPageHash;
+  const mID = 'm'+mKeyword; 
+  const mDiscontinuitiesKeyword = mID+"-DiscontinuitiesDiv";
+  const mErrorHandlingKeyword = mID+"-ErrorHandlingDiv";
+
+	var self = {};
+
+	var mAccelerationIndependentOfVelocity = 'false'; // AccelerationIndependentOfVelocity
+  var mForceSynchronization = 'false'; // ForceSynchronization
+  var mUseBestInterpolation = 'false'; // UseBestInterpolation
+  var mEstimateFirstStep = 'false'; // EstimateFirstStep
+
+  var mMemoryLength = ''; // MemoryLength
+  var mInternalStep = '';  // InternalStep
+  var mMaximumStep = ''; // MaximumStep
+  var mMaximumNumberOfSteps = '10000'; // MaximumNumberOfSteps
+  var mRelativeTolerance = ''; // RelativeTolerance
+  var mTolerance ='';  // Tolerance ignored???
+
+	var mDelayList = ''; 				// DelayList
+	var mDelayMaximum = ''; 		// DelayMaximum
+  var mDelayAddDiscont = ''; 	// Pre-IC discontinuities
+	var mDelayInitialCondition = { Comment: '', Code : '' }; // Code for preinitial conditions for 
+  // Can be guessed
+
+  // TODO : IS THIS USED???
+	var mDirectIncidenceMatrix = ''; // ????
+
+	// {Type: "DISCONTINUITY_EDITOR", Name: "Discontinuity page", Active: "true", Internal: "false", 
+	//   DiscontinuityContent:{Tolerance: "1.0e-5", StopAtDiscontinuity: "true", ZeroCondition: "↵return 1.0;↵", Action: "↵// disc action↵", Comment: ""} }	
+	var mDiscontinuityContents = { pages : [] }; // Discontinuities 
+  // {Type: "ERROR_EDITOR", Name: "On Error page", Active: "true", Internal: "false", 
+  // ErrorHandlingContent: {Comment: "", Code: "↵// error code 1↵", ErrorType: "ANY_ERROR"} } 
+	var mErrorHandingContents  = { pages : [] }; // ErrorHandling
+
+  if (mEvolutionPageObject) {
+    mAccelerationIndependentOfVelocity = mEvolutionPageObject.AccelerationIndependentOfVelocity;
+    mForceSynchronization = mEvolutionPageObject.ForceSynchronization;
+    mUseBestInterpolation = mEvolutionPageObject.UseBestInterpolation;
+    mEstimateFirstStep = mEvolutionPageObject.EstimateFirstStep;
+
+    mMemoryLength = mEvolutionPageObject.MemoryLength;
+    mInternalStep = mEvolutionPageObject.InternalStep;
+    mMaximumStep = mEvolutionPageObject.MaximumStep;
+    mMaximumNumberOfSteps = mEvolutionPageObject.MaximumNumberOfSteps;
+    mRelativeTolerance = mEvolutionPageObject.RelativeTolerance;
+    mTolerance = mEvolutionPageObject.Tolerance;
+
+    mDelayList = mEvolutionPageObject.DelayList;
+    mDelayMaximum = mEvolutionPageObject.DelayMaximum;
+    mDelayAddDiscont = mEvolutionPageObject.DelayAddDiscont;
+    mDelayInitialCondition = mEvolutionPageObject.DelayInitialCondition; 
+
+    mDirectIncidenceMatrix  = mEvolutionPageObject.DirectIncidenceMatrix;
+
+    const discont = mEvolutionPageObject.Discontinuities;
+    if (discont && 'pages' in discont) mDiscontinuityContents = discont;
+    const errorH = mEvolutionPageObject.ErrorHandling;
+    if (errorH && 'pages' in errorH)  mErrorHandingContents = errorH;
+  } 
+
+	// --------------------------
+	// read and write
+	// --------------------------
+
+  var mPanel = null; // The jsPanel for the dialog
+  var mDiscontinuitiesEditor = WebEJS_GUI.odeDiscontinuityEditor(mEvolutionPanel,mDiscontinuitiesKeyword);
+  var mErrorHandlingEditor    = WebEJS_GUI.odeErrorHandlingEditor(mEvolutionPanel,mErrorHandlingKeyword);
+  var mDelayPreInitEditor = null;
+
+  self.getContent = function(contents) {
+    if (mPanel) collectContents();
+    contents.AccelerationIndependentOfVelocity = mAccelerationIndependentOfVelocity;
+    contents.ForceSynchronization = mForceSynchronization;
+    contents.UseBestInterpolation = mUseBestInterpolation
+    contents.EstimateFirstStep = mEstimateFirstStep;
+
+    contents.MemoryLength = mMemoryLength;
+    contents.InternalStep = mInternalStep;
+    contents.MaximumStep = mMaximumStep;
+    contents.MaximumNumberOfSteps = mMaximumNumberOfSteps;
+    contents.RelativeTolerance = mRelativeTolerance;
+    contents.Tolerance = mTolerance;
+
+    contents.DelayList = mDelayList;
+    contents.DelayMaximum = mDelayMaximum;
+    contents.DelayAddDiscont = mDelayAddDiscont;
+    contents.DelayInitialCondition = mDelayInitialCondition; 
+
+    contents.DirectIncidenceMatrix = mDirectIncidenceMatrix;
+
+    contents.Discontinuities = mDiscontinuityContents; 
+    contents.ErrorHandling = mErrorHandingContents;
+  }
+
+  function collectContents() {
+    mAccelerationIndependentOfVelocity = $('#'+mID+'-AccInd').is(":checked") ? "true" : "false";
+    mForceSynchronization = $('#'+mID+'-ForceSynchro').is(":checked") ? "true" : "false";
+    mUseBestInterpolation = $('#'+mID+'-BestInter').is(":checked") ? "true" : "false";
+    mEstimateFirstStep = $('#'+mID+'-EstimateFirst').is(":checked") ? "true" : "false";
+
+    mMemoryLength = $('#'+mID+'-MemoryLength').val()
+    mInternalStep = $('#'+mID+'-InternalStep').val()
+    mMaximumStep = $('#'+mID+'-MaximumStep').val()
+    mMaximumNumberOfSteps = $('#'+mID+'-MaxNumSteps').val()
+    mRelativeTolerance = $('#'+mID+'-RelTol').val()
+
+/*
+    mTolerance = mEvolutionPageObject.Tolerance;
+*/
+    mDelayList = $('#'+mID+'-Delays').val();
+    mDelayMaximum = $('#'+mID+'-MaximumDelay').val();
+    mDelayAddDiscont = $('#'+mID+'-DelayAddDisc').val();
+    mDelayInitialCondition = { 
+      Code : mDelayPreInitEditor.getValue(), 
+      Comment : $('#'+mID+'-DelayComment').val() 
+    };
+
+/*
+    mDirectIncidenceMatrix  
+*/
+
+    mDiscontinuityContents = { 'pages' : TABBED_PANEL.getAllPagesObject(mDiscontinuitiesEditor) };
+    mErrorHandingContents  = { 'pages' : TABBED_PANEL.getAllPagesObject(mErrorHandlingEditor) };
+  }
+	
+  // --------------------------
+  // Interface
+  // --------------------------
+
+  const mPreferredSize = {
+    width: Math.min(window.innerWidth*0.7,800),
+    height: Math.min(window.innerHeight*0.7,800)
+  }; 
+
+  self.show = function() {
+    if (mPanel) {
+      mPanel.resize(mPreferredSize); 
+      mPanel.reposition();
+      mPanel.front();
+    }
+    else createPanel();
+  }
+
+  self.hide = function() {
+    if (mPanel) mPanel.close(); 
+  }
+
+  function readObject() {
+    $('#'+mID+'-AccInd').prop('checked', mAccelerationIndependentOfVelocity=="true");
+    $('#'+mID+'-ForceSynchro').prop('checked', mForceSynchronization=="true");
+    $('#'+mID+'-BestInter').prop('checked', mUseBestInterpolation=="true");
+    $('#'+mID+'-EstimateFirst').prop('checked', mEstimateFirstStep=="true");
+
+    $('#'+mID+'-MemoryLength').val(mMemoryLength);
+    $('#'+mID+'-InternalStep').val(mInternalStep);
+    $('#'+mID+'-MaximumStep').val(mMaximumStep);
+    $('#'+mID+'-MaxNumSteps').val(mMaximumNumberOfSteps);
+    $('#'+mID+'-RelTol').val(mRelativeTolerance);
+
+    $('#'+mID+'-Delays').val(mDelayList);
+    $('#'+mID+'-MaximumDelay').val(mDelayMaximum);
+    $('#'+mID+'-DelayAddDisc').val(mDelayAddDiscont);
+    $('#'+mID+'-DelayPreInitCode').val(mDelayInitialCondition.Code);
+    $('#'+mID+'-DelayComment').val(mDelayInitialCondition.Comment);
+            
+    var pages = mDiscontinuityContents.pages;
+    if (pages==null || pages.length<=0) mDiscontinuitiesEditor.setNoPages();
+    else {
+      $('#'+mDiscontinuitiesKeyword).html(TABBED_PANEL.panelHTML(mDiscontinuitiesEditor,pages));
+      TABBED_PANEL.initPanel(mDiscontinuitiesEditor,pages);
+    }
+    pages = mErrorHandingContents.pages;
+    if (pages==null || pages.length<=0) mErrorHandlingEditor.setNoPages();
+    else {
+      $('#'+mErrorHandlingKeyword).html(TABBED_PANEL.panelHTML(mErrorHandlingEditor,pages));
+      TABBED_PANEL.initPanel(mErrorHandlingEditor,pages);
+    }
+    return true;
+  }
+  
+  
+  // Create and show the jsPanel
+  function createPanel() {
+    const options = {
+      content: getTabsContent(),
+      onbeforeclose: function(panel) {
+        collectContents();
+        mPanel = null;
+        return true;
+      },
+      position: { at: 'center', of : '#sMainWorkpanel' },
+      footerToolbar: 
+        '<button type="button" id="'+mID+'-CloseButton" class="sTranslatable btn btn-primary float-left">Done</button>',
+
+      callback : function(panel) {
+        $('#'+mID+'-CloseButton').click(function() { panel.close(); });
+        mDelayPreInitEditor = TABBED_PANEL.initializeCodeEditor(mID+'-DelayPreInitCode',mDelayInitialCondition.Code,
+          ()=>{ mEvolutionPanel.reportableChange('Delay Pre Init Code Condition'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('Delay Pre Init Code Condition'); });
+        
+        $(panel).find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Parameter change '+event.target.id); });
+
+        $(panel).find('.cVariableChooser').on("click", (event)=>{ 
+          mEvolutionPanel.selectVariable(event,mEvolutionPageName);
+        });
+        readObject();
+      }
+    };
+    const titleString = sMainResources.getString('Parameters for ODE')+' : '+mEvolutionPageName;
+    mPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mPreferredSize);
+  }
+  
+  function getTabsContent() {
+    var html = 
+    '<div class="sModelSubpanel h-100 col-12 d-flex flex-column">'+
+        '<ul class="nav nav-tabs nav-fill border" role="tablist" >'+
+          '<li class="nav-item" role="presentation">'+
+            '<button class="sTranslatable sModelBtn nav-link active" id="'+mID+'-OperationTab" '+
+                'data-bs-toggle="tab" data-bs-target="#'+mID+'-OperationDiv"  '+
+                'type="button" role="tab" aria-controls="'+mID+'-OperationDiv" aria-selected="true">'+
+              sLocaleFor('Operation') +
+            '</button>'+
+          '</li>'+
+          '<li class="nav-item" role="presentation">'+
+            '<button class="sTranslatable sModelBtn nav-link" id="'+mID+'-DiscontinuitiesTab" '+
+                'data-bs-toggle="tab" data-bs-target="#'+mID+'-DiscontinuitiesDiv"  '+
+                'type="button" role="tab" aria-controls="'+mID+'-DiscontinuitiesDiv" aria-selected="true">'+
+              sLocaleFor('Discontinuities') +
+            '</button>'+
+          '</li>'+
+          '<li class="nav-item" role="presentation">'+
+            '<button class="sTranslatable sModelBtn nav-link" id="'+mID+'-DDETab" '+
+                'data-bs-toggle="tab" data-bs-target="#'+mID+'-DDEDiv"  '+
+                'type="button" role="tab" aria-controls="'+mID+'-DDEDiv" aria-selected="true">'+
+              sLocaleFor('DDE') +
+            '</button>'+
+          '</li>'+
+          '<li class="nav-item" role="presentation">'+
+            '<button class="sTranslatable sModelBtn nav-link" id="'+mID+'-ErrorHandlingTab" '+
+                'data-bs-toggle="tab" data-bs-target="#'+mID+'-ErrorHandlingDiv"  '+
+                'type="button" role="tab" aria-controls="'+mID+'-ErrorHandlingDiv" aria-selected="true">'+
+              sLocaleFor('ErrorHandling') +
+            '</button>'+
+          '</li>'+
+        '</ul>'+
+        '<div class="tab-content h-100 col-12 d-flex flex-column" style="flex-grow:1">'+
+              
+          '<div class="sModelSubpanel tab-pane show active"'+
+              ' id="'+mID+'-OperationDiv" style="flex-grow:1"'+ 
+              ' role="tabpanel" aria-labelledby="'+mID+'-OperationTab">'+
+              
+            '<div class="mt-2 form-check form-switch">'+
+              '<input class="form-check-input" type="checkbox" id="'+mID+'-AccInd">'+
+              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-AccInd">'+
+                sLocaleFor('Acc Indep of Velocity')+
+              '</label>'+
+            '</div>'+
+            
+            '<div class="form-check form-switch">'+
+              '<input class="form-check-input" type="checkbox" id="'+mID+'-ForceSynchro">'+
+              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-ForceSynchro">'+
+                sLocaleFor('Force synchronization')+
+              '</label>'+
+            '</div>'+
+            
+            '<div class="form-check form-switch">'+
+              '<input class="form-check-input" type="checkbox" id="'+mID+'-BestInter">'+
+              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-BestInter">'+
+                sLocaleFor('Use best interpolation')+
+              '</label>'+
+            '</div>'+
+            
+            '<div class="form-check form-switch">'+
+              '<input class="form-check-input" type="checkbox" id="'+mID+'-EstimateFirst">'+
+              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-EstimateFirst">'+
+                sLocaleFor('Estimate first step')+
+              '</label>'+
+            '</div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Memory length")+
+              '</span>'+
+              '<input id="'+mID+'-MemoryLength" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
+              '<span class="input-group-text" >'+
+                '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                  ' data-types="int|double" '+
+                  ' data-field="#'+mID+'-MemoryLength" '+
+                  ' style="font-size: 1rem;"></i>'+
+              '</span>'+
+            '</div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Internal step size")+
+              '</span>'+
+              '<input id="'+mID+'-InternalStep" type="text" class="form-control"'+sMainNoAutocorrect+'>'+
+              '<span class="input-group-text" >'+
+                '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                  ' data-types="int|double" '+
+                  ' data-field="#'+mID+'-InternalStep" '+
+                  ' style="font-size: 1rem;"></i>'+
+              '</span>'+
+            '</div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Maximum step size")+
+              '</span>'+
+              '<input id="'+mID+'-MaximumStep" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
+              '<span class="input-group-text" >'+
+                '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                  ' data-types="int|double" '+
+                  ' data-field="#'+mID+'-MaximumStep" '+
+                  ' style="font-size: 1rem;"></i>'+
+              '</span>'+
+            '</div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Max number of steps")+
+              '</span>'+
+              '<input id="'+mID+'-MaxNumSteps" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
+              '<span class="input-group-text" >'+
+                '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                  ' data-types="int|double" '+
+                  ' data-field="#'+mID+'-MaxNumSteps" '+
+                  ' style="font-size: 1rem;"></i>'+
+              '</span>'+
+            '</div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Relative tolerance")+
+              '</span>'+
+              '<input id="'+mID+'-RelTol" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
+              '<span class="input-group-text" >'+
+                '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                  ' data-types="int|double" '+
+                  ' data-field="#'+mID+'-RelTol" '+
+                  ' style="font-size: 1rem;"></i>'+
+              '</span>'+
+            '</div>'+
+            
+          '</div>'+
+
+          '<div class="sModelSubpanel tab-pane fade"'+
+            ' id="'+mID+'-DiscontinuitiesDiv" style="flex-grow:1"'+ 
+            ' role="tabpanel" aria-labelledby="'+mID+'-DiscontinuitiesTab">'+
+          '</div>'+
+
+          '<div class="sModelSubpanel tab-pane fade"'+
+            ' id="'+mID+'-DDEDiv" style="flex-grow:1"'+ 
+            ' role="tabpanel" aria-labelledby="'+mID+'-DDETab">'+
+            
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Delays")+
+              '</span>'+
+              '<input id="'+mID+'-Delays" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
+            '</div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Maximum delay")+
+              '</span>'+
+              '<input id="'+mID+'-MaximumDelay" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
+            '</div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Pre-IC discontinuities")+
+              '</span>'+
+              '<input id="'+mID+'-DelayAddDisc" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
+            '</div>'+
+
+            '<label for="'+mID+'-DelayPreInitCode" class="mt-2 sModelBtn form-label">'+
+                sLocaleFor('Code for pre-initial conditions for')+' '+mEvolutionPageName+
+            '</label>'+
+            '<div class="ace" id="'+mID+'-DelayPreInitCode" style="height: 150px;"></div>'+
+
+            '<div class="mt-2 input-group">'+
+              '<span class="sTranslatable sModelBtn input-group-text">'+
+                  sLocaleFor("Comment")+
+              '</span>'+
+              '<input id="'+mID+'-DelayComment" type="text" class="form-control" >'+
+            '</div>'+            
+            
+          '</div>'+
+
+          '<div class="sModelSubpanel tab-pane fade"'+
+            ' id="'+mID+'-ErrorHandlingDiv" style="flex-grow:1"'+ 
+            ' role="tabpanel" aria-labelledby="'+mID+'-ErrorHandlingTab">'+
+          '</div>'+
+  
+        '</div>'+
+
+      '</div>';
+    return html;
+  }
+
+	// --------------------------
+	// Final start-up
+	// --------------------------
+
+	
+	return self;
+}
+
+
+WebEJS_GUI.odeDiscontinuityEditor = function(mEvolutionPanel, mID) {
+  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
+  const mMainPanelSelector = '#'+mID;
+  
+	var self = {};
+  var mConditionEditorByHash = {};
+  var mActionEditorByHash = {};
+
+	// Implementation of TabbedPanel (begin)
+
+	self.getMainPanelSelector	= function() { return mMainPanelSelector; }
+	self.getKeyword	= function() { return 'Discontinuity'; }
+	self.getPageName	= function() { return 'Discontinuity Page'; }
+
+	self.getDefaultPageType = function() { return 'DISCONTINUITY_EDITOR'; }
+
+	// ----- optional functions for TabbedPanel
+
+  self.pageDeleted = function(mPageDiv) {
+    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
+    delete mConditionEditorByHash[hash];
+    delete mActionEditorByHash[hash];
+  }
+
+  self.reportableChange = function(message) {
+    sMainGUI.setChanged();
+  }
+ 
+  self.setNoPages = function() {
+    $(mMainPanelSelector).html(
+      '<button class="sModelBtn sPanelNoPageBtn h-100 col-12 active" style="flex-grow:1;">'+
+        '<h5 class="sTranslatable">'+sLocaleFor('Click to create a page of')+' '+sLocaleFor('Discontinuity')+'</h5>'+
+      '</button>');
+    TABBED_PANEL.initPanel(self,null);
+  }
+
+ self.pageInitialization = function(mPageDiv, mPageObject) {
+    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
+    const pageName = TABBED_PANEL.getPageDivName(self,mPageDiv);
+    
+    var zeroCode   = (mPageObject ? mPageObject.ZeroCondition : "return 1.0; // Condition for "+ pageName);
+    var actionCode = (mPageObject ? mPageObject.Action        : "// Action for "+ pageName);
+
+    mConditionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ZeroEditor-'+hash,zeroCode,
+          ()=>{ mEvolutionPanel.reportableChange('ODE Discontinuity Zero Condition'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('ODE Discontinuity Zero Condition'); });
+    mActionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ActionEditor-'+hash,actionCode,
+          ()=>{ mEvolutionPanel.reportableChange('Disc Action'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('Disc Action'); });
+    
+    mPageDiv.find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Discontinuity change '+event.target.id); });
+
+    if (mPageObject) {
+      $('#'+mID+'-TolField-'+hash).val(mPageObject.Tolerance);
+      $('#'+mID+'-EndCheckbox-'+hash).prop("checked", (mPageObject.StopAtDiscontinuity=="true"));
+      $('#'+mID+'-Comment-'+hash).val(mPageObject.Comment);
+    }
+    
+    mPageDiv.find('.cVariableChooser').on("click", (event)=>{ 
+        mEvolutionPanel.selectVariable(event,TABBED_PANEL.getPageDivName(self, mPageDiv));
+    });   
+
+  }
+
+  // {Type: "DISCONTINUITY_EDITOR",  
+  //   DiscontinuityContent:{Tolerance: "1.0e-5", StopAtDiscontinuity: "true", 
+  // ZeroCondition: "↵return 1.0;↵", Action: "↵// disc action↵", Comment: ""} } 
+
+  self.getPageObject = function(mPageHash) {
+    var page = TABBED_PANEL.getPageObject(self,mPageHash);
+    page.Action = mActionEditorByHash[mPageHash].getValue();
+    page.Comment = $('#'+mID+'-Comment-'+mPageHash).val();
+    page.StopAtDiscontinuity = $('#'+mID+'-EndCheckbox-'+mPageHash).is(":checked") ? "true" : "false";
+    page.Tolerance = $('#'+mID+'-TolField-'+mPageHash).val();
+    page.ZeroCondition = mConditionEditorByHash[mPageHash].getValue();
+    return page;
+  }
+        
+  self.pageMainBuilder = function(mHash, mPage) {
+    return ''+
+      '<div class="container h-100 d-flex flex-column" style="flex-grow:1">'+
+      
+            '<div class="row d-flex flex-column" style="height:50%;">'+
+            
+              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
+                '<div class="row">'+
+                  '<div class="col">'+
+                      '<span id="'+mID+'-ZeroLabel" class="sTranslatable sModelBtn input-group-text btn text-decoration-none" >'+
+                        sLocaleFor("Zero condition")+
+                      '</span>'+
+                  '</div>'+
+
+                  '<div class="col input-group">'+
+                    '<span class="sTranslatable sModelBtn input-group-text">'+
+                      sLocaleFor("Tol")+
+                    '</span>'+
+                    '<input id="'+mID+'-TolField-'+mHash+'" type="text" class="form-control" '+
+                        sMainNoAutocorrect+
+                        'style="width:8em;" value="1.0e-5" >'+
+                    '<span class="input-group-text" >'+
+                      '<i class="sModelBtn bi bi-link cVariableChooser" '+
+                        ' data-types="int|double" '+
+                        ' data-field="#'+mID+'-TolField-'+mHash+'" '+
+                        ' style="font-size: 1rem;"></i>'+
+                    '</span>'+
+                  '</div>'+
+                '</div>'+ // end of row
+              '</div>'+ // end of container for Zero condition header
+
+
+              '<div class="ace mt-1" id="'+mID+'-ZeroEditor-'+mHash+'" style="flex-grow:1; min-height:100px;"></div>'+
+            '</div>'+ // end of first BIG 50% row
+              
+            '<div class="row d-flex flex-column" style="height:50%;">'+
+
+              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
+                '<div class="row">'+
+                  
+                  '<div class="col">'+
+                    '<span class="sTranslatable sModelBtn input-group-text btn text-decoration-none">'+
+                      sLocaleFor("Action")+
+                    '</span>'+
+                  '</div>'+
+
+                  '<div class="col input-group">'+
+                    '<span class="form-check">'+
+                      '<input class="form-check-input" type="checkbox" value="" checked '+
+                        ' name="'+mID+'-EndCheckbox-'+mHash+'" id="'+mID+'-EndCheckbox">'+
+                      '<label class="sTranslatable form-check-label" for="'+mID+'-EndCheckbox">'+
+                        sLocaleFor("End step at discontinuity")+
+                      '</label>'+
+                    '</span>'+
+                  '</div>'+
+                  
+                '</div>'+ // end of row
+              '</div>'+ // end of header for Action
+
+              '<div class="ace mt-1" id="'+mID+'-ActionEditor-'+mHash+'" style="flex-grow:1; min-height:100px;"></div>'+
+            '</div>'+ // end of second BIG 50% row
+            
+        '</div>';
+        
+  }
+  
+  self.pageCommentBuilder = function(mHash, mPage) {
+    return ''+ 
+      '<div class="input-group input-group-sm dropup drop-start" style="flex-grow: 1;">'+
+        '<span class="sTranslatable sModelBtn input-group-text">Comment</span>'+
+        '<input type="text" class="sPageCommentField form-control" id="'+mID+'-Comment-'+mHash+'"'+
+          ' placeholder="Page comment" aria-label="Page comment">' + 
+      '</div>';
+  }  
+	
+	return self;
+}
+
+WebEJS_GUI.odeErrorHandlingEditor = function(mEvolutionPanel,mID) {
+  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
+  const mMainPanelSelector = '#'+mID;
+  
+  var self = {};
+  var mEditorByHash = {};
+
+  // Implementation of TabbedPanel (begin)
+
+  self.getMainPanelSelector = function() { return mMainPanelSelector; }
+  self.getKeyword = function() { return 'OnError'; }
+  self.getPageName  = function() { return 'On Error Page'; }
+
+  self.getDefaultPageType = function() { return 'ERROR_EDITOR'; }
+
+
+  // ----- optional functions for TabbedPanel
+
+  self.pageDeleted = function(mPageDiv) {
+    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
+    delete mEditorByHash[hash];
+  }
+
+  self.reportableChange = function(message) {
+    sMainGUI.setChanged();
+  }
+
+  self.setNoPages = function() {
+    $(mMainPanelSelector).html(
+      '<button class="sModelBtn sPanelNoPageBtn h-100 col-12 active" style="flex-grow:1;">'+
+        '<h5 class="sTranslatable">'+sLocaleFor('Click to create a page of')+' '+sLocaleFor('Error Handling')+'</h5>'+
+      '</button>');
+    TABBED_PANEL.initPanel(self,null);
+  }
+
+ self.pageInitialization = function(mPageDiv, mPageObject) {
+    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
+    const pageName = TABBED_PANEL.getPageDivName(self,mPageDiv);
+    
+    var code  = (mPageObject ? mPageObject.Code : "// Error handling for "+ pageName);
+    mEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-Editor-'+hash,code,
+          ()=>{ mEvolutionPanel.reportableChange('ODE Error handling'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('ODE Error handling'); });
+
+    mPageDiv.find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Error handling change '+event.target.id); });
+    mPageDiv.find('select').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Error handling change '+event.target.id); });
+
+    if (mPageObject) {
+      $('#'+mID+'-TypeSelector-'+hash+' option[value="'+mPageObject.ErrorType+'"]').attr('selected', true);    
+      $('#'+mID+'-Comment-'+hash).val(mPageObject.Comment);
+    }
+    
+  }
+  // ErrorHandlingContent: {Comment: "", Code: "↵// error code 1↵", ErrorType: "ANY_ERROR"} } 
+
+  self.getPageObject = function(mPageHash) {
+    var page = TABBED_PANEL.getPageObject(self,mPageHash);
+    page.Code = mEditorByHash[mPageHash].getValue();
+    page.ErrorType = $('#'+mID+'-TypeSelector-'+mPageHash+' option:selected').val();
+    page.Comment = $('#'+mID+'-Comment-'+mPageHash).val();
+    return page;
+  }
+        
+  self.pageMainBuilder = function(mHash, mPage) {
+    return ''+
+      '<div class=" h-100 d-flex flex-column" style="flex-grow:1">'+
+                  
+        '<div class="input-group" style="flex-grow:0; flex-basis:0;">'+
+          '<span class="sTranslatable sModelBtn input-group-text">'+
+            sLocaleFor("Error Type")+
+          '</span>'+
+          '<select id="'+mID+'-TypeSelector-'+mHash+'" class="form-select" >'+
+            '<option value="ANY_ERROR">ANY ERROR </option>'+
+            '<option value="INTERNAL_SOLVER_ERROR" selected>INTERNAL SOLVER ERROR</option>'+
+            '<option value="EVENT_NOT_FOUND">EVENT NOT FOUND</option>'+
+            '<option value="ILLEGAL_EVENT_STATE">ILLEGAL EVENT STATE</option>'+
+            '<option value="TOO_MANY_STEPS">TOO MANY STEPS</option>'+
+            '<option value="DID_NOT_CONVERGE">DID NOT CONVERGE</option>'+
+          '</select>'+
+        '</div>'+
+
+        '<div class="ace mt-1" id="'+mID+'-Editor-'+mHash+'" style="flex-grow:1; min-height:200px;"></div>'+
+              
+        '</div>';
+        
+  }
+  
+  self.pageCommentBuilder = function(mHash, mPage) {
+    return ''+ 
+      '<div class="input-group input-group-sm dropup drop-start" style="flex-grow: 1;">'+
+        '<span class="sTranslatable sModelBtn input-group-text">Comment</span>'+
+        '<input type="text" class="sPageCommentField form-control" id="'+mID+'-Comment-'+mHash+'"'+
+          ' placeholder="Page comment" aria-label="Page comment">' + 
+      '</div>';
+  }  
+  
+  return self;
+}
+/*
+ * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
+ * This code is part of the Web EJS authoring and simulation tool
+ */
+
+/**
+ * GUI tools
+ * @module core
+ */
+
+
+ 
+/**
+ * @class evolutionPanel 
+ * @constructor  
+ */
+WebEJS_GUI.odePreliminaryCodePanel = function(mEvolutionPanel, mPageDiv, mPageObject) {
+  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
+  const mPageHash = TABBED_PANEL.getPageDivHash(mPageDiv);
+  const mPageName = TABBED_PANEL.getPageDivName(mEvolutionPanel,mPageDiv);
+
+  const titleString = sMainResources.getString('Preliminary code for ODE')+' : '+mPageName;
+  const mID = "mODEPreliminaryCodeEditor_"+mPageHash;
+
+	var self = {};
+	
+  var mContents = mPageObject ? 
+    {  'Code'    : mPageObject.PreliminaryCode.Code, 
+       'Comment' : mPageObject.PreliminaryCode.Comment }
+    : 
+    { 'Code'    : "// "+ titleString ,  'Comment' : '' };	
+
+  var mPanel = null;
+  var mEditor = null;
+
+	// --------------------------
+	// read and write
+	// --------------------------
+	
+	self.getContent = function() {
+    collectContents();
+    return mContents;
+  }
+
+  function collectContents() {
+    if (!mPanel) return;
+    mContents = {
+      'Code'   : mEditor.getValue(),  
+      'Comment' : $('#'+mID+'-Comment').val() 
+    };
+  }
+
+  self.setPageContent = function(json) {
+    if (mPanel) {
+      if ('Code' in json) mEditor.setValue(json.Code);
+      if ('Comment' in json) $('#'+mID+'-Comment').val(json.Comment);
+    }
+    else {
+      if ('Code' in json) mContents.Code  = json.Code;
+      if ('Comment' in json) mContents.Comment  = json.Comment;
+    }
+  }
+
+  // --------------------------
+  // Interface
+  // --------------------------
+
+  const mPreferredSize = {
+    width: Math.min(window.innerWidth*0.9,1200),
+    height: Math.min(window.innerHeight*0.9,1200)
+  }; 
+
+  self.show = function() {
+    if (!mPanel) return createPanel();
+    mPanel.resize(mPreferredSize); 
+    mPanel.reposition();
+    mPanel.front();
+  }
+
+  self.hide = function() {
+    if (mPanel) mPanel.close(); 
+  }
+  
+  // Create and show the jsPanel
+  function createPanel() {
+    const options = {
+    content: '<div id="' + mID + '-ace-wrapper" class="d-flex flex-column flex-grow-1" style="min-height:0; min-width:0;">'
+            +' <div id="' + mID + '-ace" class="flex-grow-1" style="min-height:0; min-width:0;"></div>'
+            +'</div>',
+    //content: '<div id="'+mID+'-ace" class="ace h-100" style="flex-grow:1"></div>',
+      onbeforeclose: function(panel) {
+        collectContents();
+        mPanel = null;
+        return true;
+      },
+      position: { at: 'center', of : '#sMainWorkpanel' },
+      footerToolbar: 
+        '<div class="h-100 d-flex flex-row" style="flex-grow:1">'+
+          '<div class="input-group input-group-sm" style="flex-grow:1;">'+
+            '<span class="sTranslatable sModelBtn input-group-text">'+sLocaleFor("Comment")+'</span>'+
+            '<input type="text" class="flex flex-grow form-control" id="'+mID+'-Comment"'+
+              ' placeholder="'+sLocaleFor("Page comment")+'" aria-label="'+sLocaleFor("Page comment")+'">'+
+          '</div>'+
+          '<button type="button" id="'+mID+'-Button" style="flex-grow:0; flex-basis:0;" '+
+            'class="sTranslatable ms-1 input-group-button btn btn-primary float-left">Done</button>'+
+        '</div>',
+      callback : function(panel) {
+        $('#'+mID+'-Button').click(function() { mPanel.close(); });
+        mEditor = TABBED_PANEL.initializeCodeEditor(mID+"-ace",mContents.Code,
+          ()=>{ mEvolutionPanel.nonReportableChange('PrelimCode'); }, // onBlur
+          ()=>{ mEvolutionPanel.nonReportableChange('PrelimCode'); });
+        $('#'+mID+'-Comment').val(mContents.Comment);
+        new ResizeObserver(() => mEditor.resize()).observe(document.getElementById(mID + '-ace-wrapper'));
+      }
+    };
+    mPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mPreferredSize);
+  }
+  
+  function getContentHtml() {
+    return ''+
+        '<div class="input-group input-group-sm" style="flex-grow:0; flex-basis:0;">'+
+          '<span class="sTranslatable sModelBtn input-group-text">'+sLocaleFor("Comment")+'</span>'+
+          '<input type="text" class="flex flex-grow form-control" id="'+mID+'-Comment"'+
+            ' placeholder="'+sLocaleFor("Page comment")+'" aria-label="'+sLocaleFor("Page comment")+'">'+
+        '</div>'+
+      '</div>';
+      /*
+      panel.headertitle.style.color = $('.sModelBtn').css("color");// $('#sEvolutionPage_PreliminaryCode_CommentLabel_'+index+'").css("color");;
+      panel.headerbar.style.background = "#e8ecee"; //"white";// $('#sEvolutionPage_PreliminaryCode_CommentLabel_'+index+'").css("color");;
+      panel.headerbar.style.borderBottom = '1px solid '+$('.sModelBtn').css("color");// $('#sEvolutionPage_PreliminaryCode_CommentLabel_'+index+'").css("color");;
+      panel.footer.style.padding = '0px';
+      mPrelimCodeEditors[hash].Panel = panel;
+      */
+  }
+    
+	// --------------------------
+	// Final start-up
+	// --------------------------
+
+	
+	return self;
+}
+
+/*
+ * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
+ * This code is part of the Web EJS authoring and simulation tool
+ */
+
 
 WebEJS_GUI.codePanelMenuAction = function(mAction, mCodeEditor, mChangeTarget) {
 		switch (mAction) {
@@ -5501,1296 +6902,6 @@ WebEJS_GUI.ODE_HTML = `
  * @module core
  */
 
-
- 
-/**
- * @class evolutionPanel 
- * @constructor  
- */
-WebEJS_GUI.odeEventsPanel = function(mEvolutionPanel, mEvolutionPageDiv, mEvolutionPageObject) {
-  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
-  const mEvolutionPageHash = TABBED_PANEL.getPageDivHash(mEvolutionPageDiv);
-  const mEvolutionPageName = TABBED_PANEL.getPageDivName(mEvolutionPanel,mEvolutionPageDiv);
-  
-  const mKeyword = "ODEEventsEditor_"+mEvolutionPageHash;
-  const mID = 'm'+mKeyword; 
-  const mMainPanelSelector = '#'+mID+"-Panel";
-
-	var self = {};
-	
-	var mEventMaximumStep = "";
-  var mEventContents = { pages : [] };
-  var mZenoContents  = { Code : '', Comment : '', StopAfterEffect : 'true' };
-  if (mEvolutionPageObject) {
-    mEventMaximumStep = mEvolutionPageObject.EventMaximumStep;
-    if ('Events'     in mEvolutionPageObject) {
-      if (typeof mEvolutionPageObject.Events === 'object' && 
-          'pages' in mEvolutionPageObject.Events) 
-        mEventContents = mEvolutionPageObject.Events;
-    }
-    if ('ZenoEffect' in mEvolutionPageObject) {
-      if (typeof mEvolutionPageObject.ZenoEffect === 'object' && 
-          'Code' in mEvolutionPageObject.ZenoEffect) 
-        mZenoContents  = mEvolutionPageObject.ZenoEffect;
-    }
-    mEvolutionPanel.showNumberOfEvents(mEventContents.pages.length, mEvolutionPageDiv);
-  } 
-
-  var mPanel = null; // The panel for the event tabbed panel 
-  var mZenoPanel = null; // The single Zeno Effect panel
-  var mConditionEditorByHash = {};
-  var mActionEditorByHash = {};
-  var mZenoEditor = null;
-
-	// Implementation of TabbedPanel (begin)
-
-	self.getMainPanelSelector	= function() { return mMainPanelSelector; }
-	self.getKeyword	= function() { return mKeyword; }
-	self.getPageName	= function() { return 'Event'; }
-
-	self.getDefaultPageType = function() { return 'EVENT_EDITOR'; }
-  
-	// ----- optional functions for TabbedPanel
-
-  self.pageDeleted = function(mPageDiv) {
-    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
-    delete mConditionEditorByHash[hash];
-    delete mActionEditorByHash[hash];
-    mEvolutionPanel.showNumberOfEvents(TABBED_PANEL.getPagesCount(self)-1, mEvolutionPageDiv);
-  }
-
-  self.reportableChange = function(message) {
-    mEvolutionPanel.reportableChange(message);
-  }
-    
-	// ----- end of optional functions for TabbedPanel
-
-	// Rest of the implementation of TabbedPanel at the end
-
-  // --------------------------
-  // read and write
-  // --------------------------
-
-  self.getContent = function(contents) {
-    if (mPanel) collectContents();
-    if (mZenoPanel) collectZenoContents();
-    contents.EventMaximumStep = mEventMaximumStep;
-    contents.Events     = mEventContents;
-    contents.ZenoEffect = mZenoContents;
-  }
-
-  function collectContents() {
-    mEventMaximumStep = $('#'+mID+'-ZenoSteps').val();
-    mEventContents = { 'pages' : TABBED_PANEL.getAllPagesObject(self) };
-  }
-
-  function collectZenoContents() {
-    mZenoContents = { 
-      Code : mZenoEditor.getValue(),
-      Comment : $('#'+mID+'-ZenoComment').val(),
-      StopAfterEffect : $('#'+mID+'-ZenoStopCheckbox').is(":checked") ? "true" : "false" 
-    };
-  }
-  
-  // --------------------------
-  // Interface
-  // --------------------------
-
-  const mPreferredSize = {
-    width: Math.min(window.innerWidth*0.9,1000),
-    height: Math.min(window.innerHeight*0.9,800)
-  }; 
-
-  const mZenoPreferredSize = {
-    width: Math.min(window.innerWidth*0.7,800),
-    height: Math.min(window.innerHeight*0.7,600)
-  };
-  
-  self.show = function() {
-    if (mPanel) {
-      mPanel.resize(mPreferredSize); 
-      mPanel.reposition();
-      mPanel.front();
-    }
-    else createPanel();
-  }
-
-  self.hide = function() {
-    if (mPanel) mPanel.close(); 
-  }
-
-  function showZeno() {
-    if (mZenoPanel) {
-      mZenoPanel.resize(mZenoPreferredSize); 
-      mZenoPanel.reposition();
-      mZenoPanel.front();
-    }
-    else createZenoPanel();
-  }
-  
-  function readObject() {
-    var pages = mEventContents.pages;
-    if (pages==null || pages.length<=0) self.setNoPages();
-    else {
-      $(mMainPanelSelector).html(TABBED_PANEL.panelHTML(self,pages));
-      TABBED_PANEL.initPanel(self,pages);
-    }
-    return true;
-  }
-
-  // Create and show the jsPanel
-  function createPanel() {
-    const options = {
-      content: 
-				'<div id="'+mID+'-Panel" class="sModelSubpanel h-100 col-12 d-flex flex-column" style="flex-grow:1"></div>',
-      onbeforeclose: function(panel) {
-        if (mZenoPanel) mZenoPanel.close();
-        collectContents();
-        mPanel = null;
-        return true;
-      },
-      position: { at: 'center', of : '#sMainWorkpanel' },
-      footerToolbar: 
-        '<div class="h-100 d-flex flex-row" style="flex-grow:1">'+
-          '<div class="input-group input-group-sm" style="flex-grow:1;">'+
-            '<button type="button" id="'+mID+'-ZenoButton" '+
-                ' class="sTranslatable sModelBtn btn btn-outline-secondary">'+
-                sLocaleFor("Zeno effect action")+
-            '</button>'+
-            '<span id="'+mID+'-ZenoLabel" class="sTranslatable sModelBtn input-group-text">'+
-              sLocaleFor("Check events at steps not larger than")+
-            '</span>'+
-            '<input type="text" class="ms-1 form-control" id="'+mID+'-ZenoSteps"'+
-              sMainNoAutocorrect+
-              ' aria-describedby="'+mID+'-ZenoLabel" '+
-              ' style="width:4em;" aria-label="'+sLocaleFor("Zeno step")+'">'+
-//            '<button type="button" '+
-//                ' class="sTranslatable sModelBtn btn btn-outline-secondary ">'+
-            '<span class="input-group-text" >'+
-              '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                ' data-types="int|double" '+
-                ' data-field="#'+mID+'-ZenoSteps" '+
-                ' style="font-size: 1rem;"></i>'+
-            '</span>'+
-//            '</button>'+
-          '</div>'+
-          '<button type="button" id="'+mID+'-Button" style="flex-grow:0; flex-basis:0;" '+
-            'class="sTranslatable ms-1 input-group-button btn btn-primary float-left">Done</button>'+
-        '</div>',
-
-      callback : function(panel) {
-        $('#'+mID+'-Button').click(function() { panel.close(); });
-        $('#'+mID+'-ZenoButton').click(function() { showZeno(); });
-        $('#'+mID+'-ZenoSteps').change(function() { mEvolutionPanel.reportableChange('ODE ZenoSteps'); });
-    		$(panel).find('.cVariableChooser').on("click", (event)=>{ 
-	        mEvolutionPanel.selectVariable(event,mEvolutionPageName);
-    });   
-				readObject();
-      }
-    };
-		const titleString = sMainResources.getString('Events for ODE')+' : '+mEvolutionPageName;
-    mPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mPreferredSize);
-    $('#'+mID+'-ZenoSteps').val(mEventMaximumStep);
-  }
-  
-  // Create and show the jsPanel
-  function createZenoPanel() {
-    const options = {
-      content: 
-        '<div class="h-100 col-12 d-flex flex-column" style="flex-grow:1">'+
-          '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
-            '<div class="row">'+
-              
-              '<div class="col">'+
-                '<span class="sTranslatable sModelBtn input-group-text btn text-decoration-none">'+
-                  sLocaleFor("Action")+
-                '</span>'+
-              '</div>'+
-
-              '<div class="col input-group">'+
-                '<span class="form-check">'+
-                  '<input class="form-check-input" type="checkbox" value="" checked '+
-                    ' name="'+mID+'-ZenoStopCheckbox" id="'+mID+'-ZenoStopCheckbox">'+
-                  '<label class="sTranslatable form-check-label" for="'+mID+'-ZenoStopCheckbox">'+
-                    sLocaleFor("End step after effect")+
-                  '</label>'+
-                '</span>'+
-              '</div>'+
-              
-            '</div>'+ // end of row
-          '</div>'+ // end of header for Action
-          '<div class="ace h-100" id="'+mID+'-ZenoEditor" style="flex-grow:1"></div>'+
-        '</div>',
-      onbeforeclose: function(panel) {
-        collectZenoContents();
-        mZenoPanel = null;
-        return true;
-      },
-      position: { at: 'center', of : '#sMainWorkpanel' },
-      footerToolbar: 
-        '<div class="h-100 d-flex flex-row" style="flex-grow:1">'+
-          '<div class="input-group input-group-sm" style="flex-grow:1;">'+
-            '<span class="sTranslatable sModelBtn input-group-text">'+sLocaleFor("Comment")+'</span>'+
-            '<input type="text" class="flex flex-grow form-control" id="'+mID+'-ZenoComment"'+
-              ' placeholder="'+sLocaleFor("Page comment")+'" aria-label="'+sLocaleFor("Page comment")+'">'+
-          '</div>'+
-          '<button type="button" id="'+mID+'-ZenoCloseButton" style="flex-grow:0; flex-basis:0;" '+
-            'class="sTranslatable ms-1 input-group-button btn btn-primary float-left">Done</button>'+
-        '</div>',
-      callback : function(panel) {
-        $('#'+mID+'-ZenoCloseButton').click(function() { 
-          mZenoPanel.close(); 
-        });
-        
-        mZenoEditor = TABBED_PANEL.initializeCodeEditor(mID+"-ZenoEditor",mZenoContents.Code,
-          ()=>{ mEvolutionPanel.reportableChange('Zeno Action'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('Zeno Action'); });
-        $('#'+mID+'-ZenoStopCheckbox').prop("checked", (mZenoContents.StopAfterEffect=="true"));
-        $('#'+mID+'-ZenoComment').val(mZenoContents.Comment);
-        
-        $('#'+mID+'-ZenoStopCheckbox').on("change", ()=>{ 
-          mEvolutionPanel.reportableChange('Zeno stop'); 
-          });
-        $('#'+mID+'-ZenoComment').on("change", ()=>{ mEvolutionPanel.reportableChange('Zeno Comment'); });
-      }
-    };
-		const titleString = sMainResources.getString('Zeno effect action for ODE')+' : '+mEvolutionPageName;
-    mZenoPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mZenoPreferredSize);
-  }
-  
-  
-  // ---------------------------------------
-  // TabbedPanel implementation (continued)
-  // ---------------------------------------
-
-  self.setNoPages = function() {
-    $(mMainPanelSelector).html(
-      '<button class="sModelBtn sPanelNoPageBtn active" style="flex-grow:1;">'+
-        '<h5 class="sTranslatable">'+sLocaleFor('Click to create a page of')+' '+sLocaleFor('Events')+'</h5>'+
-      '</button>');
-    TABBED_PANEL.initPanel(self,null);
-  }
-
-  self.pageInitialization = function(mPageDiv, mPageObject) {
-    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
-		const pageName = TABBED_PANEL.getPageDivName(self,mPageDiv);
-		
-    var zeroCode   = (mPageObject ? mPageObject.ZeroCondition : "return 1.0; // Condition for "+ pageName);
-    var actionCode = (mPageObject ? mPageObject.Action        : "// Action for "+ pageName);
-
-    mConditionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ZeroEditor-'+hash,zeroCode,
-          ()=>{ mEvolutionPanel.reportableChange('Event Zero Condition'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('Event Zero Condition'); });
-    mActionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ActionEditor-'+hash,actionCode,
-          ()=>{ mEvolutionPanel.reportableChange('Event Action'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('Event Action'); });
-    
-    mPageDiv.find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Event change '+event.target.id); });
-    mPageDiv.find('select').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Event change '+event.target.id); });
-   
-   /*
-    $('#'+mID+'-TypeSelector-'+hash).on("change", ()=>{ nonReportableChange('Event Type'); });
-    $('#'+mID+'-IterationsField-'+hash).on("change", ()=>{ nonReportableChange('Event Iterations'); });
-    $('#'+mID+'-MethodSelector-'+hash).on("change", ()=>{ nonReportableChange('Event Method'); });
-    $('#'+mID+'-TolField-'+hash).on("change", ()=>{ nonReportableChange('Event Tolerance'); });
-    $('#'+mID+'-EndCheckbox-'+hash).on("change", ()=>{ nonReportableChange('Event ends step'); });
-    $('#'+mID+'-Comment-'+hash).on("change", ()=>{ nonReportableChange('Event Comment'); });
-*/
-    if (mPageObject) {
-      $('#'+mID+'-TypeSelector-'+hash+' option[value="'+mPageObject.EventType+'"]').attr('selected', true);    
-      $('#'+mID+'-IterationsField-'+hash).val(mPageObject.Iterations);
-      $('#'+mID+'-MethodSelector-'+hash+' option[value="'+mPageObject.Method+'"]').attr('selected', true);    
-
-      $('#'+mID+'-TolField-'+hash).val(mPageObject.Tolerance);
-      $('#'+mID+'-EndCheckbox-'+hash).prop("checked", (mPageObject.StopAtEvent=="true"));
-      $('#'+mID+'-Comment-'+hash).val(mPageObject.Comment);
-    }
-    
-    mPageDiv.find('.cVariableChooser').on("click", (event)=>{ 
-      if (TABBED_PANEL.isPageDisabled(self,mPageDiv)) return;
-        mEvolutionPanel.selectVariable(event,TABBED_PANEL.getPageDivName(self, mPageDiv));
-    });   
-
-    mEvolutionPanel.showNumberOfEvents(TABBED_PANEL.getPagesCount(self), mEvolutionPageDiv);
-  }
-
-  self.getPageObject = function(mPageHash) {
-    var page = TABBED_PANEL.getPageObject(self,mPageHash);
-    page.Action = mActionEditorByHash[mPageHash].getValue();
-    page.Comment = $('#'+mID+'-Comment-'+mPageHash).val();
-    page.EventType = $('#'+mID+'-TypeSelector-'+mPageHash+' option:selected').val();
-    page.Iterations = $('#'+mID+'-IterationsField-'+mPageHash).val();
-    page.Method = $('#'+mID+'-MethodSelector-'+mPageHash+' option:selected').val();
-    page.StopAtEvent = $('#'+mID+'-EndCheckbox-'+mPageHash).is(":checked") ? "true" : "false";
-    page.Tolerance = $('#'+mID+'-TolField-'+mPageHash).val();
-    page.ZeroCondition = mConditionEditorByHash[mPageHash].getValue();
-    return page;
-  }
-        
-  self.pageMainBuilder = function(mHash, mPage) {
-    return ''+
-      '<div class="h-100 d-flex flex-column" style="flex-grow:1">'+
-      
-          '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
-            '<div class="row">'+
-          
-              '<div class="col input-group">'+
-                '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Type")+
-                '</span>'+
-                '<select id="'+mID+'-TypeSelector-'+mHash+'" class="form-select" >'+
-                  '<option value="STATE_EVENT">State event</option>'+
-                  '<option value="CROSSING_EVENT" selected>Zero crossing</option>'+
-                  '<option value="POSITIVE_EVENT">Positive crossing</option>'+
-                '</select>'+
-              '</div>'+
-  
-              '<div class="col input-group">'+
-                '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Iterations")+
-                '</span>'+
-                '<input id="'+mID+'-IterationsField-'+mHash+'" type="text" class="form-control" '+
-                  sMainNoAutocorrect+
-                  'style="width:4em;" value="100">'+
-                '<span class="input-group-text" >'+
-                  '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                    ' data-types="int|double" '+
-                    ' data-field="#'+mID+'-IterationsField-'+mHash+'" '+
-                    ' style="font-size: 1rem;"></i>'+
-                '</span>'+
-              '</div>'+
-  
-              '<div class="col input-group">'+
-                '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Method")+
-                '</span>'+
-                '<select id="'+mID+'-MethodSelector-'+mHash+'" class="form-select">'+
-                  '<option value="BISECTION" selected>BISECTION</option>'+
-                  '<option value="SECANT">SECANT</option>'+
-                '</select>'+
-              '</div>'+
-  
-            '</div>'+
-          '</div>'+
-
-          '<div class="container" style="flex-grow:1;">'+
-          
-            '<div class="row d-flex flex-column" style="height:50%;">'+
-            
-              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
-                '<div class="row">'+
-                  '<div class="col">'+
-                      '<span id="'+mID+'-ZeroLabel-'+mHash+'" class="sTranslatable sModelBtn input-group-text btn text-decoration-none" >'+
-                        sLocaleFor("Zero condition")+
-                      '</span>'+
-                  '</div>'+
-
-                  '<div class="col input-group">'+
-                    '<span class="sTranslatable sModelBtn input-group-text">'+
-                      sLocaleFor("Tol")+
-                    '</span>'+
-                    '<input id="'+mID+'-TolField-'+mHash+'" type="text" class="form-control" '+
-                      sMainNoAutocorrect+
-                      'style="width:8em;" value="1.0e-5" >'+
-                    '<span class="input-group-text" >'+
-                      '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                        ' data-types="int|double" '+
-                        ' data-field="#'+mID+'-TolField-'+mHash+'" '+
-                        ' style="font-size: 1rem;"></i>'+
-                    '</span>'+
-                  '</div>'+
-                '</div>'+ // end of row
-              '</div>'+ // end of container for Zero condition header
-
-
-              '<div class="ace" id="'+mID+'-ZeroEditor-'+mHash+'" style="flex-grow:1"></div>'+
-            '</div>'+ // end of first BIG 50% row
-              
-            '<div class="row d-flex flex-column" style="height:50%;">'+
-
-              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
-                '<div class="row">'+
-                  
-                  '<div class="col">'+
-                    '<span class="sTranslatable sModelBtn input-group-text btn text-decoration-none">'+
-                      sLocaleFor("Action")+
-                    '</span>'+
-                  '</div>'+
-
-                  '<div class="col input-group">'+
-                    '<span class="form-check">'+
-                      '<input class="form-check-input" type="checkbox" value="" checked '+
-                        ' name="'+mID+'-EndCheckbox-'+mHash+'" id="'+mID+'-EndCheckbox-'+mHash+'">'+
-                      '<label class="sTranslatable form-check-label" for="'+mID+'-EndCheckbox">'+
-                        sLocaleFor("End step at event")+
-                      '</label>'+
-                    '</span>'+
-                  '</div>'+
-                  
-                '</div>'+ // end of row
-              '</div>'+ // end of header for Action
-
-              '<div class="ace" id="'+mID+'-ActionEditor-'+mHash+'" style="flex-grow:1"></div>'+
-            '</div>'+ // end of second BIG 50% row
-
-          '</div>'+ // end of container
-            
-        '</div>';
-        
-  }
-  
-  self.pageCommentBuilder = function(mHash, mPage) {
-    return ''+ 
-      '<div class="input-group input-group-sm dropup drop-start" style="flex-grow: 1;">'+
-        '<span class="sTranslatable sModelBtn input-group-text">Comment</span>'+
-        '<input type="text" class="sPageCommentField form-control" id="'+mID+'-Comment-'+mHash+'"'+
-          ' placeholder="Page comment" aria-label="Page comment">' + 
-      '</div>';
-  }     
-  
-	
-	return self;
-}
-
-/*
- * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
- * This code is part of the Web EJS authoring and simulation tool
- */
-
-/**
- * GUI tools
- * @module core
- */
-
-
- 
-/**
- * @class evolutionPanel 
- * @constructor  
- */
-WebEJS_GUI.odeParametersPanel = function(mEvolutionPanel, mEvolutionPageDiv, mEvolutionPageObject) {
-  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
-  const mEvolutionPageHash = TABBED_PANEL.getPageDivHash(mEvolutionPageDiv);
-  const mEvolutionPageName = TABBED_PANEL.getPageDivName(mEvolutionPanel,mEvolutionPageDiv);
-  
-  const mKeyword = "ODEParametersEditor_"+mEvolutionPageHash;
-  const mID = 'm'+mKeyword; 
-  const mDiscontinuitiesKeyword = mID+"-DiscontinuitiesDiv";
-  const mErrorHandlingKeyword = mID+"-ErrorHandlingDiv";
-
-	var self = {};
-
-	var mAccelerationIndependentOfVelocity = 'false'; // AccelerationIndependentOfVelocity
-  var mForceSynchronization = 'false'; // ForceSynchronization
-  var mUseBestInterpolation = 'false'; // UseBestInterpolation
-  var mEstimateFirstStep = 'false'; // EstimateFirstStep
-
-  var mMemoryLength = ''; // MemoryLength
-  var mInternalStep = '';  // InternalStep
-  var mMaximumStep = ''; // MaximumStep
-  var mMaximumNumberOfSteps = '10000'; // MaximumNumberOfSteps
-  var mRelativeTolerance = ''; // RelativeTolerance
-  var mTolerance ='';  // Tolerance ignored???
-
-	var mDelayList = ''; 				// DelayList
-	var mDelayMaximum = ''; 		// DelayMaximum
-  var mDelayAddDiscont = ''; 	// Pre-IC discontinuities
-	var mDelayInitialCondition = { Comment: '', Code : '' }; // Code for preinitial conditions for 
-  // Can be guessed
-
-  // TODO : IS THIS USED???
-	var mDirectIncidenceMatrix = ''; // ????
-
-	// {Type: "DISCONTINUITY_EDITOR", Name: "Discontinuity page", Active: "true", Internal: "false", 
-	//   DiscontinuityContent:{Tolerance: "1.0e-5", StopAtDiscontinuity: "true", ZeroCondition: "↵return 1.0;↵", Action: "↵// disc action↵", Comment: ""} }	
-	var mDiscontinuityContents = { pages : [] }; // Discontinuities 
-  // {Type: "ERROR_EDITOR", Name: "On Error page", Active: "true", Internal: "false", 
-  // ErrorHandlingContent: {Comment: "", Code: "↵// error code 1↵", ErrorType: "ANY_ERROR"} } 
-	var mErrorHandingContents  = { pages : [] }; // ErrorHandling
-
-  if (mEvolutionPageObject) {
-    mAccelerationIndependentOfVelocity = mEvolutionPageObject.AccelerationIndependentOfVelocity;
-    mForceSynchronization = mEvolutionPageObject.ForceSynchronization;
-    mUseBestInterpolation = mEvolutionPageObject.UseBestInterpolation;
-    mEstimateFirstStep = mEvolutionPageObject.EstimateFirstStep;
-
-    mMemoryLength = mEvolutionPageObject.MemoryLength;
-    mInternalStep = mEvolutionPageObject.InternalStep;
-    mMaximumStep = mEvolutionPageObject.MaximumStep;
-    mMaximumNumberOfSteps = mEvolutionPageObject.MaximumNumberOfSteps;
-    mRelativeTolerance = mEvolutionPageObject.RelativeTolerance;
-    mTolerance = mEvolutionPageObject.Tolerance;
-
-    mDelayList = mEvolutionPageObject.DelayList;
-    mDelayMaximum = mEvolutionPageObject.DelayMaximum;
-    mDelayAddDiscont = mEvolutionPageObject.DelayAddDiscont;
-    mDelayInitialCondition = mEvolutionPageObject.DelayInitialCondition; 
-
-    mDirectIncidenceMatrix  = mEvolutionPageObject.DirectIncidenceMatrix;
-
-    const discont = mEvolutionPageObject.Discontinuities;
-    if (discont && 'pages' in discont) mDiscontinuityContents = discont;
-    const errorH = mEvolutionPageObject.ErrorHandling;
-    if (errorH && 'pages' in errorH)  mErrorHandingContents = errorH;
-  } 
-
-	// --------------------------
-	// read and write
-	// --------------------------
-
-  var mPanel = null; // The jsPanel for the dialog
-  var mDiscontinuitiesEditor = WebEJS_GUI.odeDiscontinuityEditor(mEvolutionPanel,mDiscontinuitiesKeyword);
-  var mErrorHandlingEditor    = WebEJS_GUI.odeErrorHandlingEditor(mEvolutionPanel,mErrorHandlingKeyword);
-  var mDelayPreInitEditor = null;
-
-  self.getContent = function(contents) {
-    if (mPanel) collectContents();
-    contents.AccelerationIndependentOfVelocity = mAccelerationIndependentOfVelocity;
-    contents.ForceSynchronization = mForceSynchronization;
-    contents.UseBestInterpolation = mUseBestInterpolation
-    contents.EstimateFirstStep = mEstimateFirstStep;
-
-    contents.MemoryLength = mMemoryLength;
-    contents.InternalStep = mInternalStep;
-    contents.MaximumStep = mMaximumStep;
-    contents.MaximumNumberOfSteps = mMaximumNumberOfSteps;
-    contents.RelativeTolerance = mRelativeTolerance;
-    contents.Tolerance = mTolerance;
-
-    contents.DelayList = mDelayList;
-    contents.DelayMaximum = mDelayMaximum;
-    contents.DelayAddDiscont = mDelayAddDiscont;
-    contents.DelayInitialCondition = mDelayInitialCondition; 
-
-    contents.DirectIncidenceMatrix = mDirectIncidenceMatrix;
-
-    contents.Discontinuities = mDiscontinuityContents; 
-    contents.ErrorHandling = mErrorHandingContents;
-  }
-
-  function collectContents() {
-    mAccelerationIndependentOfVelocity = $('#'+mID+'-AccInd').is(":checked") ? "true" : "false";
-    mForceSynchronization = $('#'+mID+'-ForceSynchro').is(":checked") ? "true" : "false";
-    mUseBestInterpolation = $('#'+mID+'-BestInter').is(":checked") ? "true" : "false";
-    mEstimateFirstStep = $('#'+mID+'-EstimateFirst').is(":checked") ? "true" : "false";
-
-    mMemoryLength = $('#'+mID+'-MemoryLength').val()
-    mInternalStep = $('#'+mID+'-InternalStep').val()
-    mMaximumStep = $('#'+mID+'-MaximumStep').val()
-    mMaximumNumberOfSteps = $('#'+mID+'-MaxNumSteps').val()
-    mRelativeTolerance = $('#'+mID+'-RelTol').val()
-
-/*
-    mTolerance = mEvolutionPageObject.Tolerance;
-*/
-    mDelayList = $('#'+mID+'-Delays').val();
-    mDelayMaximum = $('#'+mID+'-MaximumDelay').val();
-    mDelayAddDiscont = $('#'+mID+'-DelayAddDisc').val();
-    mDelayInitialCondition = { 
-      Code : mDelayPreInitEditor.getValue(), 
-      Comment : $('#'+mID+'-DelayComment').val() 
-    };
-
-/*
-    mDirectIncidenceMatrix  
-*/
-
-    mDiscontinuityContents = { 'pages' : TABBED_PANEL.getAllPagesObject(mDiscontinuitiesEditor) };
-    mErrorHandingContents  = { 'pages' : TABBED_PANEL.getAllPagesObject(mErrorHandlingEditor) };
-  }
-	
-  // --------------------------
-  // Interface
-  // --------------------------
-
-  const mPreferredSize = {
-    width: Math.min(window.innerWidth*0.7,800),
-    height: Math.min(window.innerHeight*0.7,800)
-  }; 
-
-  self.show = function() {
-    if (mPanel) {
-      mPanel.resize(mPreferredSize); 
-      mPanel.reposition();
-      mPanel.front();
-    }
-    else createPanel();
-  }
-
-  self.hide = function() {
-    if (mPanel) mPanel.close(); 
-  }
-
-  function readObject() {
-    $('#'+mID+'-AccInd').prop('checked', mAccelerationIndependentOfVelocity=="true");
-    $('#'+mID+'-ForceSynchro').prop('checked', mForceSynchronization=="true");
-    $('#'+mID+'-BestInter').prop('checked', mUseBestInterpolation=="true");
-    $('#'+mID+'-EstimateFirst').prop('checked', mEstimateFirstStep=="true");
-
-    $('#'+mID+'-MemoryLength').val(mMemoryLength);
-    $('#'+mID+'-InternalStep').val(mInternalStep);
-    $('#'+mID+'-MaximumStep').val(mMaximumStep);
-    $('#'+mID+'-MaxNumSteps').val(mMaximumNumberOfSteps);
-    $('#'+mID+'-RelTol').val(mRelativeTolerance);
-
-    $('#'+mID+'-Delays').val(mDelayList);
-    $('#'+mID+'-MaximumDelay').val(mDelayMaximum);
-    $('#'+mID+'-DelayAddDisc').val(mDelayAddDiscont);
-    $('#'+mID+'-DelayPreInitCode').val(mDelayInitialCondition.Code);
-    $('#'+mID+'-DelayComment').val(mDelayInitialCondition.Comment);
-            
-    var pages = mDiscontinuityContents.pages;
-    if (pages==null || pages.length<=0) mDiscontinuitiesEditor.setNoPages();
-    else {
-      $('#'+mDiscontinuitiesKeyword).html(TABBED_PANEL.panelHTML(mDiscontinuitiesEditor,pages));
-      TABBED_PANEL.initPanel(mDiscontinuitiesEditor,pages);
-    }
-    pages = mErrorHandingContents.pages;
-    if (pages==null || pages.length<=0) mErrorHandlingEditor.setNoPages();
-    else {
-      $('#'+mErrorHandlingKeyword).html(TABBED_PANEL.panelHTML(mErrorHandlingEditor,pages));
-      TABBED_PANEL.initPanel(mErrorHandlingEditor,pages);
-    }
-    return true;
-  }
-  
-  
-  // Create and show the jsPanel
-  function createPanel() {
-    const options = {
-      content: getTabsContent(),
-      onbeforeclose: function(panel) {
-        collectContents();
-        mPanel = null;
-        return true;
-      },
-      position: { at: 'center', of : '#sMainWorkpanel' },
-      footerToolbar: 
-        '<button type="button" id="'+mID+'-CloseButton" class="sTranslatable btn btn-primary float-left">Done</button>',
-
-      callback : function(panel) {
-        $('#'+mID+'-CloseButton').click(function() { panel.close(); });
-        mDelayPreInitEditor = TABBED_PANEL.initializeCodeEditor(mID+'-DelayPreInitCode',mDelayInitialCondition.Code,
-          ()=>{ mEvolutionPanel.reportableChange('Delay Pre Init Code Condition'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('Delay Pre Init Code Condition'); });
-        
-        $(panel).find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Parameter change '+event.target.id); });
-
-        $(panel).find('.cVariableChooser').on("click", (event)=>{ 
-          mEvolutionPanel.selectVariable(event,mEvolutionPageName);
-        });
-        readObject();
-      }
-    };
-    const titleString = sMainResources.getString('Parameters for ODE')+' : '+mEvolutionPageName;
-    mPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mPreferredSize);
-  }
-  
-  function getTabsContent() {
-    var html = 
-    '<div class="sModelSubpanel h-100 col-12 d-flex flex-column">'+
-        '<ul class="nav nav-tabs nav-fill border" role="tablist" >'+
-          '<li class="nav-item" role="presentation">'+
-            '<button class="sTranslatable sModelBtn nav-link active" id="'+mID+'-OperationTab" '+
-                'data-bs-toggle="tab" data-bs-target="#'+mID+'-OperationDiv"  '+
-                'type="button" role="tab" aria-controls="'+mID+'-OperationDiv" aria-selected="true">'+
-              sLocaleFor('Operation') +
-            '</button>'+
-          '</li>'+
-          '<li class="nav-item" role="presentation">'+
-            '<button class="sTranslatable sModelBtn nav-link" id="'+mID+'-DiscontinuitiesTab" '+
-                'data-bs-toggle="tab" data-bs-target="#'+mID+'-DiscontinuitiesDiv"  '+
-                'type="button" role="tab" aria-controls="'+mID+'-DiscontinuitiesDiv" aria-selected="true">'+
-              sLocaleFor('Discontinuities') +
-            '</button>'+
-          '</li>'+
-          '<li class="nav-item" role="presentation">'+
-            '<button class="sTranslatable sModelBtn nav-link" id="'+mID+'-DDETab" '+
-                'data-bs-toggle="tab" data-bs-target="#'+mID+'-DDEDiv"  '+
-                'type="button" role="tab" aria-controls="'+mID+'-DDEDiv" aria-selected="true">'+
-              sLocaleFor('DDE') +
-            '</button>'+
-          '</li>'+
-          '<li class="nav-item" role="presentation">'+
-            '<button class="sTranslatable sModelBtn nav-link" id="'+mID+'-ErrorHandlingTab" '+
-                'data-bs-toggle="tab" data-bs-target="#'+mID+'-ErrorHandlingDiv"  '+
-                'type="button" role="tab" aria-controls="'+mID+'-ErrorHandlingDiv" aria-selected="true">'+
-              sLocaleFor('ErrorHandling') +
-            '</button>'+
-          '</li>'+
-        '</ul>'+
-        '<div class="tab-content h-100 col-12 d-flex flex-column" style="flex-grow:1">'+
-              
-          '<div class="sModelSubpanel tab-pane show active"'+
-              ' id="'+mID+'-OperationDiv" style="flex-grow:1"'+ 
-              ' role="tabpanel" aria-labelledby="'+mID+'-OperationTab">'+
-              
-            '<div class="mt-2 form-check form-switch">'+
-              '<input class="form-check-input" type="checkbox" id="'+mID+'-AccInd">'+
-              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-AccInd">'+
-                sLocaleFor('Acc Indep of Velocity')+
-              '</label>'+
-            '</div>'+
-            
-            '<div class="form-check form-switch">'+
-              '<input class="form-check-input" type="checkbox" id="'+mID+'-ForceSynchro">'+
-              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-ForceSynchro">'+
-                sLocaleFor('Force synchronization')+
-              '</label>'+
-            '</div>'+
-            
-            '<div class="form-check form-switch">'+
-              '<input class="form-check-input" type="checkbox" id="'+mID+'-BestInter">'+
-              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-BestInter">'+
-                sLocaleFor('Use best interpolation')+
-              '</label>'+
-            '</div>'+
-            
-            '<div class="form-check form-switch">'+
-              '<input class="form-check-input" type="checkbox" id="'+mID+'-EstimateFirst">'+
-              '<label class="sTranslatable sModelBtn form-check-label" for="'+mID+'-EstimateFirst">'+
-                sLocaleFor('Estimate first step')+
-              '</label>'+
-            '</div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Memory length")+
-              '</span>'+
-              '<input id="'+mID+'-MemoryLength" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
-              '<span class="input-group-text" >'+
-                '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                  ' data-types="int|double" '+
-                  ' data-field="#'+mID+'-MemoryLength" '+
-                  ' style="font-size: 1rem;"></i>'+
-              '</span>'+
-            '</div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Internal step size")+
-              '</span>'+
-              '<input id="'+mID+'-InternalStep" type="text" class="form-control"'+sMainNoAutocorrect+'>'+
-              '<span class="input-group-text" >'+
-                '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                  ' data-types="int|double" '+
-                  ' data-field="#'+mID+'-InternalStep" '+
-                  ' style="font-size: 1rem;"></i>'+
-              '</span>'+
-            '</div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Maximum step size")+
-              '</span>'+
-              '<input id="'+mID+'-MaximumStep" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
-              '<span class="input-group-text" >'+
-                '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                  ' data-types="int|double" '+
-                  ' data-field="#'+mID+'-MaximumStep" '+
-                  ' style="font-size: 1rem;"></i>'+
-              '</span>'+
-            '</div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Max number of steps")+
-              '</span>'+
-              '<input id="'+mID+'-MaxNumSteps" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
-              '<span class="input-group-text" >'+
-                '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                  ' data-types="int|double" '+
-                  ' data-field="#'+mID+'-MaxNumSteps" '+
-                  ' style="font-size: 1rem;"></i>'+
-              '</span>'+
-            '</div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Relative tolerance")+
-              '</span>'+
-              '<input id="'+mID+'-RelTol" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
-              '<span class="input-group-text" >'+
-                '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                  ' data-types="int|double" '+
-                  ' data-field="#'+mID+'-RelTol" '+
-                  ' style="font-size: 1rem;"></i>'+
-              '</span>'+
-            '</div>'+
-            
-          '</div>'+
-
-          '<div class="sModelSubpanel tab-pane fade"'+
-            ' id="'+mID+'-DiscontinuitiesDiv" style="flex-grow:1"'+ 
-            ' role="tabpanel" aria-labelledby="'+mID+'-DiscontinuitiesTab">'+
-          '</div>'+
-
-          '<div class="sModelSubpanel tab-pane fade"'+
-            ' id="'+mID+'-DDEDiv" style="flex-grow:1"'+ 
-            ' role="tabpanel" aria-labelledby="'+mID+'-DDETab">'+
-            
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Delays")+
-              '</span>'+
-              '<input id="'+mID+'-Delays" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
-            '</div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Maximum delay")+
-              '</span>'+
-              '<input id="'+mID+'-MaximumDelay" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
-            '</div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Pre-IC discontinuities")+
-              '</span>'+
-              '<input id="'+mID+'-DelayAddDisc" type="text" class="form-control" '+sMainNoAutocorrect+'>'+
-            '</div>'+
-
-            '<label for="'+mID+'-DelayPreInitCode" class="mt-2 sModelBtn form-label">'+
-                sLocaleFor('Code for pre-initial conditions for')+' '+mEvolutionPageName+
-            '</label>'+
-            '<div class="ace" id="'+mID+'-DelayPreInitCode" style="height: 150px;"></div>'+
-
-            '<div class="mt-2 input-group">'+
-              '<span class="sTranslatable sModelBtn input-group-text">'+
-                  sLocaleFor("Comment")+
-              '</span>'+
-              '<input id="'+mID+'-DelayComment" type="text" class="form-control" >'+
-            '</div>'+            
-            
-          '</div>'+
-
-          '<div class="sModelSubpanel tab-pane fade"'+
-            ' id="'+mID+'-ErrorHandlingDiv" style="flex-grow:1"'+ 
-            ' role="tabpanel" aria-labelledby="'+mID+'-ErrorHandlingTab">'+
-          '</div>'+
-  
-        '</div>'+
-
-      '</div>';
-    return html;
-  }
-
-	// --------------------------
-	// Final start-up
-	// --------------------------
-
-	
-	return self;
-}
-
-
-WebEJS_GUI.odeDiscontinuityEditor = function(mEvolutionPanel, mID) {
-  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
-  const mMainPanelSelector = '#'+mID;
-  
-	var self = {};
-  var mConditionEditorByHash = {};
-  var mActionEditorByHash = {};
-
-	// Implementation of TabbedPanel (begin)
-
-	self.getMainPanelSelector	= function() { return mMainPanelSelector; }
-	self.getKeyword	= function() { return 'Discontinuity'; }
-	self.getPageName	= function() { return 'Discontinuity Page'; }
-
-	self.getDefaultPageType = function() { return 'DISCONTINUITY_EDITOR'; }
-
-	// ----- optional functions for TabbedPanel
-
-  self.pageDeleted = function(mPageDiv) {
-    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
-    delete mConditionEditorByHash[hash];
-    delete mActionEditorByHash[hash];
-  }
-
-  self.reportableChange = function(message) {
-    sMainGUI.setChanged();
-  }
- 
-  self.setNoPages = function() {
-    $(mMainPanelSelector).html(
-      '<button class="sModelBtn sPanelNoPageBtn h-100 col-12 active" style="flex-grow:1;">'+
-        '<h5 class="sTranslatable">'+sLocaleFor('Click to create a page of')+' '+sLocaleFor('Discontinuity')+'</h5>'+
-      '</button>');
-    TABBED_PANEL.initPanel(self,null);
-  }
-
- self.pageInitialization = function(mPageDiv, mPageObject) {
-    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
-    const pageName = TABBED_PANEL.getPageDivName(self,mPageDiv);
-    
-    var zeroCode   = (mPageObject ? mPageObject.ZeroCondition : "return 1.0; // Condition for "+ pageName);
-    var actionCode = (mPageObject ? mPageObject.Action        : "// Action for "+ pageName);
-
-    mConditionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ZeroEditor-'+hash,zeroCode,
-          ()=>{ mEvolutionPanel.reportableChange('ODE Discontinuity Zero Condition'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('ODE Discontinuity Zero Condition'); });
-    mActionEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-ActionEditor-'+hash,actionCode,
-          ()=>{ mEvolutionPanel.reportableChange('Disc Action'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('Disc Action'); });
-    
-    mPageDiv.find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Discontinuity change '+event.target.id); });
-
-    if (mPageObject) {
-      $('#'+mID+'-TolField-'+hash).val(mPageObject.Tolerance);
-      $('#'+mID+'-EndCheckbox-'+hash).prop("checked", (mPageObject.StopAtDiscontinuity=="true"));
-      $('#'+mID+'-Comment-'+hash).val(mPageObject.Comment);
-    }
-    
-    mPageDiv.find('.cVariableChooser').on("click", (event)=>{ 
-        mEvolutionPanel.selectVariable(event,TABBED_PANEL.getPageDivName(self, mPageDiv));
-    });   
-
-  }
-
-  // {Type: "DISCONTINUITY_EDITOR",  
-  //   DiscontinuityContent:{Tolerance: "1.0e-5", StopAtDiscontinuity: "true", 
-  // ZeroCondition: "↵return 1.0;↵", Action: "↵// disc action↵", Comment: ""} } 
-
-  self.getPageObject = function(mPageHash) {
-    var page = TABBED_PANEL.getPageObject(self,mPageHash);
-    page.Action = mActionEditorByHash[mPageHash].getValue();
-    page.Comment = $('#'+mID+'-Comment-'+mPageHash).val();
-    page.StopAtDiscontinuity = $('#'+mID+'-EndCheckbox-'+mPageHash).is(":checked") ? "true" : "false";
-    page.Tolerance = $('#'+mID+'-TolField-'+mPageHash).val();
-    page.ZeroCondition = mConditionEditorByHash[mPageHash].getValue();
-    return page;
-  }
-        
-  self.pageMainBuilder = function(mHash, mPage) {
-    return ''+
-      '<div class="container h-100 d-flex flex-column" style="flex-grow:1">'+
-      
-            '<div class="row d-flex flex-column" style="height:50%;">'+
-            
-              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
-                '<div class="row">'+
-                  '<div class="col">'+
-                      '<span id="'+mID+'-ZeroLabel" class="sTranslatable sModelBtn input-group-text btn text-decoration-none" >'+
-                        sLocaleFor("Zero condition")+
-                      '</span>'+
-                  '</div>'+
-
-                  '<div class="col input-group">'+
-                    '<span class="sTranslatable sModelBtn input-group-text">'+
-                      sLocaleFor("Tol")+
-                    '</span>'+
-                    '<input id="'+mID+'-TolField-'+mHash+'" type="text" class="form-control" '+
-                        sMainNoAutocorrect+
-                        'style="width:8em;" value="1.0e-5" >'+
-                    '<span class="input-group-text" >'+
-                      '<i class="sModelBtn bi bi-link cVariableChooser" '+
-                        ' data-types="int|double" '+
-                        ' data-field="#'+mID+'-TolField-'+mHash+'" '+
-                        ' style="font-size: 1rem;"></i>'+
-                    '</span>'+
-                  '</div>'+
-                '</div>'+ // end of row
-              '</div>'+ // end of container for Zero condition header
-
-
-              '<div class="ace mt-1" id="'+mID+'-ZeroEditor-'+mHash+'" style="flex-grow:1; min-height:100px;"></div>'+
-            '</div>'+ // end of first BIG 50% row
-              
-            '<div class="row d-flex flex-column" style="height:50%;">'+
-
-              '<div class="container p-0" style="flex-grow:0; flex-basis:0;">'+
-                '<div class="row">'+
-                  
-                  '<div class="col">'+
-                    '<span class="sTranslatable sModelBtn input-group-text btn text-decoration-none">'+
-                      sLocaleFor("Action")+
-                    '</span>'+
-                  '</div>'+
-
-                  '<div class="col input-group">'+
-                    '<span class="form-check">'+
-                      '<input class="form-check-input" type="checkbox" value="" checked '+
-                        ' name="'+mID+'-EndCheckbox-'+mHash+'" id="'+mID+'-EndCheckbox">'+
-                      '<label class="sTranslatable form-check-label" for="'+mID+'-EndCheckbox">'+
-                        sLocaleFor("End step at discontinuity")+
-                      '</label>'+
-                    '</span>'+
-                  '</div>'+
-                  
-                '</div>'+ // end of row
-              '</div>'+ // end of header for Action
-
-              '<div class="ace mt-1" id="'+mID+'-ActionEditor-'+mHash+'" style="flex-grow:1; min-height:100px;"></div>'+
-            '</div>'+ // end of second BIG 50% row
-            
-        '</div>';
-        
-  }
-  
-  self.pageCommentBuilder = function(mHash, mPage) {
-    return ''+ 
-      '<div class="input-group input-group-sm dropup drop-start" style="flex-grow: 1;">'+
-        '<span class="sTranslatable sModelBtn input-group-text">Comment</span>'+
-        '<input type="text" class="sPageCommentField form-control" id="'+mID+'-Comment-'+mHash+'"'+
-          ' placeholder="Page comment" aria-label="Page comment">' + 
-      '</div>';
-  }  
-	
-	return self;
-}
-
-WebEJS_GUI.odeErrorHandlingEditor = function(mEvolutionPanel,mID) {
-  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
-  const mMainPanelSelector = '#'+mID;
-  
-  var self = {};
-  var mEditorByHash = {};
-
-  // Implementation of TabbedPanel (begin)
-
-  self.getMainPanelSelector = function() { return mMainPanelSelector; }
-  self.getKeyword = function() { return 'OnError'; }
-  self.getPageName  = function() { return 'On Error Page'; }
-
-  self.getDefaultPageType = function() { return 'ERROR_EDITOR'; }
-
-
-  // ----- optional functions for TabbedPanel
-
-  self.pageDeleted = function(mPageDiv) {
-    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
-    delete mEditorByHash[hash];
-  }
-
-  self.reportableChange = function(message) {
-    sMainGUI.setChanged();
-  }
-
-  self.setNoPages = function() {
-    $(mMainPanelSelector).html(
-      '<button class="sModelBtn sPanelNoPageBtn h-100 col-12 active" style="flex-grow:1;">'+
-        '<h5 class="sTranslatable">'+sLocaleFor('Click to create a page of')+' '+sLocaleFor('Error Handling')+'</h5>'+
-      '</button>');
-    TABBED_PANEL.initPanel(self,null);
-  }
-
- self.pageInitialization = function(mPageDiv, mPageObject) {
-    const hash = TABBED_PANEL.getPageDivHash(mPageDiv);
-    const pageName = TABBED_PANEL.getPageDivName(self,mPageDiv);
-    
-    var code  = (mPageObject ? mPageObject.Code : "// Error handling for "+ pageName);
-    mEditorByHash[hash] = TABBED_PANEL.initializeCodeEditor(mID+'-Editor-'+hash,code,
-          ()=>{ mEvolutionPanel.reportableChange('ODE Error handling'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('ODE Error handling'); });
-
-    mPageDiv.find('input').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Error handling change '+event.target.id); });
-    mPageDiv.find('select').on("change", (event)=>{ mEvolutionPanel.reportableChange('ODE Error handling change '+event.target.id); });
-
-    if (mPageObject) {
-      $('#'+mID+'-TypeSelector-'+hash+' option[value="'+mPageObject.ErrorType+'"]').attr('selected', true);    
-      $('#'+mID+'-Comment-'+hash).val(mPageObject.Comment);
-    }
-    
-  }
-  // ErrorHandlingContent: {Comment: "", Code: "↵// error code 1↵", ErrorType: "ANY_ERROR"} } 
-
-  self.getPageObject = function(mPageHash) {
-    var page = TABBED_PANEL.getPageObject(self,mPageHash);
-    page.Code = mEditorByHash[mPageHash].getValue();
-    page.ErrorType = $('#'+mID+'-TypeSelector-'+mPageHash+' option:selected').val();
-    page.Comment = $('#'+mID+'-Comment-'+mPageHash).val();
-    return page;
-  }
-        
-  self.pageMainBuilder = function(mHash, mPage) {
-    return ''+
-      '<div class=" h-100 d-flex flex-column" style="flex-grow:1">'+
-                  
-        '<div class="input-group" style="flex-grow:0; flex-basis:0;">'+
-          '<span class="sTranslatable sModelBtn input-group-text">'+
-            sLocaleFor("Error Type")+
-          '</span>'+
-          '<select id="'+mID+'-TypeSelector-'+mHash+'" class="form-select" >'+
-            '<option value="ANY_ERROR">ANY ERROR </option>'+
-            '<option value="INTERNAL_SOLVER_ERROR" selected>INTERNAL SOLVER ERROR</option>'+
-            '<option value="EVENT_NOT_FOUND">EVENT NOT FOUND</option>'+
-            '<option value="ILLEGAL_EVENT_STATE">ILLEGAL EVENT STATE</option>'+
-            '<option value="TOO_MANY_STEPS">TOO MANY STEPS</option>'+
-            '<option value="DID_NOT_CONVERGE">DID NOT CONVERGE</option>'+
-          '</select>'+
-        '</div>'+
-
-        '<div class="ace mt-1" id="'+mID+'-Editor-'+mHash+'" style="flex-grow:1; min-height:200px;"></div>'+
-              
-        '</div>';
-        
-  }
-  
-  self.pageCommentBuilder = function(mHash, mPage) {
-    return ''+ 
-      '<div class="input-group input-group-sm dropup drop-start" style="flex-grow: 1;">'+
-        '<span class="sTranslatable sModelBtn input-group-text">Comment</span>'+
-        '<input type="text" class="sPageCommentField form-control" id="'+mID+'-Comment-'+mHash+'"'+
-          ' placeholder="Page comment" aria-label="Page comment">' + 
-      '</div>';
-  }  
-  
-  return self;
-}
-/*
- * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
- * This code is part of the Web EJS authoring and simulation tool
- */
-
-/**
- * GUI tools
- * @module core
- */
-
-
- 
-/**
- * @class evolutionPanel 
- * @constructor  
- */
-WebEJS_GUI.odePreliminaryCodePanel = function(mEvolutionPanel, mPageDiv, mPageObject) {
-  const TABBED_PANEL = WebEJS_TOOLS.tabbedPanel();
-  const mPageHash = TABBED_PANEL.getPageDivHash(mPageDiv);
-  const mPageName = TABBED_PANEL.getPageDivName(mEvolutionPanel,mPageDiv);
-
-  const titleString = sMainResources.getString('Preliminary code for ODE')+' : '+mPageName;
-  const mID = "mODEPreliminaryCodeEditor_"+mPageHash;
-
-	var self = {};
-	
-  var mContents = mPageObject ? 
-    {  'Code'    : mPageObject.PreliminaryCode.Code, 
-       'Comment' : mPageObject.PreliminaryCode.Comment }
-    : 
-    { 'Code'    : "// "+ titleString ,  'Comment' : '' };	
-
-  var mPanel = null;
-  var mEditor = null;
-
-	// --------------------------
-	// read and write
-	// --------------------------
-	
-	self.getContent = function() {
-    collectContents();
-    return mContents;
-  }
-
-  function collectContents() {
-    if (!mPanel) return;
-    mContents = {
-      'Code'   : mEditor.getValue(),  
-      'Comment' : $('#'+mID+'-Comment').val() 
-    };
-  }
-
-  self.setPageContent = function(json) {
-    if (mPanel) {
-      if ('Code' in json) mEditor.setValue(json.Code);
-      if ('Comment' in json) $('#'+mID+'-Comment').val(json.Comment);
-    }
-    else {
-      if ('Code' in json) mContents.Code  = json.Code;
-      if ('Comment' in json) mContents.Comment  = json.Comment;
-    }
-  }
-
-  // --------------------------
-  // Interface
-  // --------------------------
-
-  const mPreferredSize = {
-    width: Math.min(window.innerWidth*0.9,1200),
-    height: Math.min(window.innerHeight*0.9,1200)
-  }; 
-
-  self.show = function() {
-    if (!mPanel) return createPanel();
-    mPanel.resize(mPreferredSize); 
-    mPanel.reposition();
-    mPanel.front();
-  }
-
-  self.hide = function() {
-    if (mPanel) mPanel.close(); 
-  }
-  
-  // Create and show the jsPanel
-  function createPanel() {
-    const options = {
-    content: '<div id="' + mID + '-ace-wrapper" class="d-flex flex-column flex-grow-1" style="min-height:0; min-width:0;">'
-            +' <div id="' + mID + '-ace" class="flex-grow-1" style="min-height:0; min-width:0;"></div>'
-            +'</div>',
-    //content: '<div id="'+mID+'-ace" class="ace h-100" style="flex-grow:1"></div>',
-      onbeforeclose: function(panel) {
-        collectContents();
-        mPanel = null;
-        return true;
-      },
-      position: { at: 'center', of : '#sMainWorkpanel' },
-      footerToolbar: 
-        '<div class="h-100 d-flex flex-row" style="flex-grow:1">'+
-          '<div class="input-group input-group-sm" style="flex-grow:1;">'+
-            '<span class="sTranslatable sModelBtn input-group-text">'+sLocaleFor("Comment")+'</span>'+
-            '<input type="text" class="flex flex-grow form-control" id="'+mID+'-Comment"'+
-              ' placeholder="'+sLocaleFor("Page comment")+'" aria-label="'+sLocaleFor("Page comment")+'">'+
-          '</div>'+
-          '<button type="button" id="'+mID+'-Button" style="flex-grow:0; flex-basis:0;" '+
-            'class="sTranslatable ms-1 input-group-button btn btn-primary float-left">Done</button>'+
-        '</div>',
-      callback : function(panel) {
-        $('#'+mID+'-Button').click(function() { mPanel.close(); });
-        mEditor = TABBED_PANEL.initializeCodeEditor(mID+"-ace",mContents.Code,
-          ()=>{ mEvolutionPanel.nonReportableChange('PrelimCode'); }, // onBlur
-          ()=>{ mEvolutionPanel.nonReportableChange('PrelimCode'); });
-        $('#'+mID+'-Comment').val(mContents.Comment);
-        new ResizeObserver(() => mEditor.resize()).observe(document.getElementById(mID + '-ace-wrapper'));
-      }
-    };
-    mPanel = WebEJS_TOOLS.createJSPanel(titleString, options, {  minimize: 'remove' }, mPreferredSize);
-  }
-  
-  function getContentHtml() {
-    return ''+
-        '<div class="input-group input-group-sm" style="flex-grow:0; flex-basis:0;">'+
-          '<span class="sTranslatable sModelBtn input-group-text">'+sLocaleFor("Comment")+'</span>'+
-          '<input type="text" class="flex flex-grow form-control" id="'+mID+'-Comment"'+
-            ' placeholder="'+sLocaleFor("Page comment")+'" aria-label="'+sLocaleFor("Page comment")+'">'+
-        '</div>'+
-      '</div>';
-      /*
-      panel.headertitle.style.color = $('.sModelBtn').css("color");// $('#sEvolutionPage_PreliminaryCode_CommentLabel_'+index+'").css("color");;
-      panel.headerbar.style.background = "#e8ecee"; //"white";// $('#sEvolutionPage_PreliminaryCode_CommentLabel_'+index+'").css("color");;
-      panel.headerbar.style.borderBottom = '1px solid '+$('.sModelBtn').css("color");// $('#sEvolutionPage_PreliminaryCode_CommentLabel_'+index+'").css("color");;
-      panel.footer.style.padding = '0px';
-      mPrelimCodeEditors[hash].Panel = panel;
-      */
-  }
-    
-	// --------------------------
-	// Final start-up
-	// --------------------------
-
-	
-	return self;
-}
-
-/*
- * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
- * This code is part of the Web EJS authoring and simulation tool
- */
-
-/**
- * GUI tools
- * @module core
- */
-
 /**
  * @class variablesPanel 
  * @implements WebEJS_TOOLS.TabbedPanel		
@@ -7130,115 +7241,6 @@ WebEJS_GUI.variablesPanel = function(mMainPanelSelector) {
   				
 	return self;
 }/*
- * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
- * This code is part of the Web EJS authoring and simulation tool
- */
-
-/**
- * WebEJS_GUI
- * @module core
- */
-
-var WebEJS_GUI = WebEJS_GUI || {};
-
-/**
- * WebEJS_GUI.modelPanel
- */
-
-/**
- * @class modelPanel 
- * @constructor  
- */
-WebEJS_GUI.modelWorkpanel = function() {
-	var self = {};
-		 
-	var mVariablesPanel 		= WebEJS_GUI.variablesPanel('#sModelVariablesPanel');
-	var mInitializationPanel	= WebEJS_GUI.codePanel('initialization','#sModelInitializationPanel');
-	var mEvolutionPanel			= WebEJS_GUI.evolutionPanel('#sModelEvolutionMain');
-	var mFixedRelationsPanel	= WebEJS_GUI.codePanel('fixed_relations','#sModelFixedRelationsPanel');
-	var mCustomPanel			= WebEJS_GUI.codePanel('custom','#sModelCustomPanel');
-	var mElementsPanel			= WebEJS_GUI.elementsPanel('#sModelElementsPanel');
-
-	self.getVariables = function() { return mVariablesPanel; }
-	self.getCustomCode = function() { return mCustomPanel; }
-	self.getElementsPanel = function() { return mElementsPanel; }
-
-	// --------------------------
-	// Prepare GUI
-	// --------------------------
-
-	function switchPage(activeTab) {
-		$('.sModelContentDiv').each(function () {
-			if ($(this).index()==activeTab) $(this).removeClass('d-none');
-			else $(this).addClass('d-none');
-		});
-		$('.sModelTabButton').each(function () {
-			const index = $(this).closest('li').index();
-      if (index==activeTab) $(this).removeClass('bi-circle').addClass('bi-record-circle'); 
-      else $(this).removeClass('bi-record-circle').addClass('bi-circle');
-		});
-	}
-
-	function initPage() {
-		// This is required for flex working fine with tabs!!!
-		$('.sModelTabButton').click((event)=>{
-			var activeTab = $(event.target).closest("li").index();
-			switchPage(activeTab);
-		});		
-		switchPage(0);
-	}
-
-	// --------------------------
-	// API
-	// --------------------------
-	
-	self.saveObject = function() {
-		var model = {};
-		model['variables']			= mVariablesPanel.saveObject();
-		model['initialization']	= mInitializationPanel.saveObject();
-		model['evolution']			= mEvolutionPanel.saveObject();
-		model['fixed_relations']	= mFixedRelationsPanel.saveObject();
-		model['custom']					= mCustomPanel.saveObject();
-		model['elements']				= mElementsPanel.saveObject();
-		return model;
-	}
-
-	self.readObject = function(saved) {
-		var model;
-		if ('model' in saved) model = saved['model'];
-		else model = { 
-			'variables' : {}, 
-			'initialization' : {}, 
-			'evolution' : {}, 
-			'fixed_relations' : {}, 
-			'custom' : {}, 
-			'elements' : {} 
-		}
-		var result = true;
-		result &= mVariablesPanel.readObject		(model['variables'] ); 
-		result &= mInitializationPanel.readObject	(model['initialization']);
-		result &= mEvolutionPanel.readObject		(model['evolution']);
-		result &= mFixedRelationsPanel.readObject	(model['fixed_relations']);
-		result &= mCustomPanel.readObject			(model['custom']);
-    result &= mElementsPanel.readObject		(model['elements']);
-		return result;					
-	}
-
-	self.getDetectedFiles = function() {
-		return [];
-	}
-
-	// --------------------------
-	// Tabs API
-	// --------------------------
-
-	initPage();
-	
-	return self;
-}
-
-
-/*
  * Copyright (C) 2021 Jesús Chacón, Francisco Esquembre and Félix J. Garcia 
  * This code is part of the Web EJS authoring and simulation tool
  */
