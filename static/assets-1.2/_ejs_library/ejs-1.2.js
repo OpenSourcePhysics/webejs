@@ -7410,7 +7410,6660 @@ EJSS_DRAWING2D.imageSet = function (mName) {
   };
 
   return self;
-};/**
+};/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*
+* This code is Open Source and is provided "as is".
+*/
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * InfoText
+ * @class InfoText 
+ * @constructor  
+ */
+EJSS_DRAWING2D.InfoText = {
+
+	// ----------------------------------------------------
+	// Static methods
+	// ----------------------------------------------------
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.Text.registerProperties(element, controller);
+		// super class
+		
+		controller.registerProperty("Info",  element.setInfo);
+		controller.registerProperty("Format",  element.setFormat);		
+	},
+};
+
+/**
+ * Creates a 2D InfoText
+ * @method infoText
+ */
+EJSS_DRAWING2D.infoText = function(name) {
+	var self = EJSS_DRAWING2D.text(name);
+	var super_getText = self.getText;
+	
+	var mInfo;
+	var mFormat;			// replace ".^", ".##" por los números pasados
+
+	/**
+	 * Set info function or element with getInfo function
+	 */
+	self.setInfo = function(info) {
+		mInfo = info;
+	}
+
+	self.getText = function() {
+		if(typeof mInfo != "undefined") {	// exits info function 
+			if(mInfo.getInfo) 
+				return mInfo.getInfo();
+			else if (typeof mInfo == "function") 
+				return mInfo();
+		} else { // uses text with the format
+			var text = super_getText();			
+			// process text
+			return fillString(mFormat,text);
+		}
+	}
+
+	self.setFormat = function(format) {
+		mFormat = format;
+	}
+
+	self.isChanged = function() {
+		return true;
+	}
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING2D.InfoText.registerProperties(self, controller);
+	};
+
+	/*
+	 * Fill formatted string
+	 */
+	function fillString(format, text) {
+		var t = "";
+		var txt = format;
+		var numbers = format.match(/[0-9]*\.(\^|#)+/g);
+		if (numbers==null) return text;
+		if(!Array.isArray(text)) {
+			text = JSON.parse("["+text+"]");
+		}
+
+		for (var i=0; i<numbers.length; i++) {
+			var precision = numbers[i].split("#").length - 1;
+			// check text
+			if(isNaN(text[i])) 
+				t = text[i];
+			else
+				t = text[i].toFixed(precision)
+			txt = txt.replace(numbers[i], t);
+		}
+		
+		return txt;		
+	}
+	
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+	return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * EJSS framework for interface element.
+ * @module Drawing2D 
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Knob
+ * @class Knob 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Knob = {
+  // ----------------------------------------------------
+  // Static methods
+  // ----------------------------------------------------
+
+  /**
+   * static registerProperties method
+   */ 
+   registerProperties : function(element,controller) {
+	EJSS_DRAWING2D.Meter.registerProperties(element,controller); // super class
+
+    controller.registerAction("OnPress" ,element.getValue); 
+    controller.registerAction("OnRelease" ,element.getValue); 
+    controller.registerAction("OnChange" ,element.getValue); 
+    
+  }
+
+};
+
+/**
+ * Knob function
+ * Creates a 2D element that looks and behaves like a knob
+ * @method knob
+ * @param mName the name of the element
+ * @returns An abstract interface element
+ */
+EJSS_DRAWING2D.knob = function (mName) {
+  var self = EJSS_DRAWING2D.meter(mName);
+  
+  var mThreshold = Math.PI/5;
+  var pressed_shift = [0,0];  // initial dragging shift  
+
+  // Implementation variables
+  var mKnobExterior,mKnobMiddle,mKnobInterior;
+
+  var mDummyContainer;
+  var mSVGDefs = 
+	  "<svg xmlns='http://www.w3.org/2000/svg' width='0' height='0' version='1.1'>"+
+      "  <defs>"+
+      "    <linearGradient id='KnobExteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
+      "      <stop offset='0%'   stop-color='rgb(250,250,250)' />"+
+      "      <stop offset='100%' stop-color='rgb(100,100,100)' />"+
+      "    </linearGradient>"+
+      "    <linearGradient id='KnobMiddleGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
+      "      <stop offset='0%'   stop-color='rgb(200,200,200)' />"+
+      "      <stop offset='100%' stop-color='rgb(150,150,150)' />"+
+      "    </linearGradient>"+
+      "    <linearGradient id='KnobInteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
+      "      <stop offset='0%'   stop-color='rgb(127,127,127)' />"+
+      "      <stop offset='100%' stop-color='rgb(250,250,250)' />"+
+      "    </linearGradient>"+
+      "    <filter id='KnobFilter' x='0' y='0' width='200%' height='200%'>"+
+      "      <feOffset result='offOut' in='SourceGraphic' dx='1' dy='1' />"+
+      "      <feGaussianBlur result='blurOut' in='offOut' stdDeviation='2' />"+
+      "      <feBlend in='SourceGraphic' in2='blurOut' mode='normal' />"+
+      "    </filter>"+
+      "  </defs>"+
+      "</svg>";
+
+  
+  // ----------------------------------------------------
+  // Properties
+  // ----------------------------------------------------
+  
+  // ----------------------------------------------------
+  // Properties overwritten
+  // ----------------------------------------------------
+
+  self.super_setRadius = self.setRadius;
+
+  self.setRadius = function(value) {
+	  self.super_setRadius(value);
+	  mKnobExterior.setChanged(true);
+	  mKnobMiddle.setChanged(true);
+	  mKnobInterior.setChanged(true);
+  }
+
+  self.setFillColor = function(value) { mKnobInterior.getStyle().setFillColor(value); };
+
+  // ----------------------------------------------------
+  // Properties and copies
+  // ----------------------------------------------------
+
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING2D.Knob.registerProperties(self,controller);
+  };
+  
+  // ----------------------------------------------------
+  // private or protected functions
+  // ----------------------------------------------------
+
+  self.super_addParticularChildren = self.addParticularChildren;
+
+  self.addParticularChildren = function() {
+	  self.super_addParticularChildren();
+	  mKnobExterior.setParent(self);
+	  mKnobMiddle.setParent(self);
+	  mKnobInterior.setParent(self);
+  };
+
+  self.createBasics = function() { 
+	  /*
+	  var stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+	  stop1.setAttribute("offset","0%");
+	  stop1.setAttribute("stop-color","rgb(250,250,250)");
+
+	  var stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+	  stop2.setAttribute("offset","100%");
+	  stop2.setAttribute("stop-color","rgb(100,100,100)");
+
+	  var linearGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+	  linearGradient.setAttribute("id", "#KnobExteriorGradient");
+	  linearGradient.setAttribute("x1","0%");
+	  linearGradient.setAttribute("y1","0%");
+	  linearGradient.setAttribute("x2","100%");
+	  linearGradient.setAttribute("y2","100%");
+	  linearGradient.appendChild(stop1);
+	  linearGradient.appendChild(stop2);
+
+	  var feOffset = document.createElementNS("http://www.w3.org/2000/svg", "feOffset");
+	  feOffset.setAttribute("result","offOut");
+	  feOffset.setAttribute("in","SourceGraphic");
+	  feOffset.setAttribute("dx","1");
+	  feOffset.setAttribute("dy","1");
+
+	  var gaussianFilter = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+	  gaussianFilter.setAttribute("result","blurOut");
+	  gaussianFilter.setAttribute("in","offOut");
+	  gaussianFilter.setAttribute("stdDeviation","2");
+
+	  var feBlend = document.createElementNS("http://www.w3.org/2000/svg", "feBlend");
+	  feOffset.setAttribute("in","SourceGraphic");
+	  feOffset.setAttribute("in2","blurOut");
+	  feOffset.setAttribute("mode","normal");
+
+	  var filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+	  filter.setAttribute("id","#KnobFilter");
+	  filter.setAttribute("x","0");
+	  filter.setAttribute("y","0");
+	  filter.setAttribute("width","200%");
+	  filter.setAttribute("height","200%");
+	  filter.appendChild(feOffset);
+	  filter.appendChild(gaussianFilter);
+	  filter.appendChild(feBlend);
+	  
+	  /*
+	  var defs = self.getParentPanel()getGraphics().getDefs(); // document.createElementNS("http://www.w3.org/2000/svg", "defs");
+	  defs.appendChild(linearGradient);
+	  defs.appendChild(filter);
+	  
+	 // self.getGraphics().appendChild(defs);
+	  */
+
+	  var mDummyContainer = document.getElementById(mName+".dummy_container");	
+	  if (mDummyContainer === null) { 	// exits?
+		  mDummyContainer = document.createElement('div');
+	      mDummyContainer.setAttribute("id", mName+".dummy_container");
+	      mDummyContainer.style.width = "0px";
+	      mDummyContainer.style.height = "0px";
+		  document.body.appendChild(mDummyContainer);
+		  mDummyContainer.innerHTML = mSVGDefs;	    
+	  }	
+	  
+	  mKnobExterior = EJSS_DRAWING2D.shape(mName+".exterior_shape");
+	  mKnobExterior.setSize([1,1]);
+	  mKnobExterior.getStyle().setDrawLines(false);
+	  mKnobExterior.getStyle().setAttributes({ fill: "url(#KnobExteriorGradient)", filter:"url(#KnobFilter)"});
+
+	  mKnobMiddle = EJSS_DRAWING2D.shape(mName+".middle_shape");
+	  mKnobMiddle.setSize([0.9,0.9]);
+	  mKnobMiddle.getStyle().setDrawLines(false);
+	  mKnobMiddle.getStyle().setAttributes({ fill: "url(#KnobMiddleGradient)"});
+
+	  mKnobInterior = EJSS_CORE.promoteToControlElement(
+			  EJSS_DRAWING2D.shape(mName+".inner_shape"),self.getView(),mName+".inner_shape");
+	  mKnobInterior.setY(0.3);
+	  mKnobInterior.setSize([0.2,0.2]);
+	  mKnobInterior.getStyle().setDrawLines(false);
+	  mKnobInterior.getStyle().setAttributes({ fill: "url(#KnobInteriorGradient)"});
+
+	  mKnobInterior.setProperty("EnabledPosition","ENABLED_NO_MOVE");
+      mKnobInterior.setProperty("Sensitivity",10);
+	  mKnobInterior.setProperty("OnDrag",dragged);
+	  mKnobInterior.setProperty("OnPress",pressed);
+	  mKnobInterior.setProperty("OnRelease",released);
+  }
+    
+  self.super_createForeground = self.createForeground;
+  
+  self.createForeground = function() {
+	  self.super_createForeground();
+	  self.getElement('brand').setPosition([0,-0.7]);
+	  self.getElement('units').setPosition([0, 0.9]);
+  };
+
+  self.adjustPosition = function() {
+	  var actualValue = self.getValue();
+	  if (actualValue<self.getMinimum()) {
+		  actualValue = self.getMinimum();
+//		  mArrow.getStyle().setFillColor(mDangerColor);
+	  }
+	  else if (actualValue>self.getMaximum()) {
+		  actualValue = self.getMaximum();
+//		  mArrow.getStyle().setFillColor(mDangerColor);
+	  }
+	  else {
+//		  mArrow.getStyle().setFillColor(mColor);
+	  }
+      var angle = self.interpolateAngle(actualValue);
+	  mKnobInterior.setPosition([0.3*Math.cos(angle),0.3*Math.sin(angle)]);
+  }
+
+  self.foregroundIsInside = function() { return false; };
+
+  function pressed(point,info) {
+	  var controller = self.getController();    		
+	  if (controller) controller.invokeImmediateAction("OnPress");
+	  
+	  // init dragging	 
+	  var point = info.point;
+	  var i_point = info.element.getAbsolutePosition(true);
+	  pressed_shift = [point[0]-i_point[0], point[1]-i_point[1]];	  
+  }
+
+  function released(point,info) {
+	  var controller = self.getController();    		
+	  if (controller) controller.invokeImmediateAction("OnRelease");	  
+  }
+
+  function dragged(point,info) {
+	  var point = info.point;
+	  var element = info.element;
+	  var drag_point = [point[0] - pressed_shift[0], point[1] - pressed_shift[1]];	  
+	  var group_pos = self.getAbsolutePosition(true);	  
+	  var group_size = self.getSize();
+	  drag_point[0] = drag_point[0] - group_pos[0];
+	  drag_point[1] = (drag_point[1] - group_pos[1]) * (group_size[0]/group_size[1]);
+	  var angle = self.interpolateAngle(self.getValue());
+	  var rotation = Math.atan2(-drag_point[0],drag_point[1])+Math.PI/2;
+	  if (Math.abs(rotation-angle)>mThreshold) return;
+	  rotation = self.valueFromAngle(rotation);
+	  element.setPosition([0.3*Math.cos(rotation),0.3*Math.sin(rotation)]);
+	  var controller = self.getController();    		
+	  if (controller) {
+		controller.immediatePropertyChanged("Value");
+		controller.invokeImmediateAction("OnChange");
+	  }	        
+  }
+  
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * EJSS framework for interface element.
+ * @module Drawing2D 
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Knob
+ * @class Knob 
+ * @constructor  
+ */
+EJSS_DRAWING2D.KnobOld = {
+  // ----------------------------------------------------
+  // Static methods
+  // ----------------------------------------------------
+
+  /**
+   * static registerProperties method
+   */ 
+   registerProperties : function(element,controller) {
+	EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+	controller.registerProperty("Value", element.setValue, element.getValue);
+    controller.registerProperty("Minimum", element.setMinimum, element.getMinimum);
+    controller.registerProperty("Maximum", element.setMaximum, element.getMaximum);
+
+    controller.registerAction("OnPress" ,element.getValue); 
+    controller.registerAction("OnRelease" ,element.getValue); 
+    controller.registerAction("OnChange" ,element.getValue); 
+    
+    controller.registerProperty("Size", element.setSize);
+	
+  }
+
+};
+
+/**
+ * Knob function
+ * Creates a 2D element that looks and behaves like a knob
+ * @method knob
+ * @param mName the name of the element
+ * @returns An abstract interface element
+ */
+EJSS_DRAWING2D.knobOld = function (mName) {
+  var self = EJSS_DRAWING2D.group(mName);
+  
+  // Configuration variables
+  var mValue = 0.0;
+  var mMaximum =  1.0;
+  var mMinimum = -1.0;
+
+  var mNumberOfMarks = 21;
+  var mBigMark = 4;
+  var mMediumMark = 2;
+  var mDigits = 0;
+
+  var mMinimumAngle = Math.PI/2 + 1.5*Math.PI/2;
+  var mMaximumAngle = Math.PI/2 - 1.5*Math.PI/2;
+
+  var mMinAngle = -Math.PI*0.7;
+  var mMaxAngle =  Math.PI*0.7;
+  var mThreshold = Math.PI/5;
+
+  // Implementation variables
+  var mKnobExterior,mKnobMiddle,mKnobInterior;
+  var mSegments, mTexts, mBrand, mUnits;
+
+  var mDummyContainer;
+  var mSVGDefs = 
+	  "<svg xmlns='http://www.w3.org/2000/svg' version='1.1'>"+
+      "  <defs>"+
+      "    <linearGradient id='KnobExteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
+      "      <stop offset='0%'   stop-color='rgb(250,250,250)' />"+
+      "      <stop offset='100%' stop-color='rgb(100,100,100)' />"+
+      "    </linearGradient>"+
+      "    <linearGradient id='KnobMiddleGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
+      "      <stop offset='0%'   stop-color='rgb(200,200,200)' />"+
+      "      <stop offset='100%' stop-color='rgb(150,150,150)' />"+
+      "    </linearGradient>"+
+      "    <linearGradient id='KnobInteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
+      "      <stop offset='0%'   stop-color='rgb(127,127,127)' />"+
+      "      <stop offset='100%' stop-color='rgb(250,250,250)' />"+
+      "    </linearGradient>"+
+      "    <filter id='KnobFilter' x='0' y='0' width='200%' height='200%'>"+
+      "      <feOffset result='offOut' in='SourceGraphic' dx='1' dy='1' />"+
+      "      <feGaussianBlur result='blurOut' in='offOut' stdDeviation='2' />"+
+      "      <feBlend in='SourceGraphic' in2='blurOut' mode='normal' />"+
+      "    </filter>"+
+      "  </defs>"+
+      "</svg>";
+
+  
+  // ----------------------------------------------------
+  // Properties
+  // ----------------------------------------------------
+  
+  /**
+   * Sets the value of the element. 
+   * @method setValue
+   * @param value
+   */
+  self.setValue = function(value) {
+    if (mValue!=value) {
+    	mValue = value;
+    	adjustPosition();
+    }
+  }
+  
+  /**
+   * @method getValue
+   * @return current value
+   */
+  self.getValue = function() { 
+    return mValue; 
+  };    
+
+  /**
+   * Sets the minimum value of the element. 
+   * @method setMinimum
+   * @param value
+   */
+  self.setMinimum = function(value) {
+    if (mMinimum!=value) {
+    	mMinimum = value;
+    	adjustPosition();
+    }
+  }
+  
+  /**
+   * @method getMinimum
+   * @return current value
+   */
+  self.getMinimum = function() { 
+    return mMinimum; 
+  };    
+
+  /**
+   * Sets the minimum value of the element. 
+   * @method setMaximum
+   * @param value
+   */
+  self.setMaximum = function(value) {
+	if (mMaximum!=value) {
+		mMaximum = value;
+		adjustPosition();		  
+	}
+  }
+  
+  /**
+   * @method getMaximum
+   * @return current value
+   */
+  self.getMaximum = function() { 
+    return mMaximum; 
+  };    
+
+  /**
+   * Sets the size of the element. 
+   * @method setSize
+   * @param value
+   */
+  self.setSize = function(value) {
+	  self.setSizeX(value);
+	  self.setSizeY(value);
+  }
+  
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+	createKnob();
+	EJSS_DRAWING2D.Knob.registerProperties(self,controller);
+  };
+  
+  self.superSetParent = self.setParent;
+
+  self.setParent = function(parent, sibling) {
+		self.superSetParent(parent,sibling);
+		mKnobExterior.setParent(self);
+		mKnobMiddle.setParent(self);
+		mKnobInterior.setParent(self);
+	  }
+
+  
+  function createKnob() {
+	  /*
+	  var stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+	  stop1.setAttribute("offset","0%");
+	  stop1.setAttribute("stop-color","rgb(250,250,250)");
+
+	  var stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+	  stop2.setAttribute("offset","100%");
+	  stop2.setAttribute("stop-color","rgb(100,100,100)");
+
+	  var linearGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+	  linearGradient.setAttribute("id", "#KnobExteriorGradient");
+	  linearGradient.setAttribute("x1","0%");
+	  linearGradient.setAttribute("y1","0%");
+	  linearGradient.setAttribute("x2","100%");
+	  linearGradient.setAttribute("y2","100%");
+	  linearGradient.appendChild(stop1);
+	  linearGradient.appendChild(stop2);
+
+	  var feOffset = document.createElementNS("http://www.w3.org/2000/svg", "feOffset");
+	  feOffset.setAttribute("result","offOut");
+	  feOffset.setAttribute("in","SourceGraphic");
+	  feOffset.setAttribute("dx","1");
+	  feOffset.setAttribute("dy","1");
+
+	  var gaussianFilter = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+	  gaussianFilter.setAttribute("result","blurOut");
+	  gaussianFilter.setAttribute("in","offOut");
+	  gaussianFilter.setAttribute("stdDeviation","2");
+
+	  var feBlend = document.createElementNS("http://www.w3.org/2000/svg", "feBlend");
+	  feOffset.setAttribute("in","SourceGraphic");
+	  feOffset.setAttribute("in2","blurOut");
+	  feOffset.setAttribute("mode","normal");
+
+	  var filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+	  filter.setAttribute("id","#KnobFilter");
+	  filter.setAttribute("x","0");
+	  filter.setAttribute("y","0");
+	  filter.setAttribute("width","200%");
+	  filter.setAttribute("height","200%");
+	  filter.appendChild(feOffset);
+	  filter.appendChild(gaussianFilter);
+	  filter.appendChild(feBlend);
+	  
+	  /*
+	  var defs = self.getParentPanel()getGraphics().getDefs(); // document.createElementNS("http://www.w3.org/2000/svg", "defs");
+	  defs.appendChild(linearGradient);
+	  defs.appendChild(filter);
+	  
+	 // self.getGraphics().appendChild(defs);
+	  */
+	  
+	  mDummyContainer = document.createElement('div');
+	  document.body.appendChild(mDummyContainer);
+	  mDummyContainer.innerHTML = mSVGDefs;
+	  
+	  mKnobExterior = EJSS_DRAWING2D.shape(mName+".exterior_shape");
+	  mKnobExterior.setSize([1,1]);
+	  mKnobExterior.getStyle().setDrawLines(false);
+	  mKnobExterior.getStyle().setAttributes({ fill: "url(#KnobExteriorGradient)", filter:"url(#KnobFilter)"});
+
+	  mKnobMiddle = EJSS_DRAWING2D.shape(mName+".middle_shape");
+	  mKnobMiddle.setSize([0.9,0.9]);
+	  mKnobMiddle.getStyle().setDrawLines(false);
+	  mKnobMiddle.getStyle().setAttributes({ fill: "url(#KnobMiddleGradient)"});
+
+	  mKnobInterior = EJSS_CORE.promoteToControlElement(
+			  EJSS_DRAWING2D.shape(mName+".inner_shape"),self.getView(),mName+".inner_shape");
+	  mKnobInterior.setY(0.3);
+	  mKnobInterior.setSize([0.2,0.2]);
+	  mKnobInterior.getStyle().setDrawLines(false);
+	  mKnobInterior.getStyle().setAttributes({ fill: "url(#KnobInteriorGradient)"});
+
+	  mKnobInterior.setProperty("EnabledPosition","ENABLED_NO_MOVE");
+      mKnobInterior.setProperty("Sensitivity",10);
+	  mKnobInterior.setProperty("OnDrag",dragged);
+	  mKnobInterior.setProperty("OnPress",pressed);
+	  mKnobInterior.setProperty("OnRelease",released);
+
+//	  self.addElement(mKnobExterior);
+//	  self.addElement(mKnobMiddle);
+//	  self.addElement(mKnobInterior);
+
+
+  }
+    
+  function adjustPosition() {
+	  mValue = Math.max(Math.min(mMaximum,mValue),mMinimum);
+	  var angle = mMaxAngle - (mValue-mMinimum)/(mMaximum-mMinimum)*(mMaxAngle-mMinAngle) + Math.PI/2;
+	  mKnobInterior.setPosition([0.3*Math.cos(angle),0.3*Math.sin(angle)]);
+  }
+
+  function pressed(point,info) {
+	  var controller = self.getController();    		
+	  if (controller) controller.invokeImmediateAction("OnPress");
+  }
+
+  function released(point,info) {
+	  var controller = self.getController();    		
+	  if (controller) controller.invokeImmediateAction("OnRelease");
+  }
+
+  function dragged(point,info) {
+	  var point = info.point;
+	  var element = info.element;
+	  var group_pos = self.getAbsolutePosition(true);
+	  point[0] -= group_pos[0];
+	  point[1] -= group_pos[1];
+	  var angle = mMaxAngle - (mValue-mMinimum)/(mMaximum-mMinimum)*(mMaxAngle-mMinAngle);
+	  var rotation = Math.atan2(-point[0],point[1]);
+	  if (Math.abs(rotation-angle)>mThreshold) return;
+	  rotation = Math.min(Math.max(rotation,mMinAngle),mMaxAngle);
+	  mValue = mMaximum - (rotation-mMinAngle)/(mMaxAngle-mMinAngle)*(mMaximum-mMinimum);
+	  var angle = rotation+Math.PI/2;
+	  element.setPosition([0.3*Math.cos(angle),0.3*Math.sin(angle)]);
+	  var controller = self.getController();    		
+	  if (controller) {
+		controller.immediatePropertyChanged("Value");
+		controller.invokeImmediateAction("OnChange");
+	  }	        
+
+  }
+  
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Mesh
+ * @class Mesh 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Mesh = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
+  	
+  	},
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.Element.registerProperties(element, controller);
+		// super class
+
+		controller.registerProperty("Data", element.setData);
+		controller.registerProperty("DataType", element.setDataType);
+		controller.registerProperty("Mesh", element.setMesh);
+
+		controller.registerProperty("Points", element.setPoints);
+		controller.registerProperty("Cells", element.setCells);
+		controller.registerProperty("FieldAtPoints", element.setFieldAtPoints);
+		controller.registerProperty("FieldAtCells", element.setFieldAtCells);
+		controller.registerProperty("VectorLength", element.setVectorLength);
+		
+		controller.registerProperty("Boundary", element.setBoundary);
+		controller.registerProperty("BoundaryLabels", element.setBoundaryLabels);
+		controller.registerProperty("BoundaryColors", element.setBoundaryColors);
+		controller.registerProperty("BoundaryWidth", element.setBoundaryLineWidth);
+		controller.registerProperty("DrawBoundary", element.setDrawBoundary);
+	}
+};
+
+
+/**
+ * Creates a 2D Mesh
+ * A Mesh is a collection of polygons, where each vertex has associated a scalar values value to it.
+ * The mesh can be drawn using a color for each polygon, or a color code that uses the vertex values to find areas of equal value.
+ * This second feature can be configure setting the levels to distinguish and the color of each of the levels (and below and above them)
+ * The Mesh can also be given a set of lines which can be drawn to show the boundaries or special areas of the mesh, each with a different color.  
+ * 
+ * @method mesh
+ */
+EJSS_DRAWING2D.mesh = function (name) {
+  var self = EJSS_DRAWING2D.element(name);
+
+  // Configuration variables
+  var mDataType = -1;	    // An int that overrides the mData type
+  var mPoints; 				// double[][]
+  var mValues; 				// double[][]
+  var mCellValues; 			// double[][][]
+  var mMeshGeometry; 		// int[][]
+  var mAutoscaleZ = true; 
+  var mVectorLength = 0.03;
+
+  var mBoundaryGeometry;		// int[][]
+  var mBoundaryLabels;			// int[]
+  var mBoundaryColors = null; 	// color[] an array with a color for each index. If null, the element color is used
+  var mBoundaryStroke = 1;	  	// stroke
+  var mBoundaryDraw = true;
+  
+  // Implementation variables
+  var mColor = EJSS_DRAWING2D.colorCoded(16, EJSS_DRAWING2D.ColorMapper.SPECTRUM); 		// ColorCoded
+
+  // -------------------------------------
+  // Public methods for mesh geometry
+  // -------------------------------------
+
+  self.getClass = function() {
+  	return "ElementMesh";
+  }
+
+  /**
+   * Indicates what type to consider for the setData argument.
+   * Allows using the same data for different displays.
+   * @param type int or String // one of 0=MESH_2D, 1=MESH_3D, 2=SCALAR_2D_FIELD, 3=SCALAR_3D_FIELD, 4=VECTOR_2D_FIELD, 5=VECTOR_3D_FIELD
+   */
+  self.setDataType = function(type) {
+    switch (type) {
+      case "MESH_2D" : mDataType = 0; break;
+      case "MESH_3D" : mDataType = 1; break;
+      case "SCALAR_2D_FIELD" : mDataType = 2; break;
+      case "SCALAR_3D_FIELD" : mDataType = 3; break;
+      case "VECTOR_2D_FIELD" : mDataType = 4; break;
+      case "VECTOR_3D_FIELD" : mDataType = 5; break;
+      default : mDataType = type; 
+     }
+    self.setChanged(true);
+  }
+  
+  self.getDataType = function() {
+  	return mDataType;
+  }
+
+  /**
+   * Provides the data based on the following structure
+   * @method setData
+   *     "data": {
+   *		"type": int, // one of  0=MESH_2D, 1=MESH_3D, SCALAR_2D_FIELD, SCALAR_3D_FIELD, VECTOR_2D_FIELD, VECTOR_3D_FIELD
+   *        "problem_mesh": mesh, // the mesh that defined the problem
+   *        "solution_mesh": mesh, // the mesh that contains the solution
+   *        "solution_values": double[][][], // the values of the field for the solution mesh
+   *	  }
+   * @param data 
+   */
+  self.setData = function(data) {
+    if (!data) return false;
+    if (mDataType<0 || mDataType>5) {
+   		self.setDataType(data["type"]);
+    }
+    switch (mDataType) {
+      case 0 : // 2D mesh
+      case 1 : // 3D mesh
+        self.setMesh(data["problem_mesh"]); 
+        return true;
+      case 2 : // scalar (real or complex) 2D solution
+      case 3 : // scalar (real or complex) 3D solution
+      case 4 : // vector (real or complex) 2D solution
+      case 5 : // vector (real or complex) 3D solution
+        self.setMesh(data["solution_mesh"]);
+        self.setFieldAtCells(data["solution_values"]);
+        return true;
+     }
+     return false; // no correct data
+  }
+
+  /**
+   * Provides the mesh based on the following structure
+   * @method setMesh
+   *     "mesh": {
+   *		"points":[[x0,y0],[x1,y1],...],
+   *		"cells":[[p00,p01,p02],[p10,p11,p12],...],
+   *		"boundary":[[p00,p01],[p10,p11],...], // end points for each segment of the boundary		
+   *		"boundary_labels":int [l0, l1, l2,...] // one for each boundary segment
+   *	} 
+   * @param mesh 
+   */
+  self.setMesh = function(mesh) {
+    self.setPoints(mesh["points"]);
+    self.setCells(mesh["cells"]);
+    self.setBoundary(mesh["boundary"]);
+    self.setBoundaryLabels(mesh["boundary_labels"]);
+    self.setChanged(true);
+  }
+  
+//  self.getMesh = function() {
+//  	return {"points": mPoints,  "cells": mCells, "values": mValues, "boundary": mBoundaryGeometry};
+//  }
+
+  /**
+   * Provides the array of points that conform the mesh and its boundary
+   * @method setPoints
+   * @param meshs The double[nPoints][2] where nPoints is the number of points in the mesh
+   */
+  self.setPoints = function(points) {
+    mPoints = points;
+    self.setChanged(true);
+  }
+  
+  self.getPoints = function() {
+  	return mPoints;
+  }
+
+  /**
+   * Provides the field value for each point in the mesh
+   * @method setValues
+   * @param values The double[nPoints]array with the value for each mesh vertex
+   */
+  self.setFieldAtPoints = function(values) {
+    mValues = values;
+    mCellValues = null;
+    if(mAutoscaleZ && mValues != null) mColor.setAutoscaleArray2(mValues); 
+//    console.log ("Field at points changed");
+    self.setChanged(true);
+  }
+  
+  self.getFieldAtPoints = function() {
+  	return mValues;
+  }
+
+  /**
+   * Provides the geometry of the mesh
+   * @method setCells
+   * @param cells the int[nCells][nPoints] array with the points in each mesh.
+   * For example,if the first mesh is a triangle joining points 0,3,7, one gets: meshs[0] = { 0, 3, 7 }; 
+   */
+  self.setCells = function(cells) {
+    mMeshGeometry = cells;
+    self.setChanged(true);
+  }
+
+  self.getCells = function() {
+  	return mMeshGeometry;
+  }
+
+  /**
+   * Provides the field value for each point in the mesh
+   * @method setValues
+   * @param values The double[nPoints]array with the value for each mesh vertex
+   */
+  self.setFieldAtCells = function(values) {
+    mCellValues = values;
+    mValues = null;
+    if(mAutoscaleZ && mCellValues != null) mColor.setAutoscaleArray3(mCellValues); 
+    self.setChanged(true);
+  }
+  
+    self.getFieldAtCells = function() {
+  	return mCellValues;
+  }
+  
+  /**
+   * Provides the geometry of the mesh
+   * @method setVectorLength
+   * @param length the double length for vectors in the field 
+   */
+  self.setVectorLength = function(length) {
+    if (mVectorLength !== length) {
+      mVectorLength = length;
+      self.setChanged(true);
+    }
+  }
+
+  self.getVectorLength = function() {
+  	return mVectorLength;
+  }
+
+  
+  /**
+   * Provides the data for the boundary.
+   * @method setBoundary
+   * @param meshs The int[nOfSegments][nPointsInSegment] array with the mesh information, where:
+   * <ul>
+   * <li>First index = nOfSegments : number of segments in the boundary</li>
+   * <li>Second index = nPointsInSegment : the points in this segment</li>
+   * </ul>
+   */
+  self.setBoundary = function(boundary) {
+    mBoundaryGeometry = boundary;
+    self.setChanged(true);
+  }
+
+  self.getBoundary = function() {
+  	return mBoundaryGeometry;
+  }
+
+  /**
+   * Provides the label for each boundary segment
+   * @method setBoundaryLabels
+   * @param values The int[nOfSegments] array with the label for each boundary segment
+   */
+  self.setBoundaryLabels = function(labels) {
+    mBoundaryLabels = labels;
+    self.setChanged(true);
+  }
+
+  self.getBoundaryLabels = function() {
+  	return mBoundaryLabels;
+  }
+
+  /**
+   * The color to use for each boundary index 
+   * There must be a color for each index 
+   * If not enough colors are given, or colors is null, the element draw color is used
+   * @method setBoundaryColors
+   * @param colors
+   */
+  self.setBoundaryColors = function(colors) {
+    mBoundaryColors = colors;
+    self.setChanged(true);
+  }
+  
+  self.getBoundaryColors = function() {
+    return mBoundaryColors;
+  }
+  
+  self.setBoundaryLineWidth = function(width) {
+    mBoundaryStroke = Math.max(1, width);
+    self.setChanged(true);
+  }
+
+  self.getBoundaryLineWidth = function() {
+    return mBoundaryStroke;
+  }
+
+  self.setBoundaryStroke = function(stroke) {
+    mBoundaryStroke = stroke;
+    self.setChanged(true);
+  }
+
+  self.getBoundaryStroke = function() {
+    return mBoundaryStroke;
+  }
+
+  self.setDrawBoundary = function(draw) {
+    mBoundaryDraw = draw;
+    self.setChanged(true);
+  }
+
+  self.getDrawBoundary = function() {
+    return mBoundaryDraw;
+  }
+
+  // -------------------------------------
+  // Public methods for coloring the meshs
+  // -------------------------------------
+
+  /**
+   * Returns the ColorCoded for customization
+   * @method getDrawer
+   * @return
+   */
+  self.getColorCoded = function() {
+    return mColor;
+  }
+  
+  /**
+   * Sets the autoscale flag and the floor and ceiling values for the colors.
+   *
+   * If autoscaling is true, then the min and max values of z are span the colors.
+   *
+   * If autoscaling is false, then floor and ceiling values limit the colors.
+   * Values below min map to the first color; values above max map to the last color.
+   *
+   * @method setAutoscaleZ
+   * @param isAutoscale
+   * @param floor
+   * @param ceil
+   */
+  self.setAutoscaleZ = function (isAutoscale, floor, ceil) {
+    mAutoscaleZ = isAutoscale;
+    if (mAutoscaleZ) {
+    	if(mValues != null)	mColor.setAutoscaleArray2(mValues); 
+    	else if(mCellValues != null) mColor.setAutoscaleArray3(mCellValues); 
+    } else mColor.setScale(floor, ceil);
+    self.setChanged(true);
+  }
+  
+  /**
+   * Gets the autoscale flag for z.
+   *
+   * @method isAutoscaleZ
+   * @return boolean
+   */
+  self.isAutoscaleZ = function() {
+    return mAutoscaleZ;
+  }
+
+  /**
+   * Returns bounds for an element
+   * @override
+   * @method getBounds
+   * @return Object{left,rigth,top,bottom}
+   */
+  self.getBounds = function(element) {
+  	var xmin=0, xmax=0, ymin=0, ymax=0;
+  	var points = self.getPoints();
+  	if (points && points.length>0) {
+      var len = points.length;
+      xmax = xmin = points[0][0];
+	  ymax = ymin = points[0][1];    	
+	  for(var j=1; j<len; j++) {
+			var x = points[j][0], y = points[j][1];
+			if(x>xmax) xmax=x; if(y>ymax) ymax=y; if(x<xmin) xmin=x; if(y<ymin) ymin=y;
+	  }
+	}    
+    var x = self.getX(), y = self.getY();
+    var sx = self.getSizeX(), sy = self.getSizeY();
+  	var mx = sx/2, my = sy/2;  	
+  	var d = self.getRelativePositionOffset(sx,sy);
+	var result =  {
+		left: ((x+d[0])-mx)+xmin*sx,
+		right: ((x+d[0])-mx)+xmax*sx,
+		top: ((y+d[1])-my)+ymax*sy,
+		bottom: ((y+d[1])-my)+ymin*sy
+	}
+	return result;
+  };  
+
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING2D.Mesh.registerProperties(self, controller);
+  };
+	
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1]);
+  self.setRelativePosition("SOUTH_WEST");
+
+  return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Shape
+ * @class Shape 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Meter = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+      controller.registerProperty("Value", element.setValue, element.getValue);
+      controller.registerProperty("Minimum", element.setMinimum, element.getMinimum);
+      controller.registerProperty("Maximum", element.setMaximum, element.getMaximum);
+
+      controller.registerProperty("AngleForMinimum", element.setAngleForMinimum, element.getAngleForMinimum);
+      controller.registerProperty("AngleForMaximum", element.setAngleForMaximum, element.getAngleForMaximum);
+
+      controller.registerProperty("NumberOfMarks",element.setNumberOfMarks,element.getNumberOfMarks);
+      controller.registerProperty("BigMark",element.setBigMark,element.getBigMark);
+      controller.registerProperty("MediumMark",element.setMediumMark,element.getMediumMark);
+      controller.registerProperty("Digits",element.setDigits,element.getDigits);
+
+      controller.registerProperty("Radius", element.setRadius);
+      controller.registerProperty("CircleColor",element.setCircleColor);
+      controller.registerProperty("CircleWidth",element.setCircleWidth);
+      controller.registerProperty("FillColor",element.setFillColor);
+      
+      controller.registerProperty("Foreground",element.setForeground);
+      controller.registerProperty("LineWidth",element.setLineWidth);
+
+      controller.registerProperty("ArrowColor",element.setArrowColor);
+      controller.registerProperty("ArrowWidth",element.setArrowWidth);
+
+      controller.registerProperty("DrawLines",element.setDrawLines);
+      controller.registerProperty("DrawText",element.setDrawText);
+
+      controller.registerProperty("Brand",element.setBrand);
+      controller.registerProperty("Units",element.setUnits);
+      
+      controller.registerProperty("MarksFont",element.setMarksFont);
+      controller.registerProperty("BrandFont",element.setBrandFont);
+      controller.registerProperty("UnitsFont",element.setUnitsFont);
+    }
+
+};
+
+/**
+ * Creates a 2D circular meter
+ * @method shape
+ */
+EJSS_DRAWING2D.meter = function (mName) {
+  var self = EJSS_DRAWING2D.group(mName);
+
+  // Configuration variables
+  var mValue = 0.0;
+  var mMinimum =   0;
+  var mMaximum = 100;
+
+  var mNumberOfMarks = 21;
+  var mBigMark = 4;
+  var mMediumMark = 2;
+  var mDigits = 0;
+
+  var mAngleForMinimum = Math.PI/2 + 1.5*Math.PI/2;
+  var mAngleForMaximum = Math.PI/2 - 1.5*Math.PI/2;
+
+  // Implementation variables
+  var mArrow, mCircle, mSegments, mTexts, mBrand, mUnits;
+  var mColor = "Black", mDangerColor = "Red";
+  var mForegroundCreated = false;
+
+  var mElements = [];
+  
+  self.getElement = function(keyword) {
+	  return mElements[keyword];
+  };
+  
+  // ----------------------------------------------------
+  // public functions
+  // ----------------------------------------------------
+  
+  /**
+   * Sets the value of the element. 
+   * @method setValue
+   * @param value
+   */
+  self.setValue = function(value) {
+    if (mValue!=value) {
+    	mValue = value;
+    	self.adjustPosition();
+    }
+  }
+  
+  /**
+   * @method getValue
+   * @return current value
+   */
+  self.getValue = function() { 
+    return mValue; 
+  };    
+
+  /**
+   * Sets the minimum value of the element. 
+   * @method setMinimum
+   * @param value
+   */
+  self.setMinimum = function(value) {
+    if (mMinimum!=value) {
+    	mMinimum = value;
+        self.setChanged(true);
+    }
+  }
+  
+  /**
+   * @method getMinimum
+   * @return current minimum
+   */
+  self.getMinimum = function() { 
+    return mMinimum; 
+  };    
+
+  /**
+   * Sets the minimum value of the element. 
+   * @method setMaximum
+   * @param value
+   */
+  self.setMaximum = function(value) {
+	if (mMaximum!=value) {
+		mMaximum = value;
+        self.setChanged(true);
+	}
+  }
+  
+  /**
+   * @method getMaximum
+   * @return current maximum
+   */
+  self.getMaximum = function() { 
+    return mMaximum; 
+  };    
+
+  /**
+   * Sets the angle at which to display the minimum value 
+   * @method setAngleForMinimum
+   * @param value
+   */
+  self.setAngleForMinimum = function(value) {
+    if (mAngleForMinimum!=value) {
+    	mAngleForMinimum = value;
+        self.setChanged(true);
+    }
+  }
+  
+  /**
+   * @method getAngleForMinimum
+   * @return current angle at which to display the minimum value
+   */
+  self.getAngleForMinimum = function() { 
+    return mAngleForMinimum; 
+  };    
+
+  /**
+   * Sets the angle at which to display the maximum value 
+   * @method setAngleForMaximum
+   * @param value
+   */
+  self.setAngleForMaximum = function(value) {
+	if (mAngleForMaximum!=value) {
+		mAngleForMaximum = value;
+        self.setChanged(true);
+	}
+  }
+  
+  /**
+   * @method getAngleForMaximum
+   * @return current angle at which to display the maximum value 
+   */
+  self.getAngleForMaximum = function() { 
+    return mAngleForMaximum; 
+  };    
+
+  /***
+   * Sets the number of marks
+   * @method setNumberOfMarks(value)
+   * @visibility public
+   * @param value int
+   */ 
+  self.setNumberOfMarks = function(value) {
+	  if (value!=mNumberOfMarks) {
+		  mNumberOfMarks = value;
+        self.setChanged(true);
+	  }
+  };
+
+  /***
+   * Gets the number of marks
+   * @method getNumberOfMarks
+   * @visibility public
+   * @return int
+   */
+  self.getNumberOfMarks = function() {
+  	return mNumberOfMarks;
+  };
+
+  /***
+   * Sets the interval for big marks
+   * @method setBigMark(value)
+   * @visibility public
+   * @param value int 
+   */ 
+  self.setBigMark = function(value) {
+	  if (value!=mBigMark) {
+        mBigMark = value;
+        self.setChanged(true);
+	  }
+  };
+
+  /***
+   * Gets the interval for big marks
+   * @method getBigMark
+   * @visibility public
+   * @return int
+   */
+  self.getBigMark = function() {
+  	return mBigMark;
+  };
+
+  /***
+   * Sets the interval for medium marks
+   * @method setMediumMark(value)
+   * @visibility public
+   * @param value int
+   */ 
+  self.setMediumMark = function(value) {
+	  if (value!=mMediumMark) {
+		  mMediumMark = value;
+        self.setChanged(true);
+	  }
+  };
+ 
+  /***
+   * Gets the interval for medium marks
+   * @method getMediumMark
+   * @visibility public
+   * @return value int
+   */ 
+  self.getMediumMark = function() {
+  	return mMediumMark;
+  };
+
+
+  /***
+   * Sets the number of digits for the marks
+   * @method setDigits(value)
+   * @visibility public
+   * @param value int 
+   */ 
+  self.setDigits = function(value) {
+	  if (value!=mDigits) {
+		  mDigits = value;
+        self.setChanged(true);
+	  }
+  };
+
+  /***
+   * Gets the number of digits for the marks
+   * @method getPrecision
+   * @visibility public
+   * @return int
+   */
+  self.getDigits = function() {
+  	return mDigits;
+  };
+  
+  // ----------------------------------------------------
+  // Properties overwritten
+  // ----------------------------------------------------
+
+  /**
+   * Sets the radius of the element. 
+   * @method setRadius
+   * @param value
+   */
+  self.setRadius = function(value) {
+	  self.setSizeX(2*value);
+	  self.setSizeY(2*value);
+	  if (mCircle) mCircle.setChanged(true);
+	  if (mArrow) mArrow.setChanged(true);
+	  mSegments.setToEach(function(element) { element.setChanged(true); });
+	  mTexts.setToEach(function(element) { element.setChanged(true); });
+	  if (mBrand) mBrand.setChanged(true);
+	  if (mUnits) mUnits.setChanged(true);
+  };
+
+  self.setCircleColor = function(value) { mCircle.getStyle().setLineColor(value); };
+  
+  self.setCircleWidth = function(value) { mCircle.getStyle().setLineWidth(value); };
+
+  self.setFillColor = function(value) { mCircle.getStyle().setFillColor(value); };
+
+  self.setArrowColor = function(value) {
+	  if (value=="Red") mDangerColor = "Yellow";
+	  else mDangerColor = "Red";
+	  mColor = value;
+	  mArrow.getStyle().setLineColor(value);
+	  mArrow.getStyle().setFillColor(value);
+  };
+
+  self.setArrowWidth = function(value) { mArrow.getStyle().setLineWidth(value); }
+
+  self.setForeground = function(value) { 
+	  mSegments.setToEach(function(element) { element.getStyle().setLineColor(value); });
+	  mTexts.setToEach(function(element) { element.getFont().setFillColor(value); });
+	  mBrand.getFont().setFillColor(value);
+	  mUnits.getFont().setFillColor(value);
+}
+  
+  self.setLineWidth = function(value) { 
+	  mSegments.setToEach(function(element) { element.getStyle().setLineWidth(value); });
+  }
+
+  self.setDrawLines = function(value) { 
+	  mSegments.setToEach(function(element,value) { element.setVisible(value); },value);
+  }
+  
+  self.setDrawText = function(value) { 
+	  mTexts.setToEach(function(element,value) { element.setVisible(value); },value);
+  }
+
+  self.setFont = function(value) { 
+	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
+	  mBrand.getFont().setFont(value);
+	  mUnits.getFont().setFont(value);
+  }
+
+  self.setFont = function(value) { 
+	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
+	  mBrand.getFont().setFont(value);
+	  mUnits.getFont().setFont(value);
+  }
+  self.setMarksFont = function(value) { 
+	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
+  }
+  self.setBrandFont = function(value) { mBrand.getFont().setFont(value); }
+  self.setUnitsFont = function(value) { mUnits.getFont().setFont(value); }
+
+  self.setBrand = function(value) { mBrand.setText(value); }
+  self.setUnits= function(value) { mUnits.setText(value); }
+
+  // ----------------------------------------------------
+  // Properties and copies
+  // ----------------------------------------------------
+
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.Meter.registerProperties(self,controller);
+  };
+
+  // ----------------------------------------------------
+  // private or protected functions
+  // ----------------------------------------------------
+
+  self.superSetParent = self.setParent;
+  
+  self.setParent = function(parent, sibling) {
+	self.superSetParent(parent,sibling);
+	if (!mForegroundCreated) {
+	  self.createBasics();
+	  self.createForeground();
+	  mForegroundCreated = true;
+    }
+	self.addParticularChildren();
+	self.adjustForeground();
+  }
+
+  self.dataCollected = function() {
+	  if (self.isChanged()) {
+		  self.adjustForeground();
+		  self.setChanged(false);
+	  }
+  }; 
+  
+  self.addParticularChildren = function() {
+		if (mCircle) mCircle.setParent(self);
+		if (mSegments) mSegments.setToEach(function(element) { element.setParent(self); });
+		if (mTexts) mTexts.setToEach(function(element) { element.setParent(self); });
+		if (mBrand) mBrand.setParent(self);
+		if (mUnits) mUnits.setParent(self);
+		if (mArrow) mArrow.setParent(self);
+  };
+
+  self.createBasics = function() {
+    mCircle = EJSS_DRAWING2D.shape(mName+".circle");
+    mCircle.setSize([1,1]);
+    mCircle.setShapeType("ELLIPSE");
+    mCircle.getStyle().setLineWidth(3);
+    mCircle.getStyle().setLineColor("Grey");
+    mCircle.getStyle().setFillColor("White");
+    mElements['circle'] = mCircle;
+
+    mArrow = EJSS_DRAWING2D.arrow(mName+".arrow");
+    mArrow.setSize([0.45,0]);
+    mArrow.getStyle().setLineWidth(2);
+    mArrow.setMarkStart("WEDGE");
+    mArrow.setMarkEnd("POINTED");
+    mElements['arrow'] = mArrow;
+  };
+  
+  self.createForeground = function() {
+    mSegments = EJSS_DRAWING2D.segmentSet(mName+".segments");
+    mSegments.setToEach(function(element) { element.setRelativePosition("SOUTH_WEST"); });
+    mElements['segments'] = mSegments;
+
+    mTexts = EJSS_DRAWING2D.textSet(mName+".texts");
+    mTexts.setToEach(function(element) { element.getFont().setFont("normal bold 12px \"Courier New\", Courier, monospace"); });
+    mElements['texts'] = mTexts;
+
+    mBrand = EJSS_DRAWING2D.text(mName+".brand");
+    mBrand.setPosition([0,0.20]);
+    mBrand.setText("Meter");
+    mBrand.getFont().setFont("normal bold 12px \"Courier New\", Courier, monospace");
+    mElements['brand'] = mBrand;
+
+    mUnits = EJSS_DRAWING2D.text(mName+".Units");
+    mUnits.setPosition([0,-0.25]);
+    mUnits.setText("%");
+    mUnits.getFont().setFont("normal bold 12px \"Courier New\", Courier, monospace");
+    mElements['units'] = mUnits;
+}
+  
+  self.interpolateAngle= function(value) {
+	 return mAngleForMinimum + (value-mMinimum)/(mMaximum-mMinimum)*(mAngleForMaximum-mAngleForMinimum);
+  };
+
+  self.valueFromAngle= function(angle) {
+	  angle = Math.max(Math.min(angle,mAngleForMinimum),mAngleForMaximum);
+	  mValue = mMaximum - (angle-mAngleForMaximum)/(mAngleForMinimum-mAngleForMaximum)*(mMaximum-mMinimum);
+      return angle;
+  };
+
+  self.adjustPosition = function() {
+	  var actualValue = mValue;
+	  if (mValue<mMinimum) {
+		  actualValue = mMinimum;
+		  mArrow.getStyle().setLineColor(mDangerColor);
+		  mArrow.getStyle().setFillColor(mDangerColor);
+	  }
+	  else if (mValue>mMaximum) {
+		  actualValue = mMaximum;
+		  mArrow.getStyle().setLineColor(mDangerColor);
+		  mArrow.getStyle().setFillColor(mDangerColor);
+	  }
+	  else {
+		  actualValue = mValue;
+		  mArrow.getStyle().setLineColor(mColor);
+		  mArrow.getStyle().setFillColor(mColor);
+	  }
+	  var angle = mAngleForMinimum + (actualValue-mMinimum)/(mMaximum-mMinimum)*(mAngleForMaximum-mAngleForMinimum);
+	  mArrow.setTransformation(angle);
+  }
+
+  self.foregroundIsInside = function() { return true; };
+  
+  self.adjustForeground = function() {
+	  var MARK = 1.0/12;
+	  
+	  mSegments.setNumberOfElements(mNumberOfMarks);
+	  var dAngle = (mAngleForMaximum-mAngleForMinimum)/(mNumberOfMarks-1);
+	  var angle = mAngleForMinimum;
+	  var mediumMarksCounter = 0;
+	  var bigMarksCounter = 0;
+	  var direction =  self.foregroundIsInside() ? -MARK : MARK;
+	  
+	  for (var i=0; i<mNumberOfMarks; i++) {
+	    var segment = mSegments.getElement(i);
+	    var xPos = Math.cos(angle)/2;
+	    var yPos = Math.sin(angle)/2;
+	    segment.setPosition([xPos,yPos]);
+	    if (i%mBigMark==0) {
+	      bigMarksCounter++;
+	      segment.setSize([2*direction*xPos,2*direction*yPos]);
+	    }
+	    else if (i%mMediumMark==0) {
+	      mediumMarksCounter++;
+	      segment.setSize([1.5*direction*xPos,1.5*direction*yPos]);
+	    }
+	    else {
+	      segment.setSize([direction*xPos,direction*yPos]);
+	    }
+	    angle += dAngle;
+	  }
+	  
+	  mTexts.setNumberOfElements(bigMarksCounter); //+mediumMarksCounter);
+	  var text_counter=0;
+      var fontSize =  mTexts.getElement(0).getFont().getFontSize();
+      direction =  self.foregroundIsInside() ? 1.7 : 2.5;
+      if (fontSize>30) direction *= 1.5;
+      else if (fontSize>20) direction *= 1.3;
+      else if (fontSize>15) direction *= 1.1;
+	  for (i=0; i<mNumberOfMarks; i++) {
+	    var segment = mSegments.getElement(i);
+	    if (i%mBigMark==0) { // || i%mediumMark==0) {
+	      var text = mTexts.getElement(text_counter);
+	      var pos = segment.getPosition();
+	      var size = segment.getSize();
+	      text.setPosition([pos[0]+direction*size[0],pos[1]+direction*size[1]]);
+	      var mark_value = ((mNumberOfMarks-1-i)*mMinimum + i*mMaximum)/(mNumberOfMarks-1);
+	      text.setText(""+mark_value.toFixed(mDigits));
+	      text_counter++;
+	    }
+	  }
+	  self.adjustPosition();  
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  return self;
+};
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Shape
+ * @class Shape 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Pipe = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+      controller.registerProperty("Points",element.setPoints,element.getPoints);
+      controller.registerProperty("PipeWidth",element.setPipeWidth,element.getPipeWidth);
+    },
+
+    /**
+     * static copyTo method, to be used by sets
+     */
+    copyTo : function(source, dest) {
+      EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
+
+      dest.setPoints(source.getPoints());
+      dest.setPipeWidth(source.getPipeWidth());
+    }
+
+};
+
+/**
+ * Creates a 2D shape
+ * @method shape
+ */
+EJSS_DRAWING2D.pipe = function (name) {
+  var self = EJSS_DRAWING2D.element(name);
+
+  var mPoints = [[0.1,0.2],[0.1,0.3]];
+  var mPipeWidth = 5;
+
+  self.getClass = function() {
+  	return "ElementPipe";
+  };
+
+  // ----------------------------------------------------
+  // public functions
+  // ----------------------------------------------------
+
+  self.setPoints = function(points) {
+      mPoints = points;
+      self.setChanged(true);
+  };
+
+  self.getPoints = function() {
+  	return mPoints;
+  };
+
+  self.setPipeWidth = function(width) { 
+    mPipeWidth = width; 
+    self.setChanged(true);
+  };
+    
+  self.getPipeWidth = function() { 
+    return mPipeWidth; 
+  };
+  
+  // ----------------------------------------------------
+  // Properties and copies
+  // ----------------------------------------------------
+
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.Pipe.registerProperties(self,controller);
+  };
+
+  /**
+   * Copies itself to another element
+   * Extended copyTo method. To be used by Sets
+   * @method copyTo
+   */
+  self.copyTo = function(element) {
+    EJSS_DRAWING2D.Pipe.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1]);
+  self.setRelativePosition("SOUTH_WEST");
+  self.getStyle().setLineWidth(1);
+  self.getStyle().setFillColor("Blue");
+  return self;
+};
+
+
+/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia and Félix J. García 
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*/
+
+/**
+ * Framework for 2D drawing.
+ * @module 2Ddrawing
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/***
+ * A PlottingPanel is a 2D drawing panel with added decoration. The decoration includes axes, gutters and titles.
+ * @class EJSS_DRAWING2D.PlottingPanel
+ * @parent EJSS_DRAWING2D.DrawingPanel
+ * @constructor
+ */
+
+EJSS_DRAWING2D.PlottingPanel = {
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.DrawingPanel.registerProperties(element, controller);
+		// super class
+
+		// title (text and font)
+     /*** 
+	  * The title at the top center of the panel
+	  * @property Title
+	  * @type String
+	  * @default "Plot"
+	  */ 
+		controller.registerProperty("Title", element.getTitle().setText);
+		controller.registerProperty("TitleFont", element.getTitle().getFont().setFont);
+		controller.registerProperty("TitleColor", element.getTitle().getFont().setFillColor);
+		controller.registerProperty("TitleMargin", element.getTitle().setMarginY);
+
+		controller.registerProperty("TitleX", element.getTitleX().setText);
+		controller.registerProperty("TitleXFont", element.getTitleX().getFont().setFont);
+		controller.registerProperty("TitleXColor", element.getTitleX().getFont().setFillColor);
+		controller.registerProperty("TitleXMargin", element.getTitleX().setMarginY);
+
+		controller.registerProperty("TitleY", element.getTitleY().setText);
+		controller.registerProperty("TitleYFont", element.getTitleY().getFont().setFont);
+		controller.registerProperty("TitleYColor", element.getTitleY().getFont().setFillColor);
+		controller.registerProperty("TitleYMargin", element.getTitleY().setMarginX);
+		controller.registerProperty("MathTitles", element.setMathTitles, element.getMathTitles);
+ 
+		// Grid
+		controller.registerProperty("GridXShow", element.getGrid().setShowX, element.getGrid().getShowX);
+		controller.registerProperty("GridXTicks", element.getGrid().setTicksX, element.getGrid().getTicksX);
+		controller.registerProperty("GridXStep", element.getGrid().setStepX, element.getGrid().getStepX);
+		controller.registerProperty("GridXAutoStepMin", element.getGrid().setAutoStepXMin, element.getGrid().getAutoStepXMin);
+		controller.registerProperty("GridXAutoTicksRange", element.getGrid().setAutoTicksXRange, element.getGrid().getAutoTicksXRange);
+		controller.registerProperty("GridXScale", element.getGrid().setScaleX, element.getGrid().getScaleX);
+		controller.registerProperty("GridXScalePrecision", element.getGrid().setScalePrecisionX, element.getGrid().getScalePrecisionX);
+		controller.registerProperty("GridXFixedTick", element.getGrid().setFixedTickX, element.getGrid().getFixedTickX);				
+		controller.registerProperty("GridXAutoTicks", element.getGrid().setAutoTicksX, element.getGrid().getAutoTicksX);
+		controller.registerProperty("GridXLineColor", element.getGrid().setLineColorX);
+		controller.registerProperty("GridXLineWidth", element.getGrid().setLineWidthX);
+		controller.registerProperty("GridXShapeRendering", element.getGrid().setShapeRenderingX);
+
+		controller.registerProperty("GridYShow", element.getGrid().setShowY, element.getGrid().getShowY);
+		controller.registerProperty("GridYTicks", element.getGrid().setTicksY, element.getGrid().getTicksY);
+		controller.registerProperty("GridYStep", element.getGrid().setStepY, element.getGrid().getStepY);
+		controller.registerProperty("GridYAutoStepMin", element.getGrid().setAutoStepYMin, element.getGrid().getAutoStepYMin);
+		controller.registerProperty("GridYAutoTicksRange", element.getGrid().setAutoTicksYRange, element.getGrid().getAutoTicksYRange);
+		controller.registerProperty("GridYScale", element.getGrid().setScaleY, element.getGrid().getScaleY);
+		controller.registerProperty("GridYScalePrecision", element.getGrid().setScalePrecisionY, element.getGrid().getScalePrecisionY);		
+		controller.registerProperty("GridYFixedTick", element.getGrid().setFixedTickY, element.getGrid().getFixedTickY);
+		controller.registerProperty("GridYAutoTicks", element.getGrid().setAutoTicksY, element.getGrid().getAutoTicksY);
+		controller.registerProperty("GridYLineColor", element.getGrid().setLineColorY);
+		controller.registerProperty("GridYLineWidth", element.getGrid().setLineWidthY);
+		controller.registerProperty("GridYShapeRendering", element.getGrid().setShapeRenderingY);
+
+		// axis
+ 		controller.registerProperty("AxisXShow", element.getAxisX().setShow);
+		controller.registerProperty("AxisXLineColor", element.getAxisX().getStyle().setLineColor);
+		controller.registerProperty("AxisXLineWidth", element.getAxisX().getStyle().setLineWidth);
+		controller.registerProperty("AxisXShapeRendering", element.getAxisX().getStyle().setShapeRendering);		
+		controller.registerProperty("AxisXFixedTick", element.getAxisX().setFixedTick, element.getAxisX().getFixedTick);
+		controller.registerProperty("AxisXAutoTicks", element.getAxisX().setAutoTicks, element.getAxisX().getAutoTicks);
+		controller.registerProperty("AxisXTicks", element.getAxisX().setTicks, element.getAxisX().getTicks);
+		controller.registerProperty("AxisXStep", element.getAxisX().setStep, element.getAxisX().getStep);
+		controller.registerProperty("AxisXTickStep", element.getAxisX().setTickStep, element.getAxisX().getTickStep);
+		controller.registerProperty("AxisXAutoStepMin", element.getAxisX().setAutoStepMin, element.getAxisX().getAutoStepMin);
+		controller.registerProperty("AxisXAutoTicksRange", element.getAxisX().setAutoTicksRange, element.getAxisX().getAutoTicksRange);
+		controller.registerProperty("AxisXScale", element.getAxisX().setScale, element.getAxisX().getScale);
+		controller.registerProperty("AxisXScalePrecision", element.getAxisX().setScalePrecision, element.getAxisX().getScalePrecision);	    
+	    controller.registerProperty("AxisXFont", element.getAxisX().getFont().setFont);
+		controller.registerProperty("AxisXFontColor", element.getAxisX().getFont().setFillColor);
+
+ 		controller.registerProperty("AxisYShow", element.getAxisY().setShow);
+		controller.registerProperty("AxisYLineColor", element.getAxisY().getStyle().setLineColor);
+		controller.registerProperty("AxisYLineWidth", element.getAxisY().getStyle().setLineWidth);
+		controller.registerProperty("AxisYShapeRendering", element.getAxisY().getStyle().setShapeRendering);
+		controller.registerProperty("AxisYFixedTick", element.getAxisY().setFixedTick, element.getAxisY().getFixedTick);
+		controller.registerProperty("AxisYAutoTicks", element.getAxisY().setAutoTicks, element.getAxisY().getAutoTicks);
+		controller.registerProperty("AxisYTicks", element.getAxisY().setTicks, element.getAxisY().getTicks);
+		controller.registerProperty("AxisYStep", element.getAxisY().setStep, element.getAxisY().getStep);
+		controller.registerProperty("AxisYTickStep", element.getAxisY().setTickStep, element.getAxisY().getTickStep);
+		controller.registerProperty("AxisYAutoStepMin", element.getAxisY().setAutoStepMin, element.getAxisY().getAutoStepMin);
+		controller.registerProperty("AxisYAutoTicksRange", element.getAxisY().setAutoTicksRange, element.getAxisY().getAutoTicksRange);
+		controller.registerProperty("AxisYScale", element.getAxisY().setScale, element.getAxisY().getScale);
+		controller.registerProperty("AxisYScalePrecision", element.getAxisY().setScalePrecision, element.getAxisY().getScalePrecision);
+		controller.registerProperty("AxisYFont", element.getAxisY().getFont().setFont);
+		controller.registerProperty("AxisYFontColor", element.getAxisY().getFont().setFillColor);
+
+		// Axis and Grid
+		controller.registerProperty("XFixedTick", function(v) {
+			element.getAxisX().setFixedTick(v);
+			element.getGrid().setFixedTickX(v);
+		});
+		controller.registerProperty("YFixedTick", function(v) {
+			element.getAxisY().setFixedTick(v);
+			element.getGrid().setFixedTickY(v);
+		});
+
+		//controller.registerProperty("GridXTicks", element.getGrid().setTicksX, element.getGrid().getTicksX);
+		//controller.registerProperty("AxisXTicks", element.getAxisX().setTicks, element.getAxisX().getTicks);
+		controller.registerProperty("XTicks", function(v) {
+			element.getAxisX().setTicks(v);
+			element.getGrid().setTicksX(v);
+		});
+		controller.registerProperty("YTicks", function(v) {
+			element.getAxisY().setTicks(v);
+			element.getGrid().setTicksY(v);
+		});
+
+		//controller.registerProperty("GridXStep", element.getGrid().setStepX, element.getGrid().getStepX);
+		//controller.registerProperty("AxisXStep", element.getAxisX().setStep, element.getAxisX().getStep);
+		controller.registerProperty("XStep", function(v) {
+			element.getAxisX().setStep(v);
+			element.getGrid().setStepX(v);
+		});
+		controller.registerProperty("YStep", function(v) {
+			element.getAxisY().setStep(v);
+			element.getGrid().setStepY(v);
+		});
+
+		controller.registerProperty("XTickStep", function(v) {
+			element.getAxisX().setTickStep(v);
+			element.getGrid().setTickStepX(v);
+		});
+		controller.registerProperty("YTickStep", function(v) {
+			element.getAxisY().setTickStep(v);
+			element.getGrid().setTickStepY(v);
+		});
+
+		//controller.registerProperty("GridXAutoStepMin", element.getGrid().setAutoStepXMin, element.getGrid().getAutoStepXMin);
+		//controller.registerProperty("AxisXAutoStepMin", element.getAxisX().setAutoStepMin, element.getAxisX().getAutoStepMin);
+		controller.registerProperty("XAutoStepMin", function(v) {
+			element.getAxisX().setAutoStepMin(v);
+			element.getGrid().setAutoStepXMin(v);
+		});
+		controller.registerProperty("YAutoStepMin", function(v) {
+			element.getAxisY().setAutoStepMin(v);
+			element.getGrid().setAutoStepYMin(v);
+		});
+
+		//controller.registerProperty("GridXAutoTicksRange", element.getGrid().setAutoTicksXRange, element.getGrid().getAutoTicksXRange);
+		//controller.registerProperty("AxisXAutoTicksRange", element.getAxisX().setAutoTicksRange, element.getAxisX().getAutoTicksRange);
+		controller.registerProperty("XAutoTicksRange", function(v) {
+			element.getAxisX().setAutoTicksRange(v);
+			element.getGrid().setAutoTicksXRange(v);
+		});
+		controller.registerProperty("YAutoTicksRange", function(v) {
+			element.getAxisY().setAutoTicksRange(v);
+			element.getGrid().setAutoTicksyRange(v);
+		});
+
+		//controller.registerProperty("GridXScale", element.getGrid().setScaleX, element.getGrid().getScaleX);
+		//controller.registerProperty("AxisXScale", element.getAxisX().setScale, element.getAxisX().getScale);
+		controller.registerProperty("XScale", function(v) {
+			element.getAxisX().setScale(v);
+			element.getGrid().setScaleX(v);
+		});
+		controller.registerProperty("YScale", function(v) {
+			element.getAxisY().setScale(v);
+			element.getGrid().setScaleY(v);
+		});
+
+		//controller.registerProperty("GridXScalePrecision", element.getGrid().setScalePrecisionX, element.getGrid().getScalePrecisionX);
+		//controller.registerProperty("AxisXScalePrecision", element.getAxisX().setScalePrecision, element.getAxisX().getScalePrecision);
+		controller.registerProperty("XScalePrecision", function(v) {
+			element.getAxisX().setScalePrecision(v);
+			element.getGrid().setScalePrecisionX(v);
+		});
+		controller.registerProperty("YScalePrecision", function(v) {
+			element.getAxisY().setScalePrecision(v);
+			element.getGrid().setScalePrecisionY(v);
+		});
+
+		//controller.registerProperty("GridXAutoTicks", element.getGrid().setAutoTicksX, element.getGrid().getAutoTicksX);
+		//controller.registerProperty("AxisXAutoTicks", element.getAxisX().setAutoTicks, element.getAxisX().getAutoTicks);
+		controller.registerProperty("XAutoTicks", function(v) {
+			element.getAxisX().setAutoTicks(v);
+			element.getGrid().setAutoTicksX(v);
+		});
+		controller.registerProperty("YAutoTicks", function(v) {
+			element.getAxisY().setAutoTicks(v);
+			element.getGrid().setAutoTicksY(v);
+		});
+		
+	}
+};
+
+EJSS_DRAWING2D.plottingPanel = function(mName,mGraphicsMode) {
+	var self = EJSS_DRAWING2D.drawingPanel(mName,mGraphicsMode);
+	
+	/**
+	 * @method getGrid
+	 * @return grid element
+	 */
+	self.getGrid = function() {
+		return mGrid;
+	};
+	
+	/***
+	 * @method getAxisX()
+	 * @return the axis element for the X dimension
+     * @visibility public
+	 * @see EJSS_DRAWING2D.Axis
+	 */
+	self.getAxisX = function() {
+		return mAxisX;
+	};
+	
+	/***
+	 * @method getAxisY()
+	 * @return the axis element for the Y dimension
+     * @visibility public
+	 * @see EJSS_DRAWING2D.Axis
+	 */
+	self.getAxisY = function() {
+		return mAxisY;
+	};
+	
+	/**
+	 * @method getTitleX
+	 * @return axis X title element
+	 */
+	self.getTitleX = function() {
+		return mTitleX;
+	};
+	
+	/**
+	 * @method getTitleY
+	 * @return axis Y title element
+	 */
+	self.getTitleY = function() {
+		return mTitleY;
+	};
+	
+	/**
+	 * @method getTitle
+	 * @return plot title element
+	 */
+	self.getTitle = function() {
+		return mTitle;
+	};
+
+	self.setMathTitles = function(enabled) {
+		enabled = !!enabled;
+		mTitle.setMathText(enabled);
+		mTitleX.setMathText(enabled);
+		mTitleY.setMathText(enabled);
+	};
+
+	self.getMathTitles = function() {
+		return mTitle.getMathText();
+	};
+	
+	/**
+	 * @method getFixedTickX
+	 * @return x fixed tick
+	 */
+	self.getFixedTickX = function() {
+		return getGrid().getFixedTickX();
+	};
+
+	/**
+	 * @method getFixedTickY
+	 * @return y fixed tick
+	 */
+	self.getFixedTickY = function() {
+		return getGrid().getFixedTickY();
+	};
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING2D.PlottingPanel.registerProperties(self, controller);
+	};
+	
+	var mBottomGroup = EJSS_DRAWING2D.group(mName + ".bottomgroup");
+	mBottomGroup.setRelativePosition("SOUTH_WEST");
+	mBottomGroup.panelChangeListener = function(event) {
+		if (event == "bounds") {
+			var xmin = self.getRealWorldXMin();
+			var xmax = self.getRealWorldXMax();
+			var ymin = self.getRealWorldYMin();
+			var ymax = self.getRealWorldYMax();
+			var sx = Math.abs(xmax - xmin); 
+			var sy = Math.abs(ymax - ymin);
+			mBottomGroup.setSize([sx, sy]);
+			mBottomGroup.setPosition([xmin, ymin]);
+			return true;
+		}
+	};
+	mBottomGroup.panelChangeListener("bounds");
+
+	var mGrid = EJSS_DRAWING2D.grid(mName + ".grid");
+	mGrid.setGroup(mBottomGroup);
+	mGrid.setRelativePosition("SOUTH_WEST");
+	mGrid.setLineColorX("lightgray");
+	mGrid.setShapeRenderingX("RENDER_CRISPEDGES");
+	mGrid.setLineColorY("lightgray");
+	mGrid.setShapeRenderingY("RENDER_CRISPEDGES");
+	mGrid.setSize([1,1]);
+	mGrid.setPosition([0, 0]);
+	mGrid.panelChangeListener = function(event) {
+		if (event == "bounds") {
+			var xmin = self.getRealWorldXMin();
+			var xmax = self.getRealWorldXMax();
+			mGrid.setScaleX([xmin, xmax]);
+			mGrid.setTicksXMode(self.getTypeScaleX());
+			var ymin = self.getRealWorldYMin();
+			var ymax = self.getRealWorldYMax();
+			mGrid.setScaleY([ymin, ymax]);
+			mGrid.setTicksYMode(self.getTypeScaleY());		
+			
+			// mGrid.setInvertedScaleY(self.getInvertedScaleY());
+			return true;
+		}
+	};
+	var mTopGroup = EJSS_DRAWING2D.group(mName + ".topgroup");
+	mTopGroup.setRelativePosition("SOUTH_WEST");
+	mTopGroup.panelChangeListener = function(event) {
+		if (event == "bounds") {
+			var xmin = self.getRealWorldXMin();
+			var xmax = self.getRealWorldXMax();
+			var ymin = self.getRealWorldYMin();
+			var ymax = self.getRealWorldYMax();
+			var sx = Math.abs(xmax - xmin); 
+			var sy = Math.abs(ymax - ymin);
+			mTopGroup.setSize([sx, sy]);
+			mTopGroup.setPosition([xmin, ymin]);
+			return true;
+		}
+	};
+	mTopGroup.panelChangeListener("bounds");
+
+	var mAxisX = EJSS_DRAWING2D.axis(mName + ".axisX");
+	mAxisX.setGroup(mTopGroup);
+	mAxisX.setRelativePosition("WEST");
+	mAxisX.getStyle().setLineColor("black");
+	mAxisX.getStyle().setShapeRendering("RENDER_CRISPEDGES");
+	mAxisX.getFont().setFontSize(10);
+	mAxisX.setSize([1, 1]);
+	mAxisX.setPosition([0, 0]);
+	mAxisX.setOrient("AXIS_HORIZONTAL");
+	mAxisX.panelChangeListener = function(event) {
+		if (event == "bounds") {
+			var xmin = self.getRealWorldXMin();
+			var xmax = self.getRealWorldXMax();
+			mAxisX.setScale([xmin, xmax]);
+			mAxisX.setTicksMode(self.getTypeScaleX());
+			
+			if(self.getInvertedScaleY()) {
+				mAxisX.setTextPosition("TICKS_DOWN");
+				mTitleX.setMarginY(-30);
+				mTitle.setMarginY(20);
+			} else {
+				mAxisX.setTextPosition("TICKS_UP");
+				mTitleX.setMarginY(30);
+				mTitle.setMarginY(-20);
+			}
+			return true;
+		}
+	};
+	mAxisX.setTicksMode(self.getTypeScaleX());
+	
+	
+	var mAxisY = EJSS_DRAWING2D.axis(mName + ".axisY");
+	mAxisY.setGroup(mTopGroup);
+	mAxisY.setRelativePosition("SOUTH");
+	mAxisY.getStyle().setLineColor("black");
+	mAxisY.getStyle().setShapeRendering("RENDER_CRISPEDGES");
+	mAxisY.getFont().setFontSize(10);
+	mAxisY.setSize([1, 1]);
+	mAxisY.setPosition([0, 0]);
+	mAxisY.setOrient("AXIS_VERTICAL");
+	mAxisY.panelChangeListener = function(event) {
+		if (event == "bounds") {
+			var ymin = self.getRealWorldYMin();
+			var ymax = self.getRealWorldYMax();
+			mAxisY.setScale([ymin, ymax]);
+			mAxisY.setTicksMode(self.getTypeScaleY());
+			
+			mAxisY.setInvertedScaleY(self.getInvertedScaleY());			
+			return true;
+		}
+	};
+	mAxisY.setTicksMode(self.getTypeScaleY());
+	
+	var mTitleX = EJSS_DRAWING2D.text(mName + ".titleX");
+	mTitleX.setGroup(mTopGroup);
+	mTitleX.setRelativePosition("CENTER");
+	mTitleX.getFont().setFontSize(12);
+	mTitleX.setPosition([0.5, 0]);
+	mTitleX.setMarginY(30);
+	mTitleX.setText("x");
+
+	var mTitleY = EJSS_DRAWING2D.text(mName + ".titleY");
+	mTitleY.setGroup(mTopGroup);
+	mTitleY.setRelativePosition("CENTER");
+	mTitleY.getFont().setFontSize(12);
+	mTitleY.setWritingMode("MODE_DOWNTOP");
+	mTitleY.setPosition([0, 0.5]);
+	mTitleY.setMarginX(-40);
+	mTitleY.setText("y");
+
+	var mTitle = EJSS_DRAWING2D.text(mName + ".title");
+	mTitle.setGroup(mTopGroup);
+	mTitle.setRelativePosition("CENTER");
+	mTitle.getFont().setFontSize(12);
+	mTitle.setPosition([0.5, 1.0]);
+	mTitle.setMarginY(-20);
+	mTitle.setText("Plot");
+
+	self.getStyle().setLineColor('black');
+	self.getStyle().setFillColor('white');
+	self.getStyle().setShapeRendering("RENDER_CRISPEDGES");
+
+	self.setGutters([50, 50, 50, 50]);
+	self.getGuttersStyle().setLineColor('black');
+	self.getGuttersStyle().setFillColor('rgb(211,216,255)');
+	self.getGuttersStyle().setShapeRendering("RENDER_CRISPEDGES");
+
+	self.addDecoration(mBottomGroup);
+	self.addDecoration(mGrid);
+	self.addDecoration(mTopGroup, -1, true);
+	self.addDecoration(mAxisX, -1, true);
+	self.addDecoration(mAxisY, -1, true);
+	self.addDecoration(mTitleX, -1, true);
+	self.addDecoration(mTitleY, -1, true);
+	self.addDecoration(mTitle, -1, true);
+
+	return self;
+};
+/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*
+* This code is Open Source and is provided "as is".
+*/
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Polygon
+ * @class Polygon 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Polygon = {
+  	NO_CONNECTION : 0, 	// The next point will not be connected to the previous one
+ 	LINE_CONNECTION : 1,	// The next point will be connected to the previous one by a segment
+
+	// ----------------------------------------------------
+	// Static methods
+	// ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
+  	
+		dest.setPoints(source.getPoints());
+  	},
+
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.Element.registerProperties(element, controller);
+		// super class
+
+		controller.registerProperty("Points", element.setPoints, element.getPoints);
+		controller.registerProperty("PointsX", element.setPointsX);
+		controller.registerProperty("PointsY", element.setPointsY);
+		controller.registerProperty("LastPoint", element.addPoint, element.getLastPoint);		
+	}
+			
+};
+
+/**
+ * Creates a 2D Polygon
+ * @method polygon
+ */
+EJSS_DRAWING2D.polygon = function(name) {
+	var self = EJSS_DRAWING2D.element(name);
+
+  	var mPointList = []; 	// The current list of points  	
+	var mTempX = null;
+	var mTempY = null; 
+	 
+	self.getClass = function() {
+		return "ElementPolygon";
+	}
+		  
+  /**
+   * Adds a new point to the Polygon.
+   * @method addPoint
+   * @param x double The X coordinate of the point 
+   * 		or point double[] The double[2] array with the coordinates of the point.
+   * @param y double The Y coordinate of the point.
+   * @param style connected or not.
+   */
+  self.addPoint = function (x, y, style) {
+    if(x instanceof Array)    	
+    	addPoint(x[0], x[1], x[2]);
+    else 
+    	addPoint (x, y, style);
+    self.setChanged(true);
+  }
+
+  /**
+   * Adds an array of points to the Polygon.
+   * @method addPoints
+   * @param xInput double The double[] array with the X coordinates of the points.
+   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
+   * @param yInput double The double[] array with the Y coordinates of the points.
+   */
+  self.addPoints  = function(x, y) {
+    if (x==undefined || x==null || x[0]==undefined) return;
+  	if(x[0] instanceof Array) {    
+    	for (var i=0,n=x.length; i<n; i++) addPoint (x[i][0],x[i][1],x[i][2]);  		
+  	}
+    else {
+    	var n = Math.min(x.length,y.length);
+    	for (var i=0; i<n; i++) addPoint (x[i],y[i]);
+    }
+    self.setChanged(true);
+  }
+
+  /**
+   * Sets an array of points to the Polygon.
+   * @method setPoints
+   * @param x double The double[] array with the X coordinates of the points.
+   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
+   * @param y double The double[] array with the Y coordinates of the points.
+   */
+  self.setPoints  = function(x, y) {
+  	self.clear();
+  	self.addPoints(x,y);
+  	self.setChanged(true);
+  }
+
+
+  /**
+   * Adds the X coordinates of an array of points to the Polygon.
+   * @method addXPoints
+   * @param x double The double[] array with the X coordinates of the points.
+   */
+  self.setPointsX  = function(x) {
+    if (mTempY==null) mTempX = x;
+    else {
+      self.setPoints(x,mTempY);
+      mTempY = null;
+    }
+  }
+
+  /**
+   * Adds the Y coordinates of an array of points to the Polygon.
+   * @method addYPoints
+   * @param y double The double[] array with the Y coordinates of the points.
+   */
+  self.setPointsY  = function(y) {
+    if (mTempX==null) mTempY = y;
+    else {
+      self.setPoints(mTempX,y);
+      mTempX = null;
+    }
+  }
+
+  /**
+   * Returns all points.
+   * @method getPoints
+   * @return points
+   */
+  self.getPoints = function () {
+    return mPointList; 
+  }
+
+  /**
+   * Gets last point.
+   * @method getLastPoint
+   * @return point
+   */
+  self.getLastPoint = function () {
+  	if(mPointList.length > 0) 
+    	return mPointList[mPointList.length-1];
+    else return [];
+  }
+
+  /**
+   * Clears all points from all segments of the Polygon.
+   * @method clear
+   */
+  self.clear = function() {
+    mPointList = [];
+  	self.setChanged(true);
+  }
+  
+  /**
+   * Returns bounds for an element
+   * @override
+   * @method getBounds
+   * @return Object{left,rigth,top,bottom}
+   */
+  self.getBounds = function(element) {
+  	var xmin, xmax, ymin, ymax;
+  	var points = self.getPoints();
+    var len = points.length;
+    if(len == 0) {
+    	xmin = xmax = ymin = ymax = 0;
+    }             
+    else {
+		xmax = xmin = points[0][0];
+		ymax = ymin = points[0][1];    	
+		for(var j=1; j<len; j++) {
+			var x = points[j][0], y = points[j][1];
+			if(x>xmax) xmax=x; if(y>ymax) ymax=y; if(x<xmin) xmin=x; if(y<ymin) ymin=y;
+		}
+	}    
+    var x = self.getX(), y = self.getY();
+    var sx = self.getSizeX(), sy = self.getSizeY();
+  	var mx = sy/2, my = sy/2;  	
+  	var d = self.getRelativePositionOffset(sx,sy);
+	return {
+		left: ((x+d[0])-mx)+xmin*sx,
+		right: ((x+d[0])-mx)+xmax*sx,
+		top: ((y+d[1])-my)+ymax*sy, 
+		bottom: ((y+d[1])-my)+ymin*sy
+	}
+  };  
+  
+  function addPoint(_x, _y, _style) {
+    if (isNaN(_x) || isNaN(_y)) { 
+    	return; 
+    }
+    
+    mPointList[mPointList.length] = [_x, _y, _style];
+  }
+
+
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING2D.Polygon.registerProperties(self, controller);
+  };
+  
+  self.copyTo = function(element) {
+    EJSS_DRAWING2D.Polygon.copyTo(self,element);
+  };
+  
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+	self.setSize([1,1]);
+	self.setRelativePosition("SOUTH_WEST");
+	
+	return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//PolygonSet
+//---------------------------------
+
+/**
+ * PolygonSet
+ * @class PolygonSet 
+ * @constructor  
+ */
+EJSS_DRAWING2D.PolygonSet = {
+    
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING2D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      controller.registerProperty("Points", 
+          function(v) { set.setToEach(function(element,value) { element.setPoints(value); }, v); }
+      );
+      controller.registerProperty("LastPoint", 
+          function(v) { set.setToEach(function(element,value) { element.addPoint(value); }, v); }
+      );           
+    }        
+};
+
+/**
+ * Creates a set of Segments
+ * @method polygonSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING2D.polygonSet = function (mName) {
+  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.polygon, mName);
+
+  // Static references
+  var PolygonSet = EJSS_DRAWING2D.PolygonSet;		// reference for PolygonSet
+
+  /**
+   * Registers properties in a ControlElement
+   * @method registerProperties
+   * @param controller A ControlElement that becomes the element controller
+   */
+  self.registerProperties = function(controller) {
+    PolygonSet.registerProperties(self,controller);
+  };
+
+  return self;
+};/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Ruler
+ * @class Ruler 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Ruler = {
+  sROTATE_ICON : "data:image/png;base64,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",
+  sMOVE_ICON   : "data:image/png;base64,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",
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+      controller.registerProperty("Minimum", element.setMinimum);
+      controller.registerProperty("Maximum", element.setMaximum);
+
+      controller.registerProperty("NumberOfMarks",element.setNumberOfMarks,element.getNumberOfMarks);
+      controller.registerProperty("BigMark",element.setBigMark);
+      controller.registerProperty("MediumMark",element.setMediumMark);
+      controller.registerProperty("MarkFactor",element.setMarkFactor);
+      controller.registerProperty("Digits",element.setDigits);
+
+      controller.registerProperty("BorderWidth",element.setBorderWidth);
+      controller.registerProperty("BorderColor",element.setBorderColor);
+      controller.registerProperty("FillColor",element.setFillColor);
+      controller.registerProperty("LineWidth",element.setLineWidth);
+      controller.registerProperty("LineColor",element.setLineColor);
+      controller.registerProperty("TextColor",element.setTextColor);
+      controller.registerProperty("TextFont",element.setTextFont);
+
+      controller.registerProperty("Width",element.setWidth);
+      controller.registerProperty("Length",element.setLength);
+      
+      controller.registerProperty("DrawLines",element.setDrawLines);
+      controller.registerProperty("DrawText",element.setDrawText);
+
+      controller.registerProperty("Enabled",element.setEnabled);
+      controller.registerProperty("Rotates",element.setRotates);
+
+      controller.registerAction("OnDrag",element.getOnRotationInformation);
+      controller.registerAction("OnRotation",element.getOnRotationInformation);
+
+    }
+};
+
+/**
+ * Creates a 2D ruler
+ * @method ruler
+ */
+EJSS_DRAWING2D.ruler = function (mName) {
+  var self = EJSS_DRAWING2D.group(mName);
+
+  // Configuration variables
+  var mLength = 1.1;
+  var mWidth = 0.2;
+  
+  var mMinimum = 0;
+  var mMaximum = 1;
+
+  var mNumberOfMarks = 101;
+  var mBigMark = 10;
+  var mMediumMark = 5;
+  var mMarkFactor = 0.1;
+  var mDigits = 0;
+
+  // Implementation variables
+  var mGroup,mBody;
+  var mSegments, mTexts;
+  var mLeftHandle, mRightHandle;
+  var mLeftRotate, mRightRotate;
+  var mForegroundCreated = false;
+
+  var mElements = [];
+  var mScaleChanged = true;
+  
+  self.getElement = function(keyword) {
+	  return mElements[keyword];
+  };
+  
+  self.superSetChanged = self.setChanged;
+  
+  self.setChanged = function(changed) {
+	self.superSetChanged(changed);
+	if (changed) for (var i=0,n=mElements.length; i<n; i++) mElements[i].setChanged(changed);
+  }
+
+  
+  // ----------------------------------------------------
+  // public functions
+  // ----------------------------------------------------
+
+  self.setWidth = function(value) { 
+	  if (value!=mWidth) {
+		  mWidth = value;
+		  self.mustAdjust();
+	  }
+  }
+  self.getWidth = function() { return mWidth; }
+
+  self.setLength = function(value) { 
+	  if (value!=mLength) {
+		  mLength = value;
+		  self.mustAdjust();
+      }
+  }
+  self.getLength = function() { return mLength; }
+
+  /**
+   * Sets the minimum value of the element. 
+   * @method setMinimum
+   * @param value
+   */
+  self.setMinimum = function(value) {
+    if (mMinimum!=value) {
+    	mMinimum = value;
+    	mScaleChanged = true;
+    }
+  }
+  
+  /**
+   * @method getMinimum
+   * @return current minimum
+   */
+  self.getMinimum = function() { 
+    return mMinimum; 
+  };    
+
+  /**
+   * Sets the minimum value of the element. 
+   * @method setMaximum
+   * @param value
+   */
+  self.setMaximum = function(value) {
+	if (mMaximum!=value) {
+		mMaximum = value;
+    	mScaleChanged = true;
+	}
+  }
+  
+  /**
+   * @method getMaximum
+   * @return current maximum
+   */
+  self.getMaximum = function() { 
+    return mMaximum; 
+  };    
+  
+  /***
+   * Sets the number of marks
+   * @method setNumberOfMarks(value)
+   * @visibility public
+   * @param value int
+   */ 
+  self.setNumberOfMarks = function(value) {
+	  if (value!=mNumberOfMarks) {
+		  mNumberOfMarks = value;
+	      mScaleChanged = true;
+	  }
+  };
+
+  /***
+   * Gets the number of marks
+   * @method getNumberOfMarks
+   * @visibility public
+   * @return int
+   */
+  self.getNumberOfMarks = function() {
+  	return mNumberOfMarks;
+  };
+
+
+  /***
+   * Sets the interval for big marks
+   * @method setBigMark(value)
+   * @visibility public
+   * @param value int 
+   */ 
+  self.setBigMark = function(value) {
+	  if (value!=mBigMark) {
+        mBigMark = value;
+    	mScaleChanged = true;
+	  }
+  };
+
+  /***
+   * Gets the interval for big marks
+   * @method getBigMark
+   * @visibility public
+   * @return int
+   */
+  self.getBigMark = function() {
+  	return mBigMark;
+  };
+
+  /***
+   * Sets the interval for medium marks
+   * @method setMediumMark(value)
+   * @visibility public
+   * @param value int 
+   */ 
+  self.setMediumMark = function(value) {
+	  if (value!=mMediumMark) {
+        mMediumMark = value;
+    	mScaleChanged = true;
+	  }
+  };
+
+  /***
+   * Gets the interval for medium marks
+   * @method getMediumMark
+   * @visibility public
+   * @return int
+   */
+  self.getMediumMark = function() {
+  	return mMediumMark;
+  };
+  
+  /***
+   * Sets the factor that divide the value in marks
+   * @method setMarkFactor(value)
+   * @visibility public
+   * @param value int|double 
+   */ 
+  self.setMarkFactor = function(value) {
+	  if (value!=mMarkFactor) {
+        mMarkFactor = value;
+    	mScaleChanged = true;
+	  }
+  };
+
+  /***
+   * Gets the factor that divide the displayed value in marks
+   * @method getMarkFactor
+   * @visibility public
+   * @return int|double
+   */
+  self.getMarkFactor = function() {
+  	return mMarkFactor;
+  };
+
+  /***
+   * Sets the maximum value to display in a mark
+   * @method setMaximumMark(value)
+   * @visibility public
+   * @param value int|double 
+   */ 
+  self.setMaximumMark = function(value) {
+	  if (value!=mMaximumMark) {
+        mMaximumMark = value;
+    	mScaleChanged = true;
+	  }
+  };
+
+  /***
+   * Gets the maximum value to display in a mark
+   * @method getMaximumMark
+   * @visibility public
+   * @return value int|double 
+   */ 
+  self.getMaximumMark = function() {
+  	return mMaximumMark;
+  };
+
+  /***
+   * Sets the number of digits for the marks
+   * @method setDigits(value)
+   * @visibility public
+   * @param value int 
+   */ 
+  self.setDigits = function(value) {
+	  if (value!=mDigits) {
+		mDigits = value;
+	    mScaleChanged = true;
+	  }
+  };
+
+  /***
+   * Gets the number of digits for the marks
+   * @method getPrecision
+   * @visibility public
+   * @return int
+   */
+  self.getDigits = function() {
+  	return mDigits;
+  };
+  
+
+  // ----------------------------------------------------
+  // Properties overwritten
+  // ----------------------------------------------------
+
+  self.mustAdjust = function() { mScaleChanged = true; }
+  
+  self.setBorderWidth = function(value) {  mBody.getStyle().setLineWidth(value); }
+  self.setBorderColor = function(value) {  mBody.getStyle().setLineColor(value); }
+  self.setFillColor = function(value) { mBody.getStyle().setFillColor(value); }
+
+  self.setLineWidth = function(value) { 
+	  mSegments.setToEach(function(element) { element.getStyle().setLineWidth(value); });
+  }
+  self.setLineColor = function(value) { 
+	  mSegments.setToEach(function(element) { element.getStyle().setLineColor(value); });
+  }
+  self.setDrawLines = function(value) { 
+	  mSegments.setToEach(function(element,value) { element.setVisible(value); },value);
+  }
+  
+  self.setTextColor = function(value) { 
+	  mTexts.setToEach(function(element) { element.getFont().setFillColor(value); });
+  }
+  self.setTextFont = function(value) { 
+	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
+  }
+  self.setDrawText = function(value) { 
+	  mTexts.setToEach(function(element,value) { element.setVisible(value); },value);
+  }
+
+  self.setEnabled = function(value) { 
+	  mLeftHandle.setVisible(value);
+	  mRightHandle.setVisible(value);
+  };
+
+  self.setRotates = function(value) { 
+	  mLeftRotate.setVisible(value);
+	  mRightRotate.setVisible(value);
+  };
+  
+  // ----------------------------------------------------
+  // Properties and copies
+  // ----------------------------------------------------
+
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.Ruler.registerProperties(self,controller);
+  };
+
+  // ----------------------------------------------------
+  // private functions
+  // ----------------------------------------------------
+
+  self.superSetParent = self.setParent;
+  
+  self.setParent = function(parent, sibling) {
+	self.superSetParent(parent,sibling);
+	if (!mForegroundCreated) {
+      self.createRuler();
+	  mForegroundCreated = true;
+	}
+	self.addParticularChildren();
+	self.adjustForeground();
+  }
+
+  self.dataCollected = function() {
+	  if (mScaleChanged) {
+		  self.adjustForeground();
+		  mScaleChanged = false;
+	  }
+  };
+
+  self.addParticularChildren = function() { 
+	mGroup.setParent(self);
+	mBody.setParent(mGroup);
+	mSegments.setToEach(function(element) { element.setParent(mGroup); });
+	mTexts.setToEach(function(element) { element.setParent(mGroup); });
+	mLeftHandle.setParent(self);
+	mRightHandle.setParent(self);
+	mLeftRotate.setParent(self);
+	mRightRotate.setParent(self);
+  };
+
+  self.createBody = function() {
+	var body = EJSS_DRAWING2D.shape(mName+".body");
+	body.setShapeType("ROUND_RECTANGLE");
+	body.setCornerRadius(5);
+    return body;
+  }
+
+  self.createRuler = function() {
+	mGroup = EJSS_DRAWING2D.group(mName+".group");
+	mElements['group'] = mGroup;
+
+	mBody = self.createBody();
+	mBody.getStyle().setFillColor("rgba(0,255,0,0.2)");
+	mElements['body'] = mBody;
+
+	mSegments = EJSS_DRAWING2D.segmentSet(mName+".segments");
+	mSegments.setToEach(function(element) { element.setRelativePosition("SOUTH_WEST"); });
+	mSegments.setToEach(function(element) { element.getStyle().setLineWidth(0.5); });
+	mElements['segments'] = mSegments;
+
+	mTexts = EJSS_DRAWING2D.textSet(mName+".texts");
+	mTexts.setToEach(function(element) { element.getFont().setFont("normal normal 8px \"Courier New\", Courier, monospace"); });
+	mTexts.setToEach(function(element) { element.setRelativePosition("NORTH"); });
+	mElements['texts'] = mTexts;
+
+	mLeftHandle = EJSS_CORE.promoteToControlElement(
+				EJSS_DRAWING2D.image(mName+".left_handle"),self.getView(),mName+".left_handle");
+	mLeftHandle.setImageUrl(EJSS_DRAWING2D.Ruler.sMOVE_ICON);
+	mLeftHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_ANY");
+	mLeftHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setAffectsGroup(true);
+	mLeftHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
+	mLeftHandle.setSize([10,10]);
+	mLeftHandle.setPixelSize(true);
+	mLeftHandle.setProperty("OnDrag",moved);
+	mElements['left_handle'] = mLeftHandle;
+
+	mRightHandle = EJSS_CORE.promoteToControlElement(
+				EJSS_DRAWING2D.image(mName+".right_handle"),self.getView(),mName+".right_handle");
+	mRightHandle.setImageUrl(EJSS_DRAWING2D.Ruler.sMOVE_ICON);
+	mRightHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_ANY");
+	mRightHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setAffectsGroup(true);
+	mRightHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
+	mRightHandle.setProperty("OnDrag",moved);
+	mRightHandle.setSize([10,10]);
+	mRightHandle.setPixelSize(true);
+	mElements['right_handle'] = mRightHandle;
+		
+	mLeftRotate = EJSS_CORE.promoteToControlElement(
+			EJSS_DRAWING2D.image(mName+".left_rotate"),self.getView(),mName+".left_rotate");
+	mLeftRotate.setImageUrl(EJSS_DRAWING2D.Ruler.sROTATE_ICON);
+	mLeftRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_NO_MOVE");
+	mLeftRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
+	mLeftRotate.setSize([8,8]);
+	mLeftRotate.setPixelSize(true);
+	mLeftRotate.setProperty("OnDrag",rotated);
+	mElements['left_rotate'] = mLeftRotate;
+
+	mRightRotate = EJSS_CORE.promoteToControlElement(
+			EJSS_DRAWING2D.image(mName+".right_rotate"),self.getView(),mName+".right_rotate");
+	mRightRotate.setImageUrl(EJSS_DRAWING2D.Ruler.sROTATE_ICON);
+	mRightRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_NO_MOVE");
+	mRightRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
+	mRightRotate.setSize([8,8]);
+	mRightRotate.setPixelSize(true);
+	mRightRotate.setProperty("OnDrag",rotated);
+	mElements['right_rotate'] = mRightRotate;
+
+  };
+
+  self.adjustBody = function() {
+		mBody.setSize([mLength,mWidth]);
+  };
+
+  self.adjustForeground = function() {
+	mLeftHandle.setPosition([-0.125*mLength,0]);
+	mRightHandle.setPosition([0.125*mLength,0]);
+	mLeftRotate.setPosition([-0.35*mLength,0]);
+	mRightRotate.setPosition([0.35*mLength,0]);
+	
+	mGroup.setY(mWidth*0.3);
+	self.adjustBody();
+	
+	var MARGIN = (mLength - Math.abs(mMaximum-mMinimum))/2;
+	var MARK = mWidth/6;
+	  
+	mSegments.setNumberOfElements(mNumberOfMarks);
+	var dx = Math.abs(mMaximum-mMinimum)/(mNumberOfMarks-1);
+	var xPos = -mLength/2+MARGIN;
+	var mediumMarksCounter = 0;
+	var bigMarksCounter = 0;
+
+	for (var i=0; i<mNumberOfMarks; i++) {
+	  var segment = mSegments.getElement(i);
+	  segment.setPosition([xPos,mWidth/2]);
+	  if (i%mBigMark==0) {
+	    bigMarksCounter++;
+	    segment.setSize([0,-2*MARK]);
+	  }
+	  else if (i%mMediumMark==0) {
+	    mediumMarksCounter++;
+	    segment.setSize([0,-1.5*MARK]);
+	  }
+	  else segment.setSize([0,-MARK]);
+	  xPos += dx;
+	}
+	
+	mTexts.setNumberOfElements(bigMarksCounter);
+	var text_counter=0;
+	for (i=0; i<mNumberOfMarks; i++) {
+	  var segment = mSegments.getElement(i);
+	  if (i%mMediumMark==0) {
+		  // locate units
+	  }
+	  if (i%mBigMark==0) {
+	    var text = mTexts.getElement(text_counter);
+	    text.setX(segment.getX());
+	    text.setY(mWidth/2+segment.getSizeY()*1.1);
+	    var mark_value = ((mNumberOfMarks-1-i)*mMinimum + i*mMaximum)/(mNumberOfMarks-1) /mMarkFactor;
+	    text.setText(""+mark_value.toFixed(mDigits));
+	    text_counter++;
+	  }
+	}
+  };
+   
+  self.getOnRotationInformation = function() {
+	  return { position : self.getPosition(), element : self, 
+		  point : self.getGroupPanel().getPanelInteraction().getInteractionPoint(),
+		  angle : self.getTransformation() };
+  };
+
+  function moved(point,info) {
+	  var controller = self.getController();    		
+	  if (controller) {
+		controller.invokeImmediateAction("OnDrag");
+	  }
+  };
+
+  self.computeRotation = function(rightIcon,point) {
+	  if (rightIcon) return Math.atan2(point[1],point[0]);
+	  else return Math.atan2(-point[1],-point[0]);
+  };
+  
+  function rotated(point,info) {
+	  var point = info.point;
+	  var element = info.element;
+	  var group_pos = self.getAbsolutePosition(true);
+	  point[0] -= group_pos[0];
+	  point[1] -= group_pos[1];
+	  var rotation = self.computeRotation(element==mRightRotate,point);
+	  self.setTransformation(rotation);
+	  self.setChanged(true);
+	  var controller = self.getController();    		
+	  if (controller) {
+//		controller.immediatePropertyChanged("Value");
+		controller.invokeImmediateAction("OnRotation");
+	  }	        
+
+  }
+  
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  return self;
+};
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * ScalarField
+ * @class ScalarField 
+ * @constructor  
+ */
+EJSS_DRAWING2D.ScalarField = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+		controller.registerProperty("ZData", element.setData, element.getData);
+		controller.registerProperty("MinimumZ", element.setMinimumZ, element.getMinimumZ);
+		controller.registerProperty("MaximumZ", element.setMaximumZ, element.getMaximumZ);
+//		controller.registerProperty("AutoscaleZ", element.setAutoscaleZ, element.getAutoscaleZ);
+//		controller.registerProperty("SymmetricZ", element.setSymmetricZ, element.getSymmetricZ);
+		//controller.registerProperty("ExpandedZ", element.setMinimumX, element.getMinimumX);
+
+//		controller.registerProperty("FloorColor", element.setFloorColor, element.getFloorColor);
+//		controller.registerProperty("CeilColor", element.setCeilColor, element.getCeilColor);
+		controller.registerProperty("NumColors", element.getColorMapper().setNumberOfColors);
+		controller.registerProperty("Colors", element.getColorMapper().setColorPalette);
+		controller.registerProperty("Palette", element.getColorMapper().setPaletteType);
+//		controller.registerProperty("ShowGrid", element.setShowGrid, element.getShowGrid);
+
+        controller.registerProperty("AutoUpdate", element.setAutoupdate);  
+
+		controller.registerProperty("ParallelDrawing", element.setParallelDrawing);
+    },
+};
+
+/**
+ * Creates a 2D scalarField
+ * @method ScalarField
+ */
+EJSS_DRAWING2D.scalarField = function (name) {
+	var self = EJSS_DRAWING2D.element(name);
+ 
+  	var mColorMapper = EJSS_DRAWING2D.colorCoded(16, EJSS_DRAWING2D.ColorMapper.SPECTRUM); 
+	var mCeilColor = mColorMapper.getCeilColor();
+	var mFloorColor = mColorMapper.getFloorColor();
+ 	var mShowGrid = true;
+	var mData = [];
+	var mAutoUpdate=true;
+	var mzMax = 1;
+	var mzMin = -1;
+	var mAutoscaleZ = true;
+	var mSymmetricZ = false;
+	var mParallelDrawing = false;
+ 
+	self.getClass = function() {
+  		return "ElementScalarField";
+	}
+
+   	/**
+   	* @method setParallelDrawing
+   	* @param parallel
+   	*/
+  	self.setParallelDrawing = function (parallel) {
+	  	if(mParallelDrawing != parallel) {
+    		mParallelDrawing = parallel;
+    		self.setChanged(true);
+    	}
+  	}
+  
+  	/**
+   	* @method getParallelDrawing
+   	* @return parallel
+   	*/
+  	self.getParallelDrawing = function() {
+    	return mParallelDrawing;
+  	}
+
+   	/**
+   	* @method setFloorColor
+   	* @param color
+   	*/
+  	self.setFloorColor = function (color) {
+	  	if(mFloorColor != color) {
+    		mFloorColor = color;
+    		mColorMapper.setFloorCeilColor(mFloorColor,mCeilColor);
+    		self.setChanged(true);
+    	}
+  	}
+  
+  	/**
+   	* @method getFloorColor
+   	* @return color
+   	*/
+  	self.getFloorColor = function() {
+    	return mFloorColor;
+  	}
+
+   	/**
+   	* @method setCeilColor
+   	* @param color
+   	*/
+  	self.setCeilColor = function (color) {
+	  	if(mCeilColor != color) {
+    		mCeilColor = color;
+    		mColorMapper.setFloorCeilColor(mFloorColor,mCeilColor);
+    		self.setChanged(true);
+    	}
+  	}
+  
+  	/**
+   	* @method getCeilColor
+   	* @return color
+   	*/
+  	self.getCeilColor = function() {
+    	return mCeilColor;
+  	}
+
+	/** 
+	 * @method setData
+	 * @param data
+	 */
+	self.setData = function (data) {
+	  if (mAutoUpdate || mData != data) {
+	    mData = data;
+		mDataChanged = true;
+		self.setChanged(true);
+	  }
+	}
+	  
+	/**
+	 * @method getData
+	 * @return
+	 */
+	self.getData = function() { 
+		return mData; 
+	}
+	 
+	self.setAutoupdate= function (auto) {
+	  mAutoUpdate = auto;
+      if (mAutoUpdate) mDataChanged = true;
+    }
+    
+	/** 
+	 * @method getMaximumZ
+	 * @return max
+	 */
+  	self.getMaximumZ = function() {
+  		return mzMax;
+  	}
+
+	/** 
+	 * Sets ceiling value for the colors 
+	 *
+	 * @method setMaximumZ
+	 * @param max
+	 */
+  	self.setMaximumZ = function(max) {
+  		if(mzMax != max) {
+  			mzMax = max;
+	    	if (!mAutoscaleZ) {
+	    		mColorMapper.setScale(mzMin, mzMax);		
+	  		}
+			self.setChanged(true);
+  		};
+  	}
+
+	/** 
+	 * @method getMinimumZ
+	 * @return min
+	 */
+  	self.getMinimumZ = function() {
+  		return mzMin;
+  	}
+
+	/** 
+	 * Sets floor value for the colors 
+	 *
+	 * @method setMinimumZ
+	 * @param min
+	 */
+  	self.setMinimumZ = function(min) {
+  		if(mzMin != min) {
+  			mzMin = min;
+	    	if (!mAutoscaleZ) {
+	    		mColorMapper.setScale(mzMin, mzMax);		
+	  		}
+			self.setChanged(true);
+  		};
+  	}
+
+  	/**
+   	* Sets the autoscale flag.
+   	*
+   	* If autoscaling is true, then the min and max values of z are span the colors.
+   	*
+   	* If autoscaling is false, then MaximumZ and MinimumZ values limit the colors.
+   	* Values below min map to the first color; values above max map to the last color.
+   	*
+   	* @method setAutoscaleZ
+   	* @param isAutoscale
+   	*/
+  	self.setAutoscaleZ = function (isAutoscale) {
+	  	if(mAutoscaleZ != isAutoscale) {
+	    	mAutoscaleZ = isAutoscale;
+	    	self.setChanged(true);
+	    }
+  	}
+  
+  	/**
+   	* Gets the autoscale flag for z.
+   	*
+   	* @method getAutoscaleZ
+   	* @return boolean
+   	*/
+  	self.getAutoscaleZ = function() {
+    	return mAutoscaleZ;
+  	}
+
+   	/**
+   	* @method setSymmetricZ
+   	* @param isAutoscale
+   	*/
+  	self.setSymmetricZ = function (symmetric) {
+	  	if(mSymmetricZ != symmetric) {
+    		mSymmetricZ = symmetric;
+    		mColorMapper.setSymmetricZ(mSymmetricZ);
+    		self.setChanged(true);
+    	}
+  	}
+  
+  	/**
+   	* @method getSymmetricZ
+   	* @return boolean
+   	*/
+  	self.getSymmetricZ = function() {
+    	return mSymmetricZ;
+  	}
+
+	/** 
+	 * @method setColorMapper
+	 * @param colormapper
+	 */
+	self.setColorMapper = function (colormapper) {
+	  	if(mColorMapper != colormapper) {
+	  		mColorMapper = colormapper;
+	  		self.setChanged(true);
+	  	}
+	}
+	  
+	/**
+	 * @method getColorMapper
+	 * @return
+	 */
+	self.getColorMapper = function() { 
+		return mColorMapper; 
+	}
+	 
+	/** 
+	 * @method setShowGrid
+	 * @param showgrid
+	 */
+	self.setShowGrid = function (showgrid) {
+	  	if(mShowGrid != showgrid) {
+	  		mShowGrid = showgrid;
+	  		self.setChanged(true);
+	  	}
+	}
+	  
+	/**
+	 * @method getShowGrid
+	 * @return
+	 */
+	self.getShowGrid = function() { 
+		return mShowGrid; 
+	}
+
+	self.registerProperties = function(controller) {
+    	EJSS_DRAWING2D.ScalarField.registerProperties(self,controller);
+	};
+  
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+	return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/***
+ * A Segment is a 2D drawing element that displays a single line 
+ * @class EJSS_DRAWING2D.Segment
+ * @parent EJSS_DRAWING2D.Element
+ * @constructor  
+ */
+EJSS_DRAWING2D.Segment = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+      controller.registerProperty("Offset", element.setRelativePosition, element.getRelativePosition);
+    },  
+
+
+};
+
+/**
+ * Creates a 2D Segment
+ * @method segment
+ */
+EJSS_DRAWING2D.segment = function (name) {
+  var self = EJSS_DRAWING2D.element(name);
+
+  self.getClass = function() {
+  	return "ElementSegment";
+  };
+  
+    self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.Segment.registerProperties(self,controller);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([0.1,0.1]);
+  self.setRelativePosition("SOUTH_WEST");
+
+  return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//SegmentSet
+//---------------------------------
+
+/**
+ * SegmentSet
+ * @class SegmentSet 
+ * @constructor  
+ */
+EJSS_DRAWING2D.SegmentSet = {
+    
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING2D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      controller.registerProperty("Offset", 
+          function(v) { set.setToEach(function(element,value) { element.setRelativePosition(value); }, v); }
+      );
+    }
+    
+};
+
+
+/**
+ * Creates a set of Segments
+ * @method segmentSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING2D.segmentSet = function (mName) {
+  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.segment, mName);
+
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.SegmentSet.registerProperties(self,controller);
+  };
+  
+  return self;
+};/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * SetSquare
+ * @class SetSquare 
+ * @constructor  
+ */
+EJSS_DRAWING2D.SetSquare = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Ruler.registerProperties(element,controller); // super class
+
+      controller.registerProperty("Height",element.setHeight);
+    }
+
+};
+
+/**
+ * Creates a 2D shape
+ * @method shape
+ */
+EJSS_DRAWING2D.setSquare = function (mName) {
+  var self = EJSS_DRAWING2D.ruler(mName);
+  
+  var mHeight = self.getLength();
+
+  // Implementation variables
+  // ----------------------------------------------------
+  // public functions
+  // ----------------------------------------------------
+
+  // ----------------------------------------------------
+  // Properties and copies
+  // ----------------------------------------------------
+
+  self.setHeight = function(value) { 
+	  if (value!=mHeight) {
+		  mHeight = value;
+		  self.mustAdjust();
+      }
+  }
+  self.getHeight = function() { return mHeight; }
+
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.SetSquare.registerProperties(self,controller);
+  };
+
+  // ----------------------------------------------------
+  // private functions
+  // ----------------------------------------------------
+
+  self.createBody = function() {
+	var body = EJSS_DRAWING2D.polygon(mName+".body");
+	return body;
+  }
+
+  self.adjustBody = function() {
+	    var w = self.getWidth(), l = self.getLength(), h = self.getHeight();
+	    var hyp = Math.sqrt(l*l+h*h);
+	    var l2 = (h-w)*l/h - w - w*hyp/h; // interior length
+	    var h2 = (h-w) - w*h/l - w*hyp/l; // interior height
+	    
+	    var points = [[0,0,1],[l,0,1],[0,-h,1],[0,0,1],
+	                 [w,-w,0],[w,-w-h2,1],[w+l2,-w,1],[w,-w,1]];
+	    for (var i=0; i<points.length; i++) {
+	    	points[i][0] -= l/2;
+	    	points[i][1] += w/2;
+	    };
+		self.getElement('body').setPoints(points);
+		
+		self.getElement('left_handle').setPosition([w+l2/4-l/2,0]);
+		self.getElement('right_handle').setPosition([w+3*l2/4-l/2,0]);
+		self.getElement('left_rotate').setPosition([w/2-l/2,0]);
+		self.getElement('right_rotate').setPosition([w+l2+w/2-l/2,0]);	  
+  };
+  
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+    self.setMaximum(0.99);
+	self.setNumberOfMarks(100);
+
+  return self;
+};
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/***
+ * A Shape is a 2D drawing element that displays a 2D shape (such as a rectangle, ellipse, etc.) 
+ * @class EJSS_DRAWING2D.Shape
+ * @parent EJSS_DRAWING2D.Element
+ */
+EJSS_DRAWING2D.Shape = {
+    NONE : 0,
+    ELLIPSE : 1,
+    RECTANGLE : 2,
+    ROUND_RECTANGLE : 3,
+    WHEEL : 4,
+    POINT : 5,
+
+    /**
+     * Static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller);
+
+	 /*** 
+	  * Type of shape
+	  * @property ShapeType 
+	  * @type int|String
+	  * @values 0:"NONE", 1:"ELLIPSE", 2:"RECTANGLE", 3:"ROUND_RECTANGLE", 4:"WHEEL", 5:"POINT" 
+	  * @default "ELLIPSE" 
+	  */  
+      controller.registerProperty("ShapeType",element.setShapeType);
+      
+	 /*** 
+	  * Radius for the corners of a round rectangular shape
+	  * @property CornerRadius 
+	  * @type int
+	  * @default 10 
+	  */  
+      controller.registerProperty("CornerRadius",element.setCornerRadius);
+    },
+
+    /**
+     * Static copyTo method, to be used by sets
+     */
+    copyTo : function(source, dest) {
+      EJSS_DRAWING2D.Element.copyTo(source,dest);
+
+      dest.setShapeType(source.getShapeType());
+      dest.setCornerRadius(source.getCornerRadius());
+    }
+
+};
+
+/**
+ * Creates a 2D shape
+ * @method shape
+ */
+EJSS_DRAWING2D.shape = function (name) {
+  var self = EJSS_DRAWING2D.element(name);
+
+  // Instance variables
+  var mCornerRadius = 10;
+  var mShapeType = EJSS_DRAWING2D.Shape.ELLIPSE;
+
+  // ----------------------------------------------------
+  // Public functions
+  // ----------------------------------------------------
+
+  /***
+   * Sets the value of the property ShapeType
+   * @method setShapeType(shapeType)
+   * @visibility public
+   * @param shapeType int|String 
+   */ 
+  self.setShapeType = function(shapeType) {
+    if (typeof shapeType === 'string')
+      mShapeType = EJSS_DRAWING2D.Shape[shapeType.toUpperCase()];
+    else 
+      mShapeType = shapeType;
+  };
+
+  /***
+   * Gets the value of the property ShapeType
+   * @method getShapeType
+   * @visibility public
+   * @return int|String 
+   */ 
+  self.getShapeType = function() {
+  	return mShapeType;
+  }
+
+  /***
+   * Sets the value of the property CornerRadius
+   * @method setCornerRadius
+   * @param radius int
+   */
+  self.setCornerRadius = function(radius) {
+    if(mCornerRadius != radius) {
+    	mCornerRadius = radius;
+    	self.setChanged(true);
+    }
+  };
+
+  /***
+   * Gets the value of the property CornerRadius
+   * @method getCornerRadius
+   * @return int
+   */
+  self.getCornerRadius = function() {
+    return mCornerRadius;
+  };
+
+  // ----------------------------------------------------
+  // Private functions
+  // ----------------------------------------------------
+
+  /***
+   * Returns the class name
+   * @method getClass
+   * @visibility private
+   * @return String
+   */
+  self.getClass = function() {
+  	return "ElementShape";
+  }
+
+  /***
+   * Extended registerProperties method
+   * @method registerProperties
+   * @param controller
+   * @visibility private
+   */
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.Shape.registerProperties(self,controller);
+  };
+
+  /***
+   * Extended copyTo method
+   * @method copyTo
+   * @param Element
+   * @visibility private
+   */
+  self.copyTo = function(element) {
+    EJSS_DRAWING2D.Shape.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  /*** @property Size @default [0.1,0.1] */
+  self.setSize([0.1,0.1]);
+  
+  /*** @property RelativePosition @default "CENTER" */
+  self.setRelativePosition("CENTER");
+  
+  /*** @property FillColor @default "Blue" */  
+  self.getStyle().setFillColor("Blue");
+  
+  /*** @property LineColor @default "Black" */  
+  self.getStyle().setLineColor("Black");
+    
+  return self;
+};
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//ShapeSet
+//---------------------------------
+
+/**
+ * ShapeSet
+ * @class ShapeSet 
+ * @constructor  
+ */
+EJSS_DRAWING2D.ShapeSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING2D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      controller.registerProperty("ShapeType", 
+          function(v) { set.setToEach(function(element,value) { element.setShapeType(value); }, v); }
+      );
+      controller.registerProperty("CornerRadius", 
+          function(v) { set.setToEach(function(element,value) { element.setCornerRadius(value); }, v); }
+      );
+    }
+
+};
+
+
+/**
+ * Creates a set of shapes
+ * @method shapeSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING2D.shapeSet = function (mName) {
+  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.shape, mName);
+
+  // Static references
+  var ShapeSet = EJSS_DRAWING2D.ShapeSet;		// reference for ShapeSet
+  
+  self.registerProperties = function(controller) {
+    ShapeSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
+/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia and Félix J. García 
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*/
+
+/**
+ * Framework for 2D drawing.
+ * @module 2Ddrawing
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/***
+ * A SimplePanel is a 2D drawing panel with no decoration. 
+ * @class EJSS_DRAWING2D.SimplePanel
+ * @see EJSS_DRAWING2D.PlottingPanel
+ * @constructor
+ */
+EJSS_DRAWING2D.SimplePanel = {
+	GRAPHICS2D_SVG : "SVG",
+	GRAPHICS2D_CANVAS : "Canvas",
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		// No super class
+		// EJSS_INTERFACE.Element.registerProperties(element.getGraphics(), controller);
+
+		controller.registerProperty("MinimumX", element.setWorldXMin, element.getWorldXMin);
+		controller.registerProperty("MaximumX", element.setWorldXMax, element.getWorldXMax);
+		controller.registerProperty("MinimumY", element.setWorldYMin, element.getWorldYMin);
+		controller.registerProperty("MaximumY", element.setWorldYMax, element.getWorldYMax);
+		controller.registerProperty("Bounds", element.setWorldCoordinates, element.getWorldCoordinates);
+
+
+		controller.registerProperty("MarginX", element.setMarginX,element.getMarginX);
+		controller.registerProperty("MarginY", element.setMarginY,element.getMarginY);
+
+		controller.registerProperty("Parent", element.getGraphics().setParent, element.getGraphics().getParent);
+		controller.registerProperty("Width", element.getGraphics().setWidth, element.getGraphics().getWidth);
+		controller.registerProperty("Height", element.getGraphics().setHeight, element.getGraphics().getHeight);
+
+		controller.registerProperty("Graphics", element.setGraphics);
+
+		controller.registerProperty("Background", element.getStyle().setFillColor);
+		controller.registerProperty("Foreground", element.getStyle().setLineColor);
+		controller.registerProperty("LineColor", element.getStyle().setLineColor);
+		controller.registerProperty("LineWidth", element.getStyle().setLineWidth);
+		controller.registerProperty("DrawLines", element.getStyle().setDrawLines);
+		controller.registerProperty("FillColor", element.getStyle().setFillColor);
+		controller.registerProperty("DrawFill", element.getStyle().setDrawFill);
+		controller.registerProperty("ShapeRendering", element.getStyle().setShapeRendering);
+
+	    controller.registerProperty("Visibility", element.getGraphics().getStyle().setVisibility);      
+        controller.registerProperty("Display", element.getGraphics().getStyle().setDisplay); 
+		controller.registerProperty("CSS", element.getGraphics().getStyle().setCSS);
+	}
+};
+
+/**
+ * Constructor for SimplePanel
+ * @method simplePanel
+ * @param mName string
+ * @returns An abstract 2D drawing panel
+ */
+EJSS_DRAWING2D.simplePanel = function(mName) {
+	var self = {}; // reference returned	
+	var mGraphics = EJSS_GRAPHICS.svgGraphics(mName); // graphics implementation (default: SVG)
+
+	// Instance variables
+	var mStyle = EJSS_DRAWING2D.style(mName);	// style for panel
+	var mElements = [];							// elements list for panel
+	var mElementsChanged = false;				// whether elements list has changed
+	var mCollectersList = [];		            // Array of all control elements that need a call to dataCollected() after data collection
+
+	// Configuration variables	
+	var mWorld = {
+		// preferred dimensions
+		xminPreferred : -1, xmaxPreferred : 1, yminPreferred : -1, ymaxPreferred : 1,
+		// origin in panel
+		xorigin : 0, yorigin : 0,
+		// pixel per unit for panel
+		xscale : 1, yscale : 1		
+	};
+
+	// Implementation variables
+	var mPanelChanged = true;	// whether panel changed (style, decorations, gutters)
+	var mMustScale = true;		// whether panel must scale
+
+	// ----------------------------------------
+	// Instance functions
+	// ----------------------------------------
+
+	/**
+	 * Get name for drawing panel
+	 * @method getName
+	 * @return string
+	 */
+	self.getName = function() {
+		return mName;
+	};
+
+	/**
+	 * Returns the graphics implementation
+	 * @method getGraphics
+	 * @return Graphics
+	 */
+	self.getGraphics = function() {
+		return mGraphics;
+	};
+
+	/**
+	 * Returns the svg image in Base64 format
+	 * @method importGraphics
+	 * @return string 
+	 */
+    self.importGraphics = function(callback) {
+    	return mGraphics.importSVG(callback);
+    }
+    
+	/**
+	 * Return the drawing style of the inner rectangle for panel
+	 * @method getStyle
+	 * @return Style
+	 */
+	self.getStyle = function() {
+		return mStyle;
+	};
+
+	/**
+	 * Set graphics
+	 * @method setGraphics
+	 * @param type
+	 */
+	self.setGraphics = function(type) {
+		if (type == EJSS_DRAWING2D.SimplePanel.GRAPHICS2D_SVG) {
+			mGraphics = EJSS_GRAPHICS.svgGraphics(mName);
+		} else if (type == EJSS_DRAWING2D.SimplePanel.GRAPHICS2D_CANVAS) {
+			// mGraphics = EJSS_GRAPHICS.canvasGraphics(mName);
+			console.log("WARNING: setGraphics() - Canvas not supported");
+		} else {
+			console.log("WARNING: setGraphics() - Graphics not supported");
+		}
+	};
+	
+	// ----------------------------------------
+	// World coordinates
+	// ----------------------------------------
+
+	/**
+	 * Sets the preferred minimum X coordinate for the panel
+	 * @method setWorldXMin
+	 * @param xmin
+	 */
+	self.setWorldXMin = function(xmin) {
+		if (xmin !== mWorld.xminPreferred) {
+			mWorld.xminPreferred = xmin;
+			mMustScale = true;
+		}
+	};
+
+	/**
+	 * Returns the preferred minimum X coordinate for the panel
+	 * @method getWorldXMin
+	 * @return double
+	 */
+	self.getWorldXMin = function() {
+		return mWorld.xminPreferred;
+	};
+
+	/**
+	 * Sets the preferred maximum X coordinate for the panel
+	 * @method setWorldXMax
+	 * @param xmax
+	 */
+	self.setWorldXMax = function(xmax) {
+		if (xmax !== mWorld.xmaxPreferred) {
+			mWorld.xmaxPreferred = xmax;
+			mMustScale = true;
+		}
+	};
+
+	/**
+	 * Returns the preferred maximum X coordinate for the panel
+	 * @method getWorldXMax
+	 * @return double
+	 */
+	self.getWorldXMax = function() {
+		return mWorld.xmaxPreferred;
+	};
+
+	/**
+	 * Sets the preferred minimum Y coordinate for the panel
+	 * @method setWorldYMin
+	 * @param ymin
+	 */
+	self.setWorldYMin = function(ymin) {
+		if (ymin !== mWorld.yminPreferred) {
+			mWorld.yminPreferred = ymin;
+			mMustScale = true;
+		}
+	};
+
+	/**
+	 * Returns the preferred minimum Y coordinate for the panel
+	 * @method getWorldYMin
+	 * @return double
+	 */
+	self.getWorldYMin = function() {
+		return mWorld.yminPreferred;
+	};
+
+	/**
+	 * Sets the preferred maximum Y coordinate for the panel
+	 * @method setWorldYMax
+	 * @param ymax
+	 */
+	self.setWorldYMax = function(ymax) {
+		if (ymax !== mWorld.ymaxPreferred) {
+			mWorld.ymaxPreferred = ymax;
+			mMustScale = true;
+		}
+	};
+
+	/**
+	 * Returns the preferred maximum Y coordinate for the panel
+	 * @method getWorldYMax
+	 * @return double
+	 */
+	self.getWorldYMax = function() {
+		return mWorld.ymaxPreferred;
+	};
+
+	/**
+	 * Sets the preferred user coordinates for the panel
+	 * @method setWorldCoordinates
+	 * @param bounds
+	 */
+	self.setWorldCoordinates = function(bounds) {
+		self.setWorldXMin(bounds[0]);
+		self.setWorldXMax(bounds[1]);
+		self.setWorldYMin(bounds[2]);
+		self.setWorldYMax(bounds[3]);
+	};
+
+	/**
+	 * Gets the preferred user coordinates for the panel
+	 * @method getWorldCoordinates
+	 * @return bounds
+	 */
+	self.getWorldCoordinates = function() {
+		return [self.getWorldXMin(), self.getWorldXMax(), self.getWorldYMin(), self.getWorldYMax()];
+	};
+
+	// ----------------------------------------
+	// Elements
+	// ----------------------------------------
+
+	/**
+	 * Add a element to the panel. Elements are asked to draw themselves
+	 * whenever the panel needs to render. For this purpose, they will receive a
+	 * calls to draw().
+	 * Elements are reported of changes in the world coordinates of the panel, in case
+	 * they need to recalculate themselves.
+	 * @method addElement
+	 * @param element Element
+	 * @param position int
+	 */
+	self.addElement = function(element, position) {
+		EJSS_TOOLS.addToArray(mElements, element, position);
+		// set this panel to decoration element
+		element.setPanel(self);
+		if (element.dataCollected) mCollectersList.push(element);
+		// elements list has changed
+		mElementsChanged = true;
+	};
+
+	/**
+	 * Remove a element to the panel.
+	 * @method removeElement
+	 * @param element Element
+	 */
+	self.removeElement = function(element) {
+		EJSS_TOOLS.removeFromArray(mElements, element);
+		element.setPanel(null);
+		if (element.dataCollected) EJSS_TOOLS.removeFromArray(mCollectersList, element);
+		// elements list has changed
+		mElementsChanged = true;
+	};
+
+	/**
+	 * Return the array of a elements.
+	 * @method getElements
+	 * @return Elements
+	 */
+	self.getElements = function() {
+		return mElements;
+	};
+
+	/**
+	 * Return the position of a element.
+	 * @method indexOfElement
+	 * @param element Element
+	 * @return integer
+	 */
+	self.indexOfElement = function(element) {
+		return mElements.indexOf(element);
+	};
+
+	// ----------------------------------------
+	// Apply transformations and conversions
+	// ----------------------------------------
+
+	/**
+	 * Converts a Y pixel value so that 0 is at the bottom
+	 * @method toPixelAxisY
+	 * @param y double
+	 */
+	self.toPixelAxisY = function(y) {
+		return (mWorld.yorigin - y) - (mWorld.yscale * mWorld.yminPreferred);
+	};
+
+	/**
+	 * Converts a X pixel value so that 0 is at the left
+	 * @method toPixelAxisX
+	 * @param x double
+	 */
+	self.toPixelAxisX = function(x) {
+		return (mWorld.xorigin + x) - (mWorld.xscale * mWorld.xminPreferred);
+	};
+
+	/**
+	 * To be used only after a call to render()!
+	 * Projects a point from world coordinates to pixel coordinates.
+	 * @method toPixelPosition
+	 * @param point double[] The original coordinates
+	 * @return double[] The same array once transformed
+	 */
+	self.toPixelPosition = function(point) {
+		var pos = [];
+		pos[0] = mWorld.xorigin + mWorld.xscale * (point[0] - mWorld.xminPreferred);		
+		pos[1] = mWorld.yorigin + mWorld.yscale * (point[1] - mWorld.yminPreferred);			
+		return pos;
+	};
+
+	/**
+	 * To be used only after a call to render()!
+	 * Projects a module from world coordinates to pixel coordinates
+	 * @method toPixelMod
+	 * @param point double[] The original module
+	 * @return double[] The same array once transformed
+	 */
+	self.toPixelMod = function(mod) {
+		var pmod = [];
+		pmod[0] = mod[0] * mWorld.xscale;
+		pmod[1] = mod[1] * mWorld.yscale;		
+		return pmod;
+	};
+
+	/**
+	 * To be used only after a call to render()!
+	 * Projects a point from pixel coordinates to world coordinates
+	 * @method toPanelPosition
+	 * @param point double[] The original coordinates
+	 * @return double[] The same array once transformed
+	 */
+	self.toPanelPosition = function(point) {	
+		var pos = [];
+		pos[0] = mWorld.xminPreferred + (point[0] - mWorld.xorigin) / mWorld.xscale;
+		pos[1] = mWorld.yminPreferred + (point[1] - mWorld.yorigin) / mWorld.yscale;
+		return pos;
+	};
+
+	/**
+	 * To be used only after a call to render()!
+	 * Projects a module from pixel coordinates to world coordinates
+	 * @method toPanelMod
+	 * @param point double[] The original module
+	 * @return double[] The same array once transformed
+	 */
+	self.toPanelMod = function(mod) {
+		var pmod = [];
+		pmod[0] = ((mWorld.xscale == 0)? 0 : mod[0]/mWorld.xscale);
+		pmod[1] = ((mWorld.yscale == 0)? 0 : mod[1]/mWorld.yscale);		
+		return pmod;
+	};
+
+	/**
+	 * Get pixel position of the origin
+	 * @return array pixel position
+	 */
+	self.getPixelPositionWorldOrigin = function() {
+		return [mWorld.xorigin,mWorld.yorigin];
+	}
+
+	/**
+	 * Recomputes the scales of the panel.
+	 * @method recomputeScales
+	 */
+	self.recomputeScales = function() {	
+		// get sizes and scale
+		var width = mGraphics.getWidth(); // width in pixels
+		var height = mGraphics.getHeight(); // height in pixels
+		var xPixPerUnit = width / (mWorld.xmaxPreferred - mWorld.xminPreferred); // the x scale in pixels
+		var yPixPerUnit = height / (mWorld.ymaxPreferred - mWorld.yminPreferred); // the y scale in pixels
+		
+		// centered
+		mWorld.xscale = xPixPerUnit;
+		mWorld.yscale = -yPixPerUnit;
+		mWorld.xorigin =  0.5;
+		mWorld.yorigin = height + 0.5;
+		
+		mMustScale = false;
+	};
+	
+	// ----------------------------------------
+	// Drawing functions
+	// ----------------------------------------
+
+	/**
+	 * Reset the scene
+	 * @method reset
+	 */
+	self.reset = function() {
+		mGraphics.reset();
+	};
+	
+	/**
+	 * Render the scene
+	 * @method render
+	 */
+	self.render = function() {
+		var reseted = false;
+		if (mElementsChanged) {// whether elements added or removed, reset the scene
+			mGraphics.reset();
+			reseted = true;
+			mElementsChanged = false;
+		}
+
+        // check for data collection
+		for (var i = 0, n = mCollectersList.length; i < n; i++)
+			mCollectersList[i].dataCollected();
+
+		// recompute scales
+		if (mMustScale) 
+			self.recomputeScales();
+
+		if (mPanelChanged || reseted) {// whether panel changed or reseted
+			mGraphics.drawPanel(self);
+		}
+
+		// draw visible elements
+		mGraphics.draw(mElements, reseted);
+
+		// set changed to false
+		mPanelChanged = false;
+		for (var i = 0, n = mElements.length; i < n; i++)
+			mElements[i].setChanged(false);
+	};
+
+	// ----------------------------------------------------
+	// Properties
+	// ----------------------------------------------------
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING2D.SimplePanel.registerProperties(self, controller);
+	};
+
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+	mStyle.setLineColor('black');
+	mStyle.setFillColor('rgb(239,239,255)');
+	mStyle.setChangeListener(function(change) {
+		mPanelChanged = true;
+	});
+
+
+	return self;
+};
+
+/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*
+* This code is Open Source and is provided "as is".
+*/
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Spring
+ * @class Spring 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Spring = {
+  DEF_RADIUS : 0.05,
+  DEF_LOOPS : 8,
+  DEF_PPL : 15,
+
+	// ----------------------------------------------------
+	// Static methods
+	// ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
+  	
+		dest.setRadius(source.getRadius());
+		dest.setSolenoid(source.getSolenoid());
+		dest.setThinExtremes(source.getThinExtremes());
+		dest.setLoops(source.getLoops());
+		dest.setPointsPerLoop(source.getPointsPerLoop());
+  	},
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.Element.registerProperties(element, controller);
+		// super class
+
+		controller.registerProperty("Radius", element.setRadius, element.getRadius);
+		controller.registerProperty("Solenoid", element.setSolenoid, element.getSolenoid);
+		controller.registerProperty("ThinExtremes", element.setThinExtremes, element.getThinExtremes);
+		controller.registerProperty("Loops", element.setLoops, element.getLoops);
+		controller.registerProperty("PointsPerLoop", element.setPointsPerLoop, element.getPointsPerLoop);
+	},
+};
+
+/**
+ * Creates a 2D Spring
+ * @method spring
+ */
+EJSS_DRAWING2D.spring = function(name) {
+	var self = EJSS_DRAWING2D.element(name);
+  	
+	  // Configuration variables
+	var mRadius = EJSS_DRAWING2D.Spring.DEF_RADIUS;
+	var mSolenoid = 0.0;
+	var mThinExtremes = true;
+	var mLoops;
+	var mPointsPerLoop;
+
+	self.getClass = function() {
+		return "ElementSpring";
+	}
+
+	/***
+	 * Set radius
+	 * @method setRadius
+ 	 * @param radius
+	 */
+	self.setRadius = function(radius) {
+		if(mRadius != radius) {
+			mRadius = radius;
+			self.setChanged(true);
+		}		
+	}
+
+	self.getRadius = function() {
+		return mRadius;
+	}
+
+	self.setSolenoid = function(solenoid) {
+		if(mSolenoid != solenoid) {
+			mSolenoid = solenoid;
+			self.setChanged(true);
+		}
+	}
+
+	self.getSolenoid = function() {
+		return mSolenoid;
+	}
+
+	self.setThinExtremes = function(thinExtremes) {
+		if(mThinExtremes != thinExtremes) {
+			mThinExtremes = thinExtremes;
+			self.setChanged(true);
+		}
+	}
+
+	self.getThinExtremes = function() {
+		return mThinExtremes;
+	}
+
+	self.setLoops = function(loops) {
+		if(mLoops != loops) {
+			mLoops = loops;
+			self.setChanged(true);
+		}
+	}
+
+	self.getLoops = function() {
+		return mLoops;
+	}
+
+	self.setPointsPerLoop = function(pointsPerLoop) {
+		if(mPointsPerLoop != pointsPerLoop) {
+			mPointsPerLoop = pointsPerLoop;
+			self.setChanged(true);
+		}
+	}
+
+	self.getPointsPerLoop = function() {
+		return mPointsPerLoop;
+	}
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING2D.Spring.registerProperties(self, controller);
+	};
+
+  	self.copyTo = function(element) {
+    	EJSS_DRAWING2D.Spring.copyTo(self,element);
+  	};
+
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+  	self.setSize([0.1,0.1]);
+  	self.setLoops(EJSS_DRAWING2D.Spring.DEF_LOOPS);
+  	self.setPointsPerLoop(EJSS_DRAWING2D.Spring.DEF_PPL);
+	self.setRelativePosition("SOUTH_WEST");
+	
+	return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//SpringSet
+//---------------------------------
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * SpringSet
+ * @class SpringSet 
+ * @constructor  
+ */
+EJSS_DRAWING2D.SpringSet = {
+	
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING2D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      controller.registerProperty("Radius", 
+          function(v) { set.setToEach(function(element,value) { element.setRadius(value); }, v); }
+      );
+      controller.registerProperty("Solenoid", 
+          function(v) { set.setToEach(function(element,value) { element.setSolenoid(value); }, v); }
+      );           
+      controller.registerProperty("ThinExtremes", 
+          function(v) { set.setToEach(function(element,value) { element.setThinExtremes(value); }, v); }
+      );           
+      controller.registerProperty("Loops", 
+          function(v) { set.setToEach(function(element,value) { element.setLoops(value); }, v); }
+      );           
+      controller.registerProperty("PointsPerLoop", 
+          function(v) { set.setToEach(function(element,value) { element.setPointsPerLoop(value); }, v); }
+      );           
+    }        
+};
+
+/**
+ * Creates a set of Segments
+ * @method springSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING2D.springSet = function (mName) {
+  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.spring, mName);
+
+  // Static references
+  var SpringSet = EJSS_DRAWING2D.SpringSet;		// reference for SpringSet
+  
+  self.registerProperties = function(controller) {
+    SpringSet.registerProperties(self,controller);
+  };
+
+  return self;
+};/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Shape
+ * @class Shape 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Tank = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+      controller.registerProperty("LevelColor",element.setLevelColor);
+      controller.registerProperty("Level",element.setLevel);
+      controller.registerProperty("Closed",element.setClosed);
+    },
+
+    /**
+     * static copyTo method, to be used by sets
+     */
+    copyTo : function(source, dest) {
+      EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
+
+      dest.setLevel(source.getLevel());
+      dest.setLevelColor(source.getLevelColor());
+    }
+
+};
+
+/**
+ * Creates a 2D shape
+ * @method shape
+ */
+EJSS_DRAWING2D.tank = function (name) {
+  var self = EJSS_DRAWING2D.element(name);
+
+  var mLevel = 0;
+  var mLevelColor = "blue";
+
+  // Implementation variables
+  var Tank = EJSS_DRAWING2D.Tank;
+
+  self.getClass = function() {
+  	return "ElementTank";
+  }
+
+  // ----------------------------------------------------
+  // public functions
+  // ----------------------------------------------------
+
+  self.setLevel = function(level) {
+      mLevel = level;
+      self.setChanged(true);
+  };
+
+  self.getLevel = function() {
+  	return mLevel;
+  }
+
+  /**
+   * Set the color of the level
+   * @param color a stroke style
+   */
+  self.setLevelColor = function(color) { 
+    if (typeof color !== "string") color = EJSS_TOOLS.DisplayColors.getLineColor(color);
+    if (color!=mLevelColor) {
+      mLevelColor = color; 
+      self.setChanged(true);
+    }
+    return self;
+  };
+    
+  /**
+   * Get the line color
+   */
+  self.getLevelColor = function() { 
+    return mLevelColor; 
+  };
+  
+  // ----------------------------------------------------
+  // Properties and copies
+  // ----------------------------------------------------
+
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+    Tank.registerProperties(self,controller);
+  };
+
+  /**
+   * Copies itself to another element
+   * Extended copyTo method. To be used by Sets
+   * @method copyTo
+   */
+  self.copyTo = function(element) {
+    Tank.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([0.1,0.1]);
+  self.setRelativePosition("CENTER");
+  self.getStyle().setFillColor("White");
+  self.getStyle().setLineColor("Black");
+  self.getStyle().setDrawFill(false);
+    
+  return self;
+};
+
+
+/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*
+* This code is Open Source and is provided "as is".
+*/
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/***
+ * A Text is a 2D drawing element that displays a text 
+ * @class EJSS_DRAWING2D.Text
+ * @parent EJSS_DRAWING2D.Element
+ */
+EJSS_DRAWING2D.Text = {
+	MODE_TOPDOWN : 0,
+	MODE_RIGTHLEFT : 1,
+	MODE_DOWNTOP : 2,
+	MODE_LEFTRIGHT: 3,
+	
+	// ----------------------------------------------------
+	// Static methods
+	// ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
+  		EJSS_DRAWING2D.Font.copyTo(source.getFont(),dest.getFont());
+  		
+		dest.setText(source.getText());
+		dest.setMathText(source.getMathText());
+		dest.setWritingMode(source.getWritingMode());
+  	},
+  	
+	/**
+	 * Parses lightweight mathematical text. This parser is used only when
+	 * MathText is explicitly enabled. Supported forms: _x, _{text}, ^x, ^{text}.
+	 * A backslash escapes the following character.
+	 */
+	parseMathText : function(value) {
+		var source = (value === undefined || value === null) ? "" : String(value);
+
+		function findClosingBrace(text, openIndex) {
+			var depth = 1;
+			for (var i = openIndex + 1; i < text.length; i++) {
+				if (text.charAt(i) === "\\") { i++; continue; }
+				if (text.charAt(i) === "{") depth++;
+				else if (text.charAt(i) === "}") {
+					depth--;
+					if (depth === 0) return i;
+				}
+			}
+			return -1;
+		}
+
+		function parseRange(text) {
+			var nodes = [];
+			var plain = "";
+			function flush() {
+				if (plain.length) nodes.push({ type: "text", text: plain });
+				plain = "";
+			}
+
+			for (var i = 0; i < text.length; i++) {
+				var ch = text.charAt(i);
+				if (ch === "\\") {
+					if (i + 1 < text.length) plain += text.charAt(++i);
+					else plain += ch;
+					continue;
+				}
+				if ((ch !== "_" && ch !== "^") || i + 1 >= text.length) {
+					plain += ch;
+					continue;
+				}
+
+				var argument;
+				var next = text.charAt(i + 1);
+				if (next === "{") {
+					var close = findClosingBrace(text, i + 1);
+					if (close < 0) { plain += ch; continue; }
+					argument = text.substring(i + 2, close);
+					i = close;
+				}
+				else { argument = next; i++; }
+
+				flush();
+				nodes.push({
+					type: "script",
+					script: ch === "_" ? "sub" : "super",
+					children: parseRange(argument)
+				});
+			}
+			flush();
+			return nodes;
+		}
+
+		return parseRange(source);
+	},
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.Element.registerProperties(element, controller);
+		// super class
+
+	 	/*** 
+	  	* Text
+	  	* @property Text 
+	  	* @type String
+	  	* @default "" 
+	  	*/  
+		controller.registerProperty("Text", element.setText);
+		controller.registerProperty("MathText", element.setMathText);
+		controller.registerProperty("Framed", element.setFramed);
+		controller.registerProperty("WritingMode", element.setWritingMode);
+
+	 	/*** 
+	  	* Font description in one declaration
+	  	* @property Font 
+	  	* @type String - https://www.w3schools.com/cssref/pr_font_font.asp
+	  	* @default "20px Arial" 
+	  	*/  
+		controller.registerProperty("Font", function (e) {
+				element.setDrawingSize([-1,-1]);
+				element.getFont().setFont(e);
+			});
+
+	 	/*** 
+	  	* Font family
+	  	* @property FontFamily 
+	  	* @type String
+	  	* @default "Arial" 
+	  	*/  
+		controller.registerProperty("FontFamily", element.getFont().setFontFamily);
+
+	 	/*** 
+	  	* Font size
+	  	* @property FontSize 
+	  	* @type String
+	  	* @default "20" 
+	  	*/  
+		controller.registerProperty("FontSize", function (e) {
+				element.setDrawingSize([-1,-1]);
+				element.getFont().setFontSize(e);
+			});
+
+		controller.registerProperty("LetterSpacing", element.getFont().setLetterSpacing);
+
+	 	/*** 
+	  	* Outline color
+	  	* @property OutlineColor 
+	  	* @type String
+	  	* @default "none" 
+	  	*/  
+		controller.registerProperty("OutlineColor", element.getFont().setOutlineColor);
+
+		controller.registerProperty("FontWeight", element.getFont().setFontWeight);
+
+	 	/*** 
+	  	* Fill color
+	  	* @property FillColor 
+	  	* @type String
+	  	* @default "none" 
+	  	*/  
+		controller.registerProperty("FillColor", element.getFont().setFillColor);
+
+	 	/*** 
+	  	* Font style
+	  	* @property FontStyle 
+	  	* @type String
+	  	* @default "normal" 
+	  	*/  
+		controller.registerProperty("FontStyle", element.getFont().setFontStyle);
+
+		controller.registerProperty("MarginX", element.getMarginX().setMarginX);
+		controller.registerProperty("MarginY", element.getMarginY().setMarginY);
+	},
+};
+
+/**
+ * Creates a 2D Text
+ * @method text
+ */
+EJSS_DRAWING2D.text = function(mName) {
+	var self = EJSS_DRAWING2D.element(mName);
+
+	var mText = "";
+	var mMathText = false;
+	var mWritingMode = EJSS_DRAWING2D.Text.MODE_LEFTRIGHT;
+	var mFont = EJSS_DRAWING2D.font(mName);	// font for text
+	var mFramed = false; 
+	var mMarginX = 0;
+	var mMarginY = 0;
+	
+	var mDrawingSize = [-1,-1]; // autocalculated 
+
+	self.getClass = function() {
+		return "ElementText";
+	}
+
+  	/***
+   	* Sets text
+   	* @method setText
+   	* @visibility public
+   	* @param string
+   	*/
+	self.setText = function(text) {
+		text = text + ""; // convert text to string
+		if(mText != text) {
+			mText = text;
+			self.setChanged(true);
+			mDrawingSize = [-1,-1];
+		}
+	}
+
+  	/***
+   	* Gets text
+   	* @method getText
+   	* @visibility public
+   	* @return string
+   	*/
+	self.getText = function() {
+		return mText;
+	}
+
+	self.setMathText = function(enabled) {
+		enabled = !!enabled;
+		if (mMathText != enabled) {
+			mMathText = enabled;
+			self.setChanged(true);
+			mDrawingSize = [-1,-1];
+		}
+	}
+
+	self.getMathText = function() {
+		return mMathText;
+	}
+
+	self.setDrawingSize = function(drawingSize) {
+		mDrawingSize = drawingSize;
+	}
+
+	self.getDrawingSize = function() {
+		return mDrawingSize;
+	}
+
+	self.getSizeX = function() {		
+		return mDrawingSize[0]; 
+	}
+
+	self.getSizeY = function() {
+		return mDrawingSize[1];
+	}
+
+	self.setMarginX = function(margin) {
+		if(mMarginX != margin) {
+			mMarginX = margin;
+			self.setChanged(true);
+		}
+	}
+
+	self.getMarginX = function() {
+		return mMarginX;
+	}
+
+	self.setMarginY = function(margin) {
+		if(mMarginY != margin) {
+			mMarginY = margin;
+			self.setChanged(true);
+		}
+	}
+
+	self.getMarginY = function() {
+		return mMarginY;
+	}
+
+	self.getFont = function() {
+		return mFont;
+	}
+
+	self.setFramed = function(framed) {
+		if(mFramed != framed) {
+			mFramed = framed;
+			self.setChanged(true);
+		}
+	}
+
+	self.getFramed = function() {
+		return mFramed;
+	}
+
+	self.setWritingMode = function(writemode) {
+	    if (typeof writemode == "string") writemode = EJSS_DRAWING2D.Text[writemode.toUpperCase()];
+	    if (mWritingMode != writemode) {
+	      mWritingMode = writemode;
+	      self.setChanged(true);
+	    }
+	}
+
+	self.getWritingMode = function() {
+		return mWritingMode;
+	}
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING2D.Text.registerProperties(self, controller);
+	};
+
+  	self.copyTo = function(element) {
+    	EJSS_DRAWING2D.Text.copyTo(self,element);
+  	};
+
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+  	mFont.setChangeListener(function (change) { self.setChanged(true); });
+	self.setPixelSize(true); 
+	return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//TextSet
+//---------------------------------
+
+/**
+ * TextSet
+ * @class TextSet 
+ * @constructor  
+ */
+EJSS_DRAWING2D.TextSet = {
+	
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING2D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      
+      controller.registerProperty("Text", 
+          function(v) { set.setToEach(function(element,value) { element.setText(value); }, v); }
+      );
+      controller.registerProperty("Framed", 
+          function(v) { set.setToEach(function(element,value) { element.setFramed(value); }, v); }
+      );           
+      controller.registerProperty("WritingMode", 
+          function(v) { set.setToEach(function(element,value) { element.setWritingMode(value); }, v); }
+      );           
+      controller.registerProperty("Font", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFont(value); }, v); }
+      );          
+      controller.registerProperty("FontFamily", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFontFamily(value); }, v); }
+      );           
+      controller.registerProperty("FontSize", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFontSize(value); }, v); }
+      );           
+      controller.registerProperty("LetterSpacing", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setLetterSpacing(value); }, v); }
+      );           
+      controller.registerProperty("OutlineColor", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setOutlineColor(value); }, v); }
+      );           
+      controller.registerProperty("FontWeight", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFontWeight(value); }, v); }
+      );           
+      controller.registerProperty("FillColor", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFillColor(value); }, v); }
+      );           
+    }         
+    
+};
+
+
+/**
+ * Creates a set of Texts
+ * @method textSet
+ * @param mName
+ */
+EJSS_DRAWING2D.textSet = function (mName) {
+  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.text, mName);
+
+  // Static references
+  var TextSet = EJSS_DRAWING2D.TextSet;		// reference for TextSet
+
+  /**
+   * Registers properties in a ControlElement
+   * @method registerProperties
+   * @param controller A ControlElement that becomes the element controller
+   */
+  self.registerProperties = function(controller) {
+    TextSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
+
+/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*
+* This code is Open Source and is provided "as is".
+*/
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/***
+ * A Trace is a sophistication of the Trail element. 
+ * The extra features are the possibility to specify markers that will be displayed at 
+ * each point of the trace.
+ * @class EJSS_DRAWING2D.Trace 
+ * @parent EJSS_DRAWING2D.Trail
+ * @constructor  
+ */
+EJSS_DRAWING2D.Trace = {
+  ELLIPSE : 0, 	
+  RECTANGLE : 1,	
+  AREA : 2,	
+  BAR : 3,
+
+	// ----------------------------------------------------
+	// Static methods
+	// ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
+  		EJSS_DRAWING2D.Trail.copyTo(source,dest);
+  		EJSS_DRAWING2D.Style.copyTo(source.getMarkStyle(),dest.getMarkStyle());
+  		
+		dest.setMarkType(source.getMarkType());
+		dest.setMarkSize(source.getMarkSize());
+  	},
+  	
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.Trail.registerProperties(element, controller);
+		// super class
+
+	 /*** 
+	  * Type of marker to draw
+	  * @property MarkType 
+	  * @type int|String
+	  * @values 0="ELLIPSE", 1="RECTANGLE", 2:"AREA", 3:"BAR" 
+	  * @default "ELLIPSE" 
+	  */ 
+	  controller.registerProperty("MarkType", element.setMarkType, element.getMarkType);
+
+	 /*** 
+	  * Axis for bar or area markers
+	  * @property MarkAxisY 
+	  * @type int
+	  * @default 0 
+	  */ 
+	  controller.registerProperty("MarkAxisY", element.setMarkAxisY, element.getMarkAxisY);
+
+	 /*** 
+	  * Size of the marker to draw
+	  * @property MarkSize 
+	  * @type int[2] providing the width and height in pixels
+	  * @default [0,0] 
+	  */ 
+		controller.registerProperty("MarkSize", element.setMarkSize, element.getMarkSize);
+
+	 /*** 
+	  * Color for the lines of the markers
+	  * @property MarkLineColor
+	  * @type String
+	  * @see http://www.w3schools.com/cssref/css_colornames.asp
+	  * @default "Black"
+	  */ 
+      	controller.registerProperty("MarkLineColor",  element.getMarkStyle().setLineColor);
+
+	 /*** 
+	  * Marker stroke width
+	  * @property MarkLineWidth 
+	  * @type double
+	  * @default 0.5
+	  */ 
+      	controller.registerProperty("MarkLineWidth",  element.getMarkStyle().setLineWidth);
+
+	 /*** 
+	  * Whether the marker lines are drawn
+	  * @property MarkDrawLines 
+	  * @type boolean
+	  * @default true 
+	  */ 
+      	controller.registerProperty("MarkDrawLines",  element.getMarkStyle().setDrawLines);
+
+	 /*** 
+	  * The fill color for the markers
+	  * @property MarkFillColor 
+	  * @type String
+	  * @see http://www.w3schools.com/cssref/css_colornames.asp
+	  * @default "Blue"
+	  */ 
+      	controller.registerProperty("MarkFillColor",  element.getMarkStyle().setFillColor);
+
+	 /*** 
+	  * Whether the marker are filled
+	  * @property MarkDrawFill 
+	  * @type boolean
+	  * @default true
+	  */ 
+      	controller.registerProperty("MarkDrawFill",   element.getMarkStyle().setDrawFill);
+
+	}
+
+};
+
+/**
+ * Creates a 2D Trace
+ * @method trace
+ */
+EJSS_DRAWING2D.trace = function(mName) {
+	var self = EJSS_DRAWING2D.trail(mName);
+ 
+    // Instance variables
+	var mMarkType = EJSS_DRAWING2D.Trace.ELLIPSE;
+    var mMarkStyle = EJSS_DRAWING2D.style(mName);	// style for mark
+    var mMarkRelativePosition = EJSS_DRAWING2D.Element.CENTER;  
+	var mMarkSizeX = 0;
+	var mMarkSizeY = 0;
+	var mMarkAxisY = 0;
+	var mMarkStyleList = [];
+		 
+	self.getClass = function() {
+		return "ElementTrace";
+	}
+
+	/***
+	 * Set a list of styles
+	 * @param list
+     * @visibility public
+	 */
+	self.setMarkStyleList = function(list) {
+	    if (typeof list == "undefined" || list === null) { 
+	    	mMarkStyleList = [];
+	    } else if (Array.isArray(list)) {  // list
+	      	mMarkStyleList = list.slice();
+	      	self.setChanged(true);
+	    } 
+	};
+	
+	/***
+	 * Get the list of styles
+	 * @method getMarkStyleList()
+	 * @return list
+     * @visibility public
+	 */
+	self.getMarkStyleList = function() {
+	  return mMarkStyleList;
+	};
+
+	/**
+	 * Sets the mark relative position of the element with respect to its (x,y) coordinates.
+	 */
+	self.setMarkRelativePosition = function(position) {
+	  if (typeof position == "string") position = EJSS_DRAWING2D.Element[position.toUpperCase()];
+	  if (mMarkRelativePosition != position) {
+	    mMarkRelativePosition = position;
+	  	self.setChanged(true);
+	  }
+	};
+	  
+	self.getMarkRelativePosition = function() { 
+	  return mMarkRelativePosition;
+	};
+
+	/***
+	 * Return the style of the mark
+	 * @method getMarkStyle() 
+     * @visibility public
+	 */
+	self.getMarkStyle = function() { 
+	  return mMarkStyle; 
+	};
+
+	/***
+	 * Set the size of the mark
+	 * @method setMarkSize(size)
+	 * @param size int[2]|double[2] array with the size in pixels
+     * @visibility public
+	 */
+	self.setMarkSize = function(size) {
+	  if((mMarkSizeX != size[0]) || (mMarkSizeY != size[1])) { 
+	  	mMarkSizeX = size[0];
+	  	mMarkSizeY = size[1];
+	  	self.setChanged(true);
+	  }
+	};
+	
+	/***
+	 * Get the sizes of the mark
+	 * @method getMarkSize()
+	 * @return double[]
+     * @visibility public
+	 */
+	self.getMarkSize = function() {
+	  return [mMarkSizeX, mMarkSizeY];
+	};
+
+	/***
+	 * Set the type of the mark
+	 * @method setMarkType(type)
+	 * @param type int|String One of: "CENTER":0,"NORTH":1,"SOUTH":2,"EAST":3,"WEST":4,"NORTH_EAST":5,"NORTH_WEST":6,
+	 *                 "SOUTH_EAST":7,"SOUTH_WEST":8 
+     * @visibility public
+	 */
+	self.setMarkType = function(type) {
+	  if (typeof type == "string") type = EJSS_DRAWING2D.Trace[type.toUpperCase()];
+	  if(mMarkType != type) {
+	  	mMarkType = type;
+	  	self.setChanged(true);
+	  }
+	};
+	
+	/***
+	 * Get the type of the mark
+	 * @method getMarkType()
+	 * @return int
+     * @visibility public
+	 */
+	self.getMarkType = function() {
+	  return mMarkType;
+	};
+
+	/***
+	 * Set the limit axis for bar or area marks
+	 * @method setMarkAxisY()
+	 * @param int
+     * @visibility public
+	 */
+	self.setMarkAxisY = function(axisY) {
+	  if(mMarkAxisY != axisY) {
+	  	mMarkAxisY = axisY;
+	  	self.setChanged(true);
+	  }
+	};
+  
+	/***
+	 * Get the limit axis for bar or area marks
+	 * @method getMarkAxisY()
+	 * @return int
+     * @visibility public
+	 */
+	self.getMarkAxisY = function() {
+	  return mMarkAxisY;
+	};
+  
+   self.formatPoint = function(src) {
+   		// override
+   		var size = src.length;
+   		src[size++] = mMarkType;
+   		src[size] = EJSS_DRAWING2D.style();
+   		EJSS_DRAWING2D.Style.copyTo(mMarkStyle,src[size++]);
+		src[size++] = mMarkSizeX;
+		src[size++] = mMarkSizeY;
+		src[size] = mMarkAxisY;
+		return src;
+   }
+  
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING2D.Trace.registerProperties(self, controller);
+	};
+  
+  	self.copyTo = function(element) {
+    	EJSS_DRAWING2D.Trace.copyTo(self,element);
+  	};
+  
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+	return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//TraceSet
+//---------------------------------
+
+/**
+ * TraceSet
+ * @class TraceSet 
+ * @constructor  
+ */
+EJSS_DRAWING2D.TraceSet = {
+  
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var TrailSet = EJSS_DRAWING2D.TrailSet;
+      
+      TrailSet.registerProperties(set,controller);
+      
+	 /*** 
+	  * Type of marker to draw
+	  * @property MarkType 
+	  * @type int|String
+	  * @values 0="ELLIPSE", 1="RECTANGLE", 2:"AREA", 3:"BAR" 
+	  * @default "ELLIPSE" 
+	  */ 
+	  controller.registerProperty("MarkType", 
+          function(v) { set.setToEach(function(element,value) { element.setMarkType(value); }, v); }
+      );
+      
+	 /*** 
+	  * Size of the marker to draw
+	  * @property MarkSize 
+	  * @type int[2] providing the width and height in pixels
+	  * @default [0,0] 
+	  */ 
+	  controller.registerProperty("MarkSize", 
+          function(v) { set.setToEach(function(element,value) { element.setMarkSize(value); }, v); }
+      );           
+      
+	 /*** 
+	  * Color for the lines of the markers
+	  * @property MarkLineColor
+	  * @type String
+	  * @see http://www.w3schools.com/cssref/css_colornames.asp
+	  * @default "Black"
+	  */ 
+	  controller.registerProperty("MarkLineColor", 
+          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setLineColor(value); }, v); }
+      );   
+      
+      /*** 
+	  * Marker stroke width
+	  * @property MarkLineWidth 
+	  * @type double
+	  * @default 0.5
+	  */         
+      controller.registerProperty("MarkLineWidth", 
+          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setLineWidth(value); }, v); }
+      );           
+      
+      /*** 
+	  * Whether the marker lines are drawn
+	  * @property MarkDrawLines 
+	  * @type boolean
+	  * @default true 
+	  */
+      controller.registerProperty("MarkDrawLines", 
+          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setDrawLines(value); }, v); }
+      );           
+      
+      /*** 
+	  * The fill color for the markers
+	  * @property MarkFillColor 
+	  * @type String
+	  * @see http://www.w3schools.com/cssref/css_colornames.asp
+	  * @default "Blue"
+	  */
+	  controller.registerProperty("MarkFillColor", 
+          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setFillColor(value); }, v); }
+      );           
+      
+      /*** 
+	  * Whether the marker are filled
+	  * @property MarkDrawFill 
+	  * @type boolean
+	  * @default true
+	  */
+	  controller.registerProperty("MarkDrawFill", 
+          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setDrawFill(value); }, v); }
+      );           
+      
+      /*** 
+	  * Position of the marker relative to the point 
+	  * @property MarkRelativePosition 
+	  * @type int|String
+	  * @values "CENTER":0,"NORTH":1,"SOUTH":2,"EAST":3,"WEST":4,"NORTH_EAST":5,"NORTH_WEST":6,
+	  * "SOUTH_EAST":7,"SOUTH_WEST":8 
+	  * @default "CENTER
+	  */
+	  controller.registerProperty("MarkRelativePosition", 
+          function(v) { set.setToEach(function(element,value) { element.setMarkRelativePosition(value); }, v); }
+      );           
+    }    
+};
+
+
+/**
+ * Creates a set of Segments
+ * @method traceSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING2D.traceSet = function (mName) {
+  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.trace, mName);
+
+  // Static references
+  var TraceSet = EJSS_DRAWING2D.TraceSet;		// reference for TraceSet
+  
+  self.registerProperties = function(controller) {
+    TraceSet.registerProperties(self,controller);
+  };
+
+  return self;
+};/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*
+* This code is Open Source and is provided "as is".
+*/
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/***
+ * A Trail is a two-dimensional drawable that displays a collection of points in the plane. 
+ * The points are added to the trail either through the <tt>InputX</tt> and <tt>InputY</tt>
+ * properties, or using the element’s <tt>addPoint</tt> or <tt>moveToPoint</tt> functions. 
+ * The points are displayed using lines which connect the points, each with the previous one, 
+ * thus forming a polygonal line (which looks like a trail). The trail can be disconnected 
+ * at some points if the <tt>Connected</tt> property is set temporarily to false, or if 
+ * the <tt>moveToPoint</tt> function is used.<br/> 
+ * The number of points in a trail can be limited through the <tt>Maximum</tt> property. 
+ * Adding points past the limit causes the trail to remove the first points in it.<br/>
+ *<br/>
+ * Trails can be broken into several segments using the <tt>newSegment</tt> function. 
+ * Each segment behaves like a sub-trail, but segments can have different drawing 
+ * styles (line width and color). Also, the user can delete the points in the last 
+ * segment without affecting the previous segments.
+ * @class EJSS_DRAWING2D.Trail 
+ * @parent EJSS_DRAWING2D.Element
+ * @constructor  
+ */
+EJSS_DRAWING2D.Trail = {
+  NO_CONNECTION : 0, 	// The next point will not be connected to the previous one
+  LINE_CONNECTION : 1,	// The next point will be connected to the previous one by a segment
+
+	// ----------------------------------------------------
+	// Static methods
+	// ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
+  		
+		dest.setActive(source.getActive());
+		dest.setNoRepeat(source.getNoRepeat());
+		dest.setClearAtInput(source.getClearAtInput());
+		dest.setSkip(source.getSkip());
+		dest.setInputLabels(source.getInputLabels());
+		dest.setMaximumPoints(source.getMaximumPoints());
+		dest.setConnectionType(source.getConnectionType());
+		dest.setPoints(source.getPoints());
+  	},
+  	
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING2D.Element.registerProperties(element, controller);
+		// super class
+
+	 /*** 
+	  * Whether the trail should accept input points. 
+	  * @property Active
+	  * @type boolean
+	  * @default true 
+	  */  
+		controller.registerProperty("Active", element.setActive, element.getActive);
+
+	 /*** 
+	  * Whether the trail ignores repeated input points 
+	  * @property NoRepeat
+	  * @type boolean
+	  * @default false 
+	  */  
+		controller.registerProperty("NoRepeat", element.setNoRepeat, element.getNoRepeat);
+
+	 /*** 
+	  * Whether the trail clears all points when receiving new input. (Useful if input is an array.)
+	  * @property ClearAtInput
+	  * @type boolean
+	  * @default false 
+	  */  
+		controller.registerProperty("ClearAtInput", element.setClearAtInput, element.getClearAtInput);
+
+	 /*** 
+	  * Whether the trail should display only one oout of many inpout points. 
+	  * If Skip is positive, it indicates how many points the trail will take to display one.
+	  * @property Skip
+	  * @type int
+	  * @default 0 
+	  */  
+		controller.registerProperty("Skip", element.setSkip, element.getSkip);
+
+		controller.registerProperty("ColumnNames", element.setInputLabels, element.getInputLabels);
+
+	 /*** 
+	  * The maximum number of points the trail accepts. If more input is received, the trail
+	  * will discard the corresponding first points.
+	  * @property Maximum
+	  * @type int
+	  * @default 0 indicating no limit
+	  */  
+		controller.registerProperty("Maximum", element.setMaximumPoints, element.getMaximumPoints);
+
+		controller.registerProperty("ConnectionType", element.setConnectionType, element.getConnectionType);		
+
+	 /*** 
+	  * Whether the next input point should be connected to the previous one. 
+	  * @property Connected
+	  * @type boolean
+	  * @default true 
+	  */  		
+	  controller.registerProperty("Connected", element.setConnected, element.isConnected);		
+		
+		controller.registerProperty("Points", element.setPoints, element.getPoints);		
+		controller.registerProperty("LastPoint", element.addPoint, element.getLastPoint);
+
+	 /*** 
+	  * The next input point for the trail. 
+	  * @property Input
+	  * @type int[2]|double[2] An array with a pair of [x,y] coordinates, 
+	  * or int[n][2]|double[n][2] a double array with n pairs of [x,y] coordinates. 
+	  * @default "none" 
+	  */ 
+	  controller.registerProperty("Input", element.addPoints);
+
+	 /*** 
+	  * The X coordinate for the next input point for the trail. 
+	  * @property InputX
+	  * @type int|double The X coordinate for the input point 
+	  * or int[n]|double[n] a double array with the X coordinates for n input points. 
+	  * @default "none" 
+	  */ 
+	  controller.registerProperty("InputX", element.addXPoints);				
+
+	 /*** 
+	  * The Y coordinate for the next input point for the trail. 
+	  * @property InputY
+	  * @type int|double The Y coordinate for the input point 
+	  * or int[n]|double[n] a double array with the Y coordinates for n input points. 
+	  * @default "none" 
+	  */ 
+	  controller.registerProperty("InputY", element.addYPoints);
+	}
+			
+};
+
+/**
+ * Creates a 2D Trail
+ * Trail implements dataCollected(), which makes it a Collector of data 
+ * @see _view._collectData
+ * @method trail
+ */
+EJSS_DRAWING2D.trail = function(name) {
+	var self = EJSS_DRAWING2D.element(name);
+ 
+    // Configuration variables
+	var mActive = true;
+	var mNoRepeat = false;
+	var mClearAtInput = false;
+	var mSkip = 0;
+	var mInputLabels = ["x", "y"];	  
+	var mMaximum = 0;
+	var mConnectionType = EJSS_DRAWING2D.Trail.LINE_CONNECTION;
+	
+  	// Implementation variables
+  	var mCounter = 0;
+  	var mIsEmpty = true;
+	//  private int firstPoint = 0; // the first point of the current path 
+  	var mLastPoint = 0;	
+  	var mFlushPoint = 0; // This is the last point which was not added because of the skip parameter  	
+  	var mCurrentList = []; 	// The current list of points  	
+  	var mSegmentList = []; // The list of past Segments, if any  	
+  	var mSegmentStyle = []; // The list of past segment styles, if any
+	var mTmpList = []; // The temporal list of new points
+	var mTmpLastXAdded = 0;
+	var mTmpLastYAdded = 0;
+	 
+	self.getClass = function() {
+		return "ElementTrail";
+	}
+
+  /***
+   * Sets the active state of the trail. An inactive trail ignores all input. 
+   * @method setActive(active)
+   * @param active boolean
+   * @visibility public
+   */
+  self.setActive = function(active) {
+    if(mActive != active) {
+    	mActive = active;
+    	self.setChanged(true);
+    }
+  }
+  
+  /***
+   * Whether the trail is in active mode.
+   * @method getActive()
+   * @return boolean
+   */
+  self.getActive = function() { 
+  	return mActive; 
+  }
+  
+  /***
+   * Sets the no repeat state of the trail.
+   * When set, a trail will ignore (x,y) points which equal the last added point.
+   * @method setNoRepeat(noRepeat)
+   * @param noRepeat boolean
+   * @visibility public
+   */
+  self.setNoRepeat = function (noRepeat) {
+    if(mNoRepeat != noRepeat) {
+    	mNoRepeat = noRepeat;
+    	self.setChanged(true);
+    }
+  }
+  
+  /***
+   * Whether the trail is in no repeat mode.
+   * @method getNoRepeat()
+   * @return boolean
+   */
+  self.getNoRepeat = function() { 
+  	return mNoRepeat; 
+  }
+
+  /***
+   * Sets the trail to clear existing points when receiving 
+   * a new point or array of points.
+   * @method setClearAtInput(clear)
+   * @param clear boolean
+   * @visibility public
+   */
+  self.setClearAtInput = function(clear) {
+    if(mClearAtInput != clear) {
+    	mClearAtInput = clear;
+    	self.setChanged(true);
+    }
+  }
+  
+  /***
+   * Whether the trail is in clear at input mode.
+   * @method getClearAtInput()
+   * @return boolean
+   * @visibility public
+   */
+  self.getClearAtInput = function() { 
+  	return mClearAtInput; 
+  }
+
+  /***
+   * Sets the skip parameter. When the skip parameter is larger than zero,
+   * the trail only considers one of every 'skip' points. That is, if skip is 3, 
+   * the trail will consider only every third point sent to it. 
+   * The default is zero, meaning all points must be considered.
+   * @method setSkip(skip)
+   * @param skip int
+   * @visibility public
+   */
+  self.setSkip = function (skip) {
+    if (mSkip != skip) {
+      mSkip = skip;
+      mCounter = 0;
+      self.setChanged(true);
+    }
+  }
+  
+  /***
+   * Returns the skip parameter of the trail.
+   * @method getSkip()
+   * @return int
+   * @visibility public
+   */
+  self.getSkip = function () { 
+  	return mSkip; 
+  }
+
+  /**
+   * Sets the labels of the X,Y coordinates when the data is displayed in a table
+   * @method setInputLabels(label)
+   * @param label
+   */
+  self.setInputLabels = function (label) {
+  	if((mInputLabels[0] != label[0]) || (mInputLabels[1] != label[1])) { 
+  		mInputLabels[0] = label[0]; 
+  		mInputLabels[1] = label[1]; 
+  		self.setChanged(true);
+  	}
+  }
+
+  /**
+   * Returns the labels of the X,Y coordinates
+   * @method getInputLabels()
+   * @return labels
+   */
+  self.getInputLabels = function () { 
+  	return mInputLabels; 
+  }
+  
+  /***
+   * Sets the maximum number of points for the trail.
+   * Once the maximum is reached, adding a new point will cause
+   * remotion of the first one. This is useful to keep trails
+   * down to a reasonable size, since very long trails can slow
+   * down the rendering (in certain implementations).
+   * If the value is 0 (the default) the trail grows forever
+   * without discarding old points.
+   * @method setMaximumPoints(maximum)
+   * @param maximum int
+   * @visibility public
+   */
+  self.setMaximumPoints = function(maximum) {
+  	var max = Math.max(maximum, 2);
+  	if(mMaximum != max) {
+    	mMaximum = max;
+    	self.setChanged(true);
+    }
+  }
+
+  /***
+   * Returns the maximum number of points allowed for the trail
+   * @method getMaximumPoints()
+   * @return int
+   * @visibility public
+   */
+  self.getMaximumPoints = function() {
+    return mMaximum;
+  }
+
+  /***
+   * Whether to connect next input point with the previous one
+   * @method setConnected(connected)
+   * @param connected boolean
+   * @visibility public
+   */
+  self.setConnected = function (connected) {
+   if (connected) self.setConnectionType(EJSS_DRAWING2D.Trail.LINE_CONNECTION);
+   else self.setConnectionType(EJSS_DRAWING2D.Trail.NO_CONNECTION);
+  }
+
+  /***
+   * Gets the connection state.
+   * @method getConnected()
+   * @return boolean
+   * @visibility public
+   */
+  self.isConnected = function() {
+    return mConnectionType===EJSS_DRAWING2D.Trail.LINE_CONNECTION;
+  }
+
+  /**
+   * Sets the type of connection for the next point.
+   * @method setConnectionType(type)
+   * @param type int
+   */
+  self.setConnectionType = function (type) {
+    if (typeof type == "string") type = EJSS_DRAWING2D.Trail[type.toUpperCase()];      	
+    if(mConnectionType != type) {
+    	mConnectionType = type;
+    	self.setChanged(true);
+    }
+  }
+
+  /**
+   * Gets the connection type.
+   * @method getConnectionType()
+   * @see #setConnectionType(int)
+   */
+  self.getConnectionType = function() {
+    return mConnectionType;
+  }
+
+  /***
+   * Adds a new point to the trail.
+   * @method addPoint(x,y,style)
+   * @param x double The X coordinate of the point 
+   * 		or point double[] The double[2] array with the coordinates of the point.
+   * @param y double The Y coordinate of the point.
+   * @param style int an optional connection style: 0 = EJSS_DRAWING2D.Trail.NO_CONNECTION, 1 = EJSS_DRAWING2D.Trail.LINE_CONNECTION
+   * @visibility public
+   */
+  self.addPoint = function (x, y, style) {
+    if (!mActive) return;
+  	if (mClearAtInput) self.initialize();
+    if(x instanceof Array)    	
+    	addPoint(x[0], x[1], x[2]);
+    else 
+    	addPoint (x,y,style);
+    self.setChanged(true);
+  }
+
+
+  /***
+   * Adds an array of points to the trail.
+   * @method addPoints(x,y)
+   * @param x double The double[] array with the X coordinates of the points.
+   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
+   * @param y double The double[] array with the Y coordinates of the points.
+   * @visibility public
+   * @param len int The number of points to copy.
+   * @visibility public
+   */
+  self.addPoints  = function(x, y, len) {
+    if (!mActive) return;
+  	if (mClearAtInput) self.initialize();
+  	// number of points to copy
+  	if (typeof len == "undefined") len = Number.MAX_SAFE_INTEGER;
+	if ((typeof y == "undefined") || (y === null)) {
+      if(x[0] instanceof Array) {    
+    	for (var i=0,n=Math.min(len,x.length); i<n; i++) addPoint (x[i][0],x[i][1],x[i][2]);  		
+  	  }
+  	  else addPoint (x[0],x[1]);
+	}
+	else { // y is defined
+    	for (var i=0,n=Math.min(len,x.length,y.length); i<n; i++) addPoint (x[i],y[i]);
+  	}
+    self.setChanged(true);
+  }
+
+  /**
+   * Sets the array of X points for the input of the trail.
+   * @method addXPoints(x)
+   */
+  self.addXPoints  = function(x) {
+    if (!mActive) return;
+  	var i = 0;
+  	if(x instanceof Array) {
+  		// fill points with the values  		
+    	for (var n=x.length; i<n; i++) {
+    		if(mTmpList[i]) mTmpList[i] = [x[i],mTmpList[i][1],mTmpList[i][2]];
+    		else mTmpList[i] = [x[i],mTmpLastYAdded,mConnectionType];
+    	}  		
+    	mTmpLastXAdded = x[i];
+  	}
+    else { // only one value
+    	if(mTmpList[i]) mTmpList[i] = [x,mTmpList[i][1],mTmpList[i][2]];
+    	else mTmpList[i] = [x,mTmpLastYAdded,mConnectionType];
+    	i++;
+    	mTmpLastXAdded = x;    	
+    }
+
+	// fill points with the last value
+	while (mTmpList[i]) {
+		mTmpList[i] = [mTmpLastXAdded,mTmpList[i][1],mTmpList[i][2]];
+		i++;
+	}    	
+  }
+
+  /**
+   * Adds an array of Y points to the trail.
+   * @method addYPoints(y)
+   */
+  self.addYPoints  = function(y) {
+    if (!mActive) return;
+  	var i = 0;
+  	if(y instanceof Array) {
+  		// fill points with the values  		
+    	for (var n=y.length; i<n; i++) {
+    		if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y[i],mTmpList[i][2]];
+    		else mTmpList[i] = [mTmpLastXAdded,y[i],mConnectionType];
+    	}  		
+    	mTmpLastYAdded = y[i];
+  	}
+    else { // only one value
+    	if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y,mTmpList[i][2]];
+    	else mTmpList[i] = [mTmpLastXAdded,y,mConnectionType];
+    	i++;
+    	mTmpLastYAdded = y;    	
+    }
+
+	// fill points with the last value
+	while (mTmpList[i]) {
+		mTmpList[i] = [mTmpList[i][0],mTmpLastYAdded,mTmpList[i][2]];
+		i++;
+	}    	
+  }
+
+  /**
+   * Adds the temporal array of point to the trail.
+   * @method dataCollected()
+   */
+  self.dataCollected  = function() {
+  	if (mTmpList.length > 0) {
+  	  self.addPoints(mTmpList);
+      mTmpList = [];
+  	  self.setChanged(true);
+  	}
+  }  
+
+  /**
+   * Sets an array of points to the trail. Equivalent to clear() + addPoints(x,y)
+   * @method setPoints(x,y)
+   * @param xInput double The double[] array with the X coordinates of the points.
+   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
+   * @param yInput double The double[] array with the Y coordinates of the points.
+   */
+  self.setPoints  = function(x, y) {
+    if (!mActive) return;
+  	self.clear();
+  	self.addPoints(x,y);
+  	self.setChanged(true);
+  }
+    
+  /***
+   * Moves to the new point without drawing.
+   * (Equivalent to setting the connection type
+   * to NO_CONNECTION and adding one single point, then setting the 
+   * type back to its previous value.)
+   * @method moveToPoint(x,y)
+   * @param x double The X coordinate of the point.
+   * 	or point double[] The double[2] array with the coordinates of the point.
+   * @param y double The Y coordinate of the point.
+   * @visibility public
+   */
+  self.moveToPoint = function(x, y) { 
+    if (!mActive) return;
+  	if (mClearAtInput) self.initialize();
+  	if(x instanceof Array) 
+    	addPoint(x[0], x[1], EJSS_DRAWING2D.Trail.NO_CONNECTION);    
+    else	
+    	addPoint(x,y, EJSS_DRAWING2D.Trail.NO_CONNECTION);
+    self.setChanged(true);
+  }
+
+  self.getSegmentsCount = function() {
+    return mSegmentList.length; 
+  }
+
+  self.getSegmentPoints = function(index) {
+    return mSegmentList[index]; 
+  }
+
+  self.getSegmentStyle = function(index) {
+    return mSegmentStyle[index]; 
+  }
+
+  /**
+   * Returns current points.
+   * @method getCurrentPoints
+   * @return points
+   */
+  self.getCurrentPoints = function () {
+    return mCurrentList;
+  }
+  
+  /**
+   * Returns all points.
+   * @method getPoints
+   * @return points
+   */
+  self.getPoints = function () {
+    var points = [];
+    var size = mSegmentList.length;          	
+	for(var i=0; i<size; i++ )
+		points = points.concat(mSegmentList[i]);
+	points = points.concat(mCurrentList);
+
+    return points; 
+  }
+
+  
+  /**
+   * Gets last point.
+   * @method getLastPoint
+   * @return point
+   */
+  self.getLastPoint = function () {
+    return mLastPoint;
+  }
+
+  /***
+   * Same as clear
+   * @method reset()
+   * @visibility public
+   */
+  self.reset = function() {
+    self.clear();
+  }
+
+  /***
+   * Clears all points from all segments of the trail.
+   * @method clear()
+   * @visibility public
+   */
+  self.clear = function() {
+    mSegmentList = [];
+    mSegmentStyle = [];
+    self.initialize();
+  }
+
+  /***
+   * Clears all points from the last segment of the trail.
+   * @method clearLastSegment()
+   * @visibility public
+   */
+  self.clearLastSegment = function() {
+	if (mCurrentList.length<=0) {
+      mSegmentList.pop();
+      mSegmentStyle.pop();
+	  self.setChanged(true);
+    }
+	self.initialize();
+  }
+  
+  /***
+   * Clears all points from the last segment of the trail, 
+   * respecting previous segments.
+   * @method initialize()
+   * @visibility public
+   */
+  self.initialize  = function() {
+  	  mTmpList = [];
+	  mCurrentList = [];	  
+	  mFlushPoint = 0;
+	  mIsEmpty = true;
+	  mCounter = 0;
+	  mLastPoint = 0;
+	  self.setChanged(true);
+  }
+
+  /***
+   * Creates a new segment of the trail.
+   * @method newSegment()
+   * @visibility public
+   */
+  self.newSegment = function() {
+    if (mFlushPoint != 0) {
+    	var size = mCurrentList.length;
+    	mCurrentList[size] = self.formatPoint(mFlushPoint);
+    }
+    var size = mSegmentList.length;
+    mSegmentList[size] = mCurrentList;
+    var segmentStyle = EJSS_DRAWING2D.style(self.getName()+" #"+size);
+    EJSS_DRAWING2D.Style.copyTo(self.getStyle(),segmentStyle);
+    mSegmentStyle[size] = segmentStyle;
+
+	self.initialize();
+  }  
+  
+  /**
+   * Returns bounds for an element
+   * @override
+   * @method getBounds
+   * @return Object{left,rigth,top,bottom}
+   */
+  self.getBounds = function(element) {
+  	var xmin, xmax, ymin, ymax;
+  	var points = self.getPoints();
+  	
+  	// add mTmpList
+  	//if (mTmpList.length > 0) points = points.concat(mTmpList);
+  	
+  	  	
+    var len = points.length;
+    if(len == 0) {
+    	xmin = xmax = ymin = ymax = 0;
+    }             
+    else {
+		xmax = xmin = points[0][0];
+		ymax = ymin = points[0][1];    	
+		for(var j=1; j<len; j++) {
+			var x = points[j][0], y = points[j][1];
+			if(x>xmax) xmax=x; if(y>ymax) ymax=y; if(x<xmin) xmin=x; if(y<ymin) ymin=y;
+		}
+	}    
+    var x = self.getX(), y = self.getY();
+    var sx = self.getSizeX(), sy = self.getSizeY();
+  	var mx = sx/2, my = sy/2;  	
+  	var d = self.getRelativePositionOffset(sx,sy);
+  	
+	return {
+		left: ((x+d[0])-mx)+xmin*sx,
+		right: ((x+d[0])-mx)+xmax*sx,
+		top: ((y+d[1])-my)+ymax*sy,
+		bottom: ((y+d[1])-my)+ymin*sy
+	}
+  };  
+  
+  function addPoint(_x, _y, _type) {
+    //if (!mActive) return;
+    if (isNaN(_x) || isNaN(_y)) { 
+    	mIsEmpty = true; 
+    	return; 
+    }
+    if (mNoRepeat && mLastPoint[0]==_x && mLastPoint[1]==_y) 
+    	return;
+	if ((typeof _type == "undefined") || (_type === null))
+		_type = mConnectionType;
+
+    mFlushPoint = 0;
+    mLastPoint = self.formatPoint([_x,_y,_type]);
+    
+    if (mSkip > 0) { // Only if the counter is 0      
+      if(mCounter > 0) mFlushPoint = self.formatPoint([_x, _y, _type]);      
+      if(++mCounter >= mSkip) mCounter = 0;	        
+    }
+    
+    if (mFlushPoint == 0) {
+	    if (mMaximum > 2 && mCurrentList.length >= mMaximum) {
+	    	mCurrentList.splice(0,1) // remove the firstPoint
+	    }
+	    
+	    mCurrentList[mCurrentList.length] = self.formatPoint([_x, _y, _type]);
+	    mIsEmpty = false;
+	}
+  }
+
+	// override for subclases (for example Trace)
+   self.formatPoint = function(src) {
+   		return src;   		
+   }
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING2D.Trail.registerProperties(self, controller);
+	};
+	
+  	self.copyTo = function(element) {
+    	EJSS_DRAWING2D.Trail.copyTo(self,element);
+  	};
+  
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+	self.setSize([1,1]);
+  /*** @property RelativePosition @default "SOUTH_WEST" */  
+	self.setRelativePosition("SOUTH_WEST");
+
+	return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//TrailSet
+//---------------------------------
+
+/**
+ * TrailSet
+ * @class TrailSet 
+ * @constructor  
+ */
+EJSS_DRAWING2D.TrailSet = {
+  
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING2D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      controller.registerProperty("Active", 
+          function(v) { set.setToEach(function(element,value) { element.setActive(value); }, v); }
+      );
+      controller.registerProperty("NoRepeat", 
+          function(v) { set.setToEach(function(element,value) { element.setNoRepeat(value); }, v); }
+      );           
+      controller.registerProperty("ClearAtInput", 
+          function(v) { set.setToEach(function(element,value) { element.setClearAtInput(value); }, v); }
+      );           
+      controller.registerProperty("Skip", 
+          function(v) { set.setToEach(function(element,value) { element.setSkip(value); }, v); }
+      );           
+      controller.registerProperty("ColumnNames", 
+          function(v) { set.setToEach(function(element,value) { element.setInputLabels(value); }, v); }
+      );           
+      controller.registerProperty("Maximum", 
+          function(v) { set.setToEach(function(element,value) { element.setMaximumPoints(value); }, v); }
+      );           
+      controller.registerProperty("ConnectionType", 
+          function(v) { set.setToEach(function(element,value) { element.setConnectionType(value); }, v); }
+      );           
+      controller.registerProperty("Connected", 
+          function(v) { set.setToEach(function(element,value) { element.setConnected(value); }, v); }
+      );           
+      controller.registerProperty("Points", 
+          function(v) { set.setToEach(function(element,value) { element.setPoints(value); }, v); }
+      );           
+      controller.registerProperty("LastPoint", 
+          function(v) { set.setToEach(function(element,value) { element.addPoint(value); }, v); }
+      );           
+      controller.registerProperty("Input", 
+          function(v) { set.setToEach(function(element,value) { element.addPoints(value); }, v); }
+      );           
+      controller.registerProperty("InputX", 
+          function(v) { set.setToEach(function(element,value) { element.addXPoints(value); }, v); }
+      );           
+      controller.registerProperty("InputY", 
+          function(v) { set.setToEach(function(element,value) { element.addYPoints(value); }, v); }
+      );           
+      
+    }    
+};
+
+
+/**
+ * Creates a set of Segments
+ * @method trailSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING2D.trailSet = function (mName) {
+  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.trail, mName);
+
+  // Static references
+  var TrailSet = EJSS_DRAWING2D.TrailSet;		// reference for TrailSet
+  
+  // ----------------------------------------------------
+  // Set actions
+  // ----------------------------------------------------
+
+  /**
+   * Resets all elements
+   * @method reset
+   */
+  self.reset = function() {
+    var elementList = self.getElements();
+    for (var i=0,n=elementList.length;i<n;i++) elementList[i].reset();
+  }
+  
+  /**
+   * Initializes all elements
+   * @method clear
+   */
+  self.initialize = function() {
+    var elementList = self.getElements();
+    for (var i=0,n=elementList.length;i<n;i++) elementList[i].initialize();
+  }
+  
+  /**
+   * Clears all elements
+   * @method clear
+   */
+  self.clear = function() {
+    var elementList = self.getElements();
+    for (var i=0,n=elementList.length;i<n;i++) elementList[i].clear();
+  }
+  
+  // ----------------------------------------------------
+  // Custom methods
+  // ----------------------------------------------------
+  
+  /**
+   * Creates a new segment of one of the trails in the set
+   * @method newSegment
+   */
+    self.newSegment = function(index) {
+      self.getElements()[index].newSegment();
+    }
+  
+  /**
+   * Moves to the new point without drawing.
+   * (Equivalent to setting the connection type
+   * to NO_CONNECTION and adding one single point, then setting the 
+   * type back to its previous value.)
+   * @method moveToPoint
+   * @param index int The index of the trail to move to 
+   * @param x double The X coordinate of the point.
+   * 	or point double[] The double[2] array with the coordinates of the point.
+   * @param y double The Y coordinate of the point.
+   */
+   self.moveToPoint = function (index, x, y) {
+      self.getElements()[index].moveToPoint(x,y);
+    }
+    
+  /**
+   * Adds a new point to one of the trails in the set
+   * @method addPoint
+   * @param index int The index of the trail to add to 
+   * @param x double The X coordinate of the point 
+   * 		or point double[] The double[2] array with the coordinates of the point.
+   * @param y double The Y coordinate of the point.
+   * @param style
+   */
+   self.addPoint = function (index, x, y, style) {
+      self.getElements()[index].addPoint(x,y,style);
+    }
+  
+  /**
+   * Adds an array of points to one of the trails in the set
+   * @method addPoints
+   * @param index int The index of the trail to add to 
+   * @param x double The double[] array with the X coordinates of the points.
+   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
+   * @param y double The double[] array with the Y coordinates of the points.
+   */
+    self.addPoints = function (index, x, y) {
+      self.getElements()[index].addPoints(x,y);
+    }
+  
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  self.registerProperties = function(controller) {
+    TrailSet.registerProperties(self,controller);
+  };
+
+  return self;
+};/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * Video
+ * @class Video 
+ * @constructor  
+ */
+EJSS_DRAWING2D.Video = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(element,controller) {
+      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
+
+      controller.registerProperty("VideoUrl",element.setVideoUrl);
+      controller.registerProperty("CurrentTime",element.setCurrentTime);
+      controller.registerProperty("ShowControls",element.setControls);
+      controller.registerProperty("AutoPlay",element.setAutoPlay);
+      controller.registerProperty("Type",element.setType);
+      controller.registerProperty("Poster",element.setPoster);
+      controller.registerProperty("Loop",element.setLoop);
+      controller.registerProperty("WebCam",element.setWebCam);      
+    },
+};
+
+/**
+ * Creates a 2D Segment
+ * @method video
+ */
+EJSS_DRAWING2D.video = function (name) {
+  var self = EJSS_DRAWING2D.element(name);
+
+  var mLoop = false;
+  var mWebCam = false;
+  var mType = "";
+  var mPoster = "";
+  var mAutoPlay = true;
+  var mCurrentTime = 0;
+  var mControls = true;
+  var mPlay = true;
+  var mUrl;		// Video url
+
+  self.getClass = function() {
+  	return "ElementVideo";
+  }
+
+  self.setLoop = function(loop) {
+  	if(mLoop != loop) {
+  		mLoop = loop;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getLoop = function() {
+  	return mLoop;
+  }	
+
+  self.setPoster = function(poster) {
+  	if(mPoster != poster) {
+  		mPoster = poster;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getPoster = function() {
+  	return mPoster;
+  }	
+
+  self.setType = function(type) {
+  	if(mType != type) {
+  		mType = type;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getType = function() {
+  	return mType;
+  }	
+
+  self.setAutoPlay = function(autoPlay) {
+  	if(mAutoPlay != autoPlay) {
+  		mAutoPlay = autoPlay;
+  		mPlay = autoPlay;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getAutoPlay = function() {
+  	return mAutoPlay;
+  }	
+
+  self.setWebCam = function(webCam) {
+  	if(mWebCam != webCam) {
+  		mWebCam = webCam;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getWebCam = function() {
+  	return mWebCam;
+  }	
+
+// play,stop,controls
+
+  self.setVideoUrl = function(url) {
+  	if(mUrl != url) {
+  		mUrl = url;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getVideoUrl = function() {
+  	return mUrl;
+  }	
+
+  self.setCurrentTime = function(currentTime) {
+  	if(mCurrentTime != currentTime) {
+  		mCurrentTime = currentTime;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getCurrentTime = function() {
+  	return mCurrentTime;
+  }	
+
+  self.setControls = function(controls) {
+  	if(mControls != controls) {
+  		mControls = controls;
+  		self.setChanged(true);
+  	}
+  }	
+
+  self.getControls = function() {
+  	return mControls;
+  }	
+
+  self.play = function() {
+  	if(!mPlay) {
+	  	mPlay = true;
+	  	self.setChanged(true);
+	}
+  }	
+
+  self.stop = function() {
+  	if(mPlay) {
+	  	mPlay = false;
+	  	mAutoPlay = false;
+	  	self.setChanged(true);
+	}
+  }	
+  
+  self.isPlay = function() {
+  	return mPlay;
+  }
+
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.Video.registerProperties(self,controller);
+  };
+  
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * EJSS framework for drawing2D elements
+ * @module drawing2D 
+ */
+
+var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
+
+/**
+ * WebCamImage
+ * @class WebCamImage 
+ * @extends Image
+ * @constructor  
+ */
+EJSS_DRAWING2D.WebCamImage = {
+  // ----------------------------------------------------
+  // Static methods
+  // ----------------------------------------------------
+
+  /**
+   * static registerProperties method
+   */ 
+   registerProperties : function(element,controller) {
+    EJSS_DRAWING2D.Image.registerProperties(element,controller); // super class
+
+    controller.registerProperty("Url",element.setUrl);
+    controller.registerProperty("On",element.setOnOff, element.isOnOff)
+
+  },
+
+};
+
+/**
+ * motionJPEG function
+ * Creates a basic MotionJPEG image element
+ * @method motionJPEG
+ * @param name the name of the element
+ * @returns A MotionJPEG image element
+ */
+EJSS_DRAWING2D.webCamImage = function (mName) {
+  var self = EJSS_DRAWING2D.image(mName);
+  navigator.getUserMedia  = navigator.getUserMedia ||
+                          navigator.webkitGetUserMedia ||
+                          navigator.mozGetUserMedia ||
+                          navigator.msGetUserMedia;
+  
+  var mPlaying = true;
+  var mUrl;
+  var mPreviousUrl;
+  
+  self.setUrl = function(url) {
+    //if (self.getResourcePath) url = self.getResourcePath(url);
+    mUrl = url;
+  }	
+
+  self.getUrl = function() {
+  	return mUrl;
+  }	
+
+  self.setOnOff = function(on) {
+	if (on) {
+	  if (!mPlaying) self.play();
+	}
+	else {
+	  if (mPlaying) self.pause();
+	}
+  }
+
+  self.isOnOff = function() {
+	return mPlaying;
+  }
+
+  self.play = function() {
+	if (mUrl) {
+      if (mUrl != self.getImageUrl()) {
+        mPreviousUrl = self.getImageUrl();
+        if (mUrl=="local:") {
+          if (navigator.getUserMedia) {
+            navigator.getUserMedia({video: true}, 
+              function(stream) { self.forceImageUrl(stream); }, 
+              errorCallback);
+          } 
+          else self.setImageUrl(mPreviousUrl);
+        }
+        else self.setImageUrl(mUrl);
+	  }
+	}
+	mPlaying = true;
+  }
+
+  self.pause = function() {
+	mPlaying = false;
+	if (mPreviousUrl) self.setImageUrl(mPreviousUrl);
+  }
+
+/*
+  self.dataCollectedno = function() {
+  	if (mPlaying && mUrl) {
+    	// self.setChanged(true);
+    	self.setChangedImage(true);
+    }
+  }
+  
+*/
+
+  /**
+   * Extended registerProperties method. To be used by promoteToControlElement
+   * @method registerProperties
+   */
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING2D.WebCamImage.registerProperties(self,controller);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  return self;
+};
+/**
  * Deployment for 2D Canvas drawing.
  * @module CanvasGraphics 
  */
@@ -14817,6354 +21470,6 @@ EJSS_GRAPHICS.svgGraphics = function(mName) {
       
 }
 /*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*
-* This code is Open Source and is provided "as is".
-*/
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * InfoText
- * @class InfoText 
- * @constructor  
- */
-EJSS_DRAWING2D.InfoText = {
-
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Text.registerProperties(element, controller);
-		// super class
-		
-		controller.registerProperty("Info",  element.setInfo);
-		controller.registerProperty("Format",  element.setFormat);		
-	},
-};
-
-/**
- * Creates a 2D InfoText
- * @method infoText
- */
-EJSS_DRAWING2D.infoText = function(name) {
-	var self = EJSS_DRAWING2D.text(name);
-	var super_getText = self.getText;
-	
-	var mInfo;
-	var mFormat;			// replace ".^", ".##" por los números pasados
-
-	/**
-	 * Set info function or element with getInfo function
-	 */
-	self.setInfo = function(info) {
-		mInfo = info;
-	}
-
-	self.getText = function() {
-		if(typeof mInfo != "undefined") {	// exits info function 
-			if(mInfo.getInfo) 
-				return mInfo.getInfo();
-			else if (typeof mInfo == "function") 
-				return mInfo();
-		} else { // uses text with the format
-			var text = super_getText();			
-			// process text
-			return fillString(mFormat,text);
-		}
-	}
-
-	self.setFormat = function(format) {
-		mFormat = format;
-	}
-
-	self.isChanged = function() {
-		return true;
-	}
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.InfoText.registerProperties(self, controller);
-	};
-
-	/*
-	 * Fill formatted string
-	 */
-	function fillString(format, text) {
-		var t = "";
-		var txt = format;
-		var numbers = format.match(/[0-9]*\.(\^|#)+/g);
-		if (numbers==null) return text;
-		if(!Array.isArray(text)) {
-			text = JSON.parse("["+text+"]");
-		}
-
-		for (var i=0; i<numbers.length; i++) {
-			var precision = numbers[i].split("#").length - 1;
-			// check text
-			if(isNaN(text[i])) 
-				t = text[i];
-			else
-				t = text[i].toFixed(precision)
-			txt = txt.replace(numbers[i], t);
-		}
-		
-		return txt;		
-	}
-	
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-	return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * EJSS framework for interface element.
- * @module Drawing2D 
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Knob
- * @class Knob 
- * @constructor  
- */
-EJSS_DRAWING2D.KnobOld = {
-  // ----------------------------------------------------
-  // Static methods
-  // ----------------------------------------------------
-
-  /**
-   * static registerProperties method
-   */ 
-   registerProperties : function(element,controller) {
-	EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-	controller.registerProperty("Value", element.setValue, element.getValue);
-    controller.registerProperty("Minimum", element.setMinimum, element.getMinimum);
-    controller.registerProperty("Maximum", element.setMaximum, element.getMaximum);
-
-    controller.registerAction("OnPress" ,element.getValue); 
-    controller.registerAction("OnRelease" ,element.getValue); 
-    controller.registerAction("OnChange" ,element.getValue); 
-    
-    controller.registerProperty("Size", element.setSize);
-	
-  }
-
-};
-
-/**
- * Knob function
- * Creates a 2D element that looks and behaves like a knob
- * @method knob
- * @param mName the name of the element
- * @returns An abstract interface element
- */
-EJSS_DRAWING2D.knobOld = function (mName) {
-  var self = EJSS_DRAWING2D.group(mName);
-  
-  // Configuration variables
-  var mValue = 0.0;
-  var mMaximum =  1.0;
-  var mMinimum = -1.0;
-
-  var mNumberOfMarks = 21;
-  var mBigMark = 4;
-  var mMediumMark = 2;
-  var mDigits = 0;
-
-  var mMinimumAngle = Math.PI/2 + 1.5*Math.PI/2;
-  var mMaximumAngle = Math.PI/2 - 1.5*Math.PI/2;
-
-  var mMinAngle = -Math.PI*0.7;
-  var mMaxAngle =  Math.PI*0.7;
-  var mThreshold = Math.PI/5;
-
-  // Implementation variables
-  var mKnobExterior,mKnobMiddle,mKnobInterior;
-  var mSegments, mTexts, mBrand, mUnits;
-
-  var mDummyContainer;
-  var mSVGDefs = 
-	  "<svg xmlns='http://www.w3.org/2000/svg' version='1.1'>"+
-      "  <defs>"+
-      "    <linearGradient id='KnobExteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
-      "      <stop offset='0%'   stop-color='rgb(250,250,250)' />"+
-      "      <stop offset='100%' stop-color='rgb(100,100,100)' />"+
-      "    </linearGradient>"+
-      "    <linearGradient id='KnobMiddleGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
-      "      <stop offset='0%'   stop-color='rgb(200,200,200)' />"+
-      "      <stop offset='100%' stop-color='rgb(150,150,150)' />"+
-      "    </linearGradient>"+
-      "    <linearGradient id='KnobInteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
-      "      <stop offset='0%'   stop-color='rgb(127,127,127)' />"+
-      "      <stop offset='100%' stop-color='rgb(250,250,250)' />"+
-      "    </linearGradient>"+
-      "    <filter id='KnobFilter' x='0' y='0' width='200%' height='200%'>"+
-      "      <feOffset result='offOut' in='SourceGraphic' dx='1' dy='1' />"+
-      "      <feGaussianBlur result='blurOut' in='offOut' stdDeviation='2' />"+
-      "      <feBlend in='SourceGraphic' in2='blurOut' mode='normal' />"+
-      "    </filter>"+
-      "  </defs>"+
-      "</svg>";
-
-  
-  // ----------------------------------------------------
-  // Properties
-  // ----------------------------------------------------
-  
-  /**
-   * Sets the value of the element. 
-   * @method setValue
-   * @param value
-   */
-  self.setValue = function(value) {
-    if (mValue!=value) {
-    	mValue = value;
-    	adjustPosition();
-    }
-  }
-  
-  /**
-   * @method getValue
-   * @return current value
-   */
-  self.getValue = function() { 
-    return mValue; 
-  };    
-
-  /**
-   * Sets the minimum value of the element. 
-   * @method setMinimum
-   * @param value
-   */
-  self.setMinimum = function(value) {
-    if (mMinimum!=value) {
-    	mMinimum = value;
-    	adjustPosition();
-    }
-  }
-  
-  /**
-   * @method getMinimum
-   * @return current value
-   */
-  self.getMinimum = function() { 
-    return mMinimum; 
-  };    
-
-  /**
-   * Sets the minimum value of the element. 
-   * @method setMaximum
-   * @param value
-   */
-  self.setMaximum = function(value) {
-	if (mMaximum!=value) {
-		mMaximum = value;
-		adjustPosition();		  
-	}
-  }
-  
-  /**
-   * @method getMaximum
-   * @return current value
-   */
-  self.getMaximum = function() { 
-    return mMaximum; 
-  };    
-
-  /**
-   * Sets the size of the element. 
-   * @method setSize
-   * @param value
-   */
-  self.setSize = function(value) {
-	  self.setSizeX(value);
-	  self.setSizeY(value);
-  }
-  
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-	createKnob();
-	EJSS_DRAWING2D.Knob.registerProperties(self,controller);
-  };
-  
-  self.superSetParent = self.setParent;
-
-  self.setParent = function(parent, sibling) {
-		self.superSetParent(parent,sibling);
-		mKnobExterior.setParent(self);
-		mKnobMiddle.setParent(self);
-		mKnobInterior.setParent(self);
-	  }
-
-  
-  function createKnob() {
-	  /*
-	  var stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-	  stop1.setAttribute("offset","0%");
-	  stop1.setAttribute("stop-color","rgb(250,250,250)");
-
-	  var stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-	  stop2.setAttribute("offset","100%");
-	  stop2.setAttribute("stop-color","rgb(100,100,100)");
-
-	  var linearGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-	  linearGradient.setAttribute("id", "#KnobExteriorGradient");
-	  linearGradient.setAttribute("x1","0%");
-	  linearGradient.setAttribute("y1","0%");
-	  linearGradient.setAttribute("x2","100%");
-	  linearGradient.setAttribute("y2","100%");
-	  linearGradient.appendChild(stop1);
-	  linearGradient.appendChild(stop2);
-
-	  var feOffset = document.createElementNS("http://www.w3.org/2000/svg", "feOffset");
-	  feOffset.setAttribute("result","offOut");
-	  feOffset.setAttribute("in","SourceGraphic");
-	  feOffset.setAttribute("dx","1");
-	  feOffset.setAttribute("dy","1");
-
-	  var gaussianFilter = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
-	  gaussianFilter.setAttribute("result","blurOut");
-	  gaussianFilter.setAttribute("in","offOut");
-	  gaussianFilter.setAttribute("stdDeviation","2");
-
-	  var feBlend = document.createElementNS("http://www.w3.org/2000/svg", "feBlend");
-	  feOffset.setAttribute("in","SourceGraphic");
-	  feOffset.setAttribute("in2","blurOut");
-	  feOffset.setAttribute("mode","normal");
-
-	  var filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
-	  filter.setAttribute("id","#KnobFilter");
-	  filter.setAttribute("x","0");
-	  filter.setAttribute("y","0");
-	  filter.setAttribute("width","200%");
-	  filter.setAttribute("height","200%");
-	  filter.appendChild(feOffset);
-	  filter.appendChild(gaussianFilter);
-	  filter.appendChild(feBlend);
-	  
-	  /*
-	  var defs = self.getParentPanel()getGraphics().getDefs(); // document.createElementNS("http://www.w3.org/2000/svg", "defs");
-	  defs.appendChild(linearGradient);
-	  defs.appendChild(filter);
-	  
-	 // self.getGraphics().appendChild(defs);
-	  */
-	  
-	  mDummyContainer = document.createElement('div');
-	  document.body.appendChild(mDummyContainer);
-	  mDummyContainer.innerHTML = mSVGDefs;
-	  
-	  mKnobExterior = EJSS_DRAWING2D.shape(mName+".exterior_shape");
-	  mKnobExterior.setSize([1,1]);
-	  mKnobExterior.getStyle().setDrawLines(false);
-	  mKnobExterior.getStyle().setAttributes({ fill: "url(#KnobExteriorGradient)", filter:"url(#KnobFilter)"});
-
-	  mKnobMiddle = EJSS_DRAWING2D.shape(mName+".middle_shape");
-	  mKnobMiddle.setSize([0.9,0.9]);
-	  mKnobMiddle.getStyle().setDrawLines(false);
-	  mKnobMiddle.getStyle().setAttributes({ fill: "url(#KnobMiddleGradient)"});
-
-	  mKnobInterior = EJSS_CORE.promoteToControlElement(
-			  EJSS_DRAWING2D.shape(mName+".inner_shape"),self.getView(),mName+".inner_shape");
-	  mKnobInterior.setY(0.3);
-	  mKnobInterior.setSize([0.2,0.2]);
-	  mKnobInterior.getStyle().setDrawLines(false);
-	  mKnobInterior.getStyle().setAttributes({ fill: "url(#KnobInteriorGradient)"});
-
-	  mKnobInterior.setProperty("EnabledPosition","ENABLED_NO_MOVE");
-      mKnobInterior.setProperty("Sensitivity",10);
-	  mKnobInterior.setProperty("OnDrag",dragged);
-	  mKnobInterior.setProperty("OnPress",pressed);
-	  mKnobInterior.setProperty("OnRelease",released);
-
-//	  self.addElement(mKnobExterior);
-//	  self.addElement(mKnobMiddle);
-//	  self.addElement(mKnobInterior);
-
-
-  }
-    
-  function adjustPosition() {
-	  mValue = Math.max(Math.min(mMaximum,mValue),mMinimum);
-	  var angle = mMaxAngle - (mValue-mMinimum)/(mMaximum-mMinimum)*(mMaxAngle-mMinAngle) + Math.PI/2;
-	  mKnobInterior.setPosition([0.3*Math.cos(angle),0.3*Math.sin(angle)]);
-  }
-
-  function pressed(point,info) {
-	  var controller = self.getController();    		
-	  if (controller) controller.invokeImmediateAction("OnPress");
-  }
-
-  function released(point,info) {
-	  var controller = self.getController();    		
-	  if (controller) controller.invokeImmediateAction("OnRelease");
-  }
-
-  function dragged(point,info) {
-	  var point = info.point;
-	  var element = info.element;
-	  var group_pos = self.getAbsolutePosition(true);
-	  point[0] -= group_pos[0];
-	  point[1] -= group_pos[1];
-	  var angle = mMaxAngle - (mValue-mMinimum)/(mMaximum-mMinimum)*(mMaxAngle-mMinAngle);
-	  var rotation = Math.atan2(-point[0],point[1]);
-	  if (Math.abs(rotation-angle)>mThreshold) return;
-	  rotation = Math.min(Math.max(rotation,mMinAngle),mMaxAngle);
-	  mValue = mMaximum - (rotation-mMinAngle)/(mMaxAngle-mMinAngle)*(mMaximum-mMinimum);
-	  var angle = rotation+Math.PI/2;
-	  element.setPosition([0.3*Math.cos(angle),0.3*Math.sin(angle)]);
-	  var controller = self.getController();    		
-	  if (controller) {
-		controller.immediatePropertyChanged("Value");
-		controller.invokeImmediateAction("OnChange");
-	  }	        
-
-  }
-  
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * EJSS framework for interface element.
- * @module Drawing2D 
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Knob
- * @class Knob 
- * @constructor  
- */
-EJSS_DRAWING2D.Knob = {
-  // ----------------------------------------------------
-  // Static methods
-  // ----------------------------------------------------
-
-  /**
-   * static registerProperties method
-   */ 
-   registerProperties : function(element,controller) {
-	EJSS_DRAWING2D.Meter.registerProperties(element,controller); // super class
-
-    controller.registerAction("OnPress" ,element.getValue); 
-    controller.registerAction("OnRelease" ,element.getValue); 
-    controller.registerAction("OnChange" ,element.getValue); 
-    
-  }
-
-};
-
-/**
- * Knob function
- * Creates a 2D element that looks and behaves like a knob
- * @method knob
- * @param mName the name of the element
- * @returns An abstract interface element
- */
-EJSS_DRAWING2D.knob = function (mName) {
-  var self = EJSS_DRAWING2D.meter(mName);
-  
-  var mThreshold = Math.PI/5;
-  var pressed_shift = [0,0];  // initial dragging shift  
-
-  // Implementation variables
-  var mKnobExterior,mKnobMiddle,mKnobInterior;
-
-  var mDummyContainer;
-  var mSVGDefs = 
-	  "<svg xmlns='http://www.w3.org/2000/svg' width='0' height='0' version='1.1'>"+
-      "  <defs>"+
-      "    <linearGradient id='KnobExteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
-      "      <stop offset='0%'   stop-color='rgb(250,250,250)' />"+
-      "      <stop offset='100%' stop-color='rgb(100,100,100)' />"+
-      "    </linearGradient>"+
-      "    <linearGradient id='KnobMiddleGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
-      "      <stop offset='0%'   stop-color='rgb(200,200,200)' />"+
-      "      <stop offset='100%' stop-color='rgb(150,150,150)' />"+
-      "    </linearGradient>"+
-      "    <linearGradient id='KnobInteriorGradient' x1='0%' y1='0%' x2='100%' y2='100%'>"+
-      "      <stop offset='0%'   stop-color='rgb(127,127,127)' />"+
-      "      <stop offset='100%' stop-color='rgb(250,250,250)' />"+
-      "    </linearGradient>"+
-      "    <filter id='KnobFilter' x='0' y='0' width='200%' height='200%'>"+
-      "      <feOffset result='offOut' in='SourceGraphic' dx='1' dy='1' />"+
-      "      <feGaussianBlur result='blurOut' in='offOut' stdDeviation='2' />"+
-      "      <feBlend in='SourceGraphic' in2='blurOut' mode='normal' />"+
-      "    </filter>"+
-      "  </defs>"+
-      "</svg>";
-
-  
-  // ----------------------------------------------------
-  // Properties
-  // ----------------------------------------------------
-  
-  // ----------------------------------------------------
-  // Properties overwritten
-  // ----------------------------------------------------
-
-  self.super_setRadius = self.setRadius;
-
-  self.setRadius = function(value) {
-	  self.super_setRadius(value);
-	  mKnobExterior.setChanged(true);
-	  mKnobMiddle.setChanged(true);
-	  mKnobInterior.setChanged(true);
-  }
-
-  self.setFillColor = function(value) { mKnobInterior.getStyle().setFillColor(value); };
-
-  // ----------------------------------------------------
-  // Properties and copies
-  // ----------------------------------------------------
-
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING2D.Knob.registerProperties(self,controller);
-  };
-  
-  // ----------------------------------------------------
-  // private or protected functions
-  // ----------------------------------------------------
-
-  self.super_addParticularChildren = self.addParticularChildren;
-
-  self.addParticularChildren = function() {
-	  self.super_addParticularChildren();
-	  mKnobExterior.setParent(self);
-	  mKnobMiddle.setParent(self);
-	  mKnobInterior.setParent(self);
-  };
-
-  self.createBasics = function() { 
-	  /*
-	  var stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-	  stop1.setAttribute("offset","0%");
-	  stop1.setAttribute("stop-color","rgb(250,250,250)");
-
-	  var stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-	  stop2.setAttribute("offset","100%");
-	  stop2.setAttribute("stop-color","rgb(100,100,100)");
-
-	  var linearGradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-	  linearGradient.setAttribute("id", "#KnobExteriorGradient");
-	  linearGradient.setAttribute("x1","0%");
-	  linearGradient.setAttribute("y1","0%");
-	  linearGradient.setAttribute("x2","100%");
-	  linearGradient.setAttribute("y2","100%");
-	  linearGradient.appendChild(stop1);
-	  linearGradient.appendChild(stop2);
-
-	  var feOffset = document.createElementNS("http://www.w3.org/2000/svg", "feOffset");
-	  feOffset.setAttribute("result","offOut");
-	  feOffset.setAttribute("in","SourceGraphic");
-	  feOffset.setAttribute("dx","1");
-	  feOffset.setAttribute("dy","1");
-
-	  var gaussianFilter = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
-	  gaussianFilter.setAttribute("result","blurOut");
-	  gaussianFilter.setAttribute("in","offOut");
-	  gaussianFilter.setAttribute("stdDeviation","2");
-
-	  var feBlend = document.createElementNS("http://www.w3.org/2000/svg", "feBlend");
-	  feOffset.setAttribute("in","SourceGraphic");
-	  feOffset.setAttribute("in2","blurOut");
-	  feOffset.setAttribute("mode","normal");
-
-	  var filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
-	  filter.setAttribute("id","#KnobFilter");
-	  filter.setAttribute("x","0");
-	  filter.setAttribute("y","0");
-	  filter.setAttribute("width","200%");
-	  filter.setAttribute("height","200%");
-	  filter.appendChild(feOffset);
-	  filter.appendChild(gaussianFilter);
-	  filter.appendChild(feBlend);
-	  
-	  /*
-	  var defs = self.getParentPanel()getGraphics().getDefs(); // document.createElementNS("http://www.w3.org/2000/svg", "defs");
-	  defs.appendChild(linearGradient);
-	  defs.appendChild(filter);
-	  
-	 // self.getGraphics().appendChild(defs);
-	  */
-
-	  var mDummyContainer = document.getElementById(mName+".dummy_container");	
-	  if (mDummyContainer === null) { 	// exits?
-		  mDummyContainer = document.createElement('div');
-	      mDummyContainer.setAttribute("id", mName+".dummy_container");
-	      mDummyContainer.style.width = "0px";
-	      mDummyContainer.style.height = "0px";
-		  document.body.appendChild(mDummyContainer);
-		  mDummyContainer.innerHTML = mSVGDefs;	    
-	  }	
-	  
-	  mKnobExterior = EJSS_DRAWING2D.shape(mName+".exterior_shape");
-	  mKnobExterior.setSize([1,1]);
-	  mKnobExterior.getStyle().setDrawLines(false);
-	  mKnobExterior.getStyle().setAttributes({ fill: "url(#KnobExteriorGradient)", filter:"url(#KnobFilter)"});
-
-	  mKnobMiddle = EJSS_DRAWING2D.shape(mName+".middle_shape");
-	  mKnobMiddle.setSize([0.9,0.9]);
-	  mKnobMiddle.getStyle().setDrawLines(false);
-	  mKnobMiddle.getStyle().setAttributes({ fill: "url(#KnobMiddleGradient)"});
-
-	  mKnobInterior = EJSS_CORE.promoteToControlElement(
-			  EJSS_DRAWING2D.shape(mName+".inner_shape"),self.getView(),mName+".inner_shape");
-	  mKnobInterior.setY(0.3);
-	  mKnobInterior.setSize([0.2,0.2]);
-	  mKnobInterior.getStyle().setDrawLines(false);
-	  mKnobInterior.getStyle().setAttributes({ fill: "url(#KnobInteriorGradient)"});
-
-	  mKnobInterior.setProperty("EnabledPosition","ENABLED_NO_MOVE");
-      mKnobInterior.setProperty("Sensitivity",10);
-	  mKnobInterior.setProperty("OnDrag",dragged);
-	  mKnobInterior.setProperty("OnPress",pressed);
-	  mKnobInterior.setProperty("OnRelease",released);
-  }
-    
-  self.super_createForeground = self.createForeground;
-  
-  self.createForeground = function() {
-	  self.super_createForeground();
-	  self.getElement('brand').setPosition([0,-0.7]);
-	  self.getElement('units').setPosition([0, 0.9]);
-  };
-
-  self.adjustPosition = function() {
-	  var actualValue = self.getValue();
-	  if (actualValue<self.getMinimum()) {
-		  actualValue = self.getMinimum();
-//		  mArrow.getStyle().setFillColor(mDangerColor);
-	  }
-	  else if (actualValue>self.getMaximum()) {
-		  actualValue = self.getMaximum();
-//		  mArrow.getStyle().setFillColor(mDangerColor);
-	  }
-	  else {
-//		  mArrow.getStyle().setFillColor(mColor);
-	  }
-      var angle = self.interpolateAngle(actualValue);
-	  mKnobInterior.setPosition([0.3*Math.cos(angle),0.3*Math.sin(angle)]);
-  }
-
-  self.foregroundIsInside = function() { return false; };
-
-  function pressed(point,info) {
-	  var controller = self.getController();    		
-	  if (controller) controller.invokeImmediateAction("OnPress");
-	  
-	  // init dragging	 
-	  var point = info.point;
-	  var i_point = info.element.getAbsolutePosition(true);
-	  pressed_shift = [point[0]-i_point[0], point[1]-i_point[1]];	  
-  }
-
-  function released(point,info) {
-	  var controller = self.getController();    		
-	  if (controller) controller.invokeImmediateAction("OnRelease");	  
-  }
-
-  function dragged(point,info) {
-	  var point = info.point;
-	  var element = info.element;
-	  var drag_point = [point[0] - pressed_shift[0], point[1] - pressed_shift[1]];	  
-	  var group_pos = self.getAbsolutePosition(true);	  
-	  var group_size = self.getSize();
-	  drag_point[0] = drag_point[0] - group_pos[0];
-	  drag_point[1] = (drag_point[1] - group_pos[1]) * (group_size[0]/group_size[1]);
-	  var angle = self.interpolateAngle(self.getValue());
-	  var rotation = Math.atan2(-drag_point[0],drag_point[1])+Math.PI/2;
-	  if (Math.abs(rotation-angle)>mThreshold) return;
-	  rotation = self.valueFromAngle(rotation);
-	  element.setPosition([0.3*Math.cos(rotation),0.3*Math.sin(rotation)]);
-	  var controller = self.getController();    		
-	  if (controller) {
-		controller.immediatePropertyChanged("Value");
-		controller.invokeImmediateAction("OnChange");
-	  }	        
-  }
-  
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Mesh
- * @class Mesh 
- * @constructor  
- */
-EJSS_DRAWING2D.Mesh = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
-  	
-  	},
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Element.registerProperties(element, controller);
-		// super class
-
-		controller.registerProperty("Data", element.setData);
-		controller.registerProperty("DataType", element.setDataType);
-		controller.registerProperty("Mesh", element.setMesh);
-
-		controller.registerProperty("Points", element.setPoints);
-		controller.registerProperty("Cells", element.setCells);
-		controller.registerProperty("FieldAtPoints", element.setFieldAtPoints);
-		controller.registerProperty("FieldAtCells", element.setFieldAtCells);
-		controller.registerProperty("VectorLength", element.setVectorLength);
-		
-		controller.registerProperty("Boundary", element.setBoundary);
-		controller.registerProperty("BoundaryLabels", element.setBoundaryLabels);
-		controller.registerProperty("BoundaryColors", element.setBoundaryColors);
-		controller.registerProperty("BoundaryWidth", element.setBoundaryLineWidth);
-		controller.registerProperty("DrawBoundary", element.setDrawBoundary);
-	}
-};
-
-
-/**
- * Creates a 2D Mesh
- * A Mesh is a collection of polygons, where each vertex has associated a scalar values value to it.
- * The mesh can be drawn using a color for each polygon, or a color code that uses the vertex values to find areas of equal value.
- * This second feature can be configure setting the levels to distinguish and the color of each of the levels (and below and above them)
- * The Mesh can also be given a set of lines which can be drawn to show the boundaries or special areas of the mesh, each with a different color.  
- * 
- * @method mesh
- */
-EJSS_DRAWING2D.mesh = function (name) {
-  var self = EJSS_DRAWING2D.element(name);
-
-  // Configuration variables
-  var mDataType = -1;	    // An int that overrides the mData type
-  var mPoints; 				// double[][]
-  var mValues; 				// double[][]
-  var mCellValues; 			// double[][][]
-  var mMeshGeometry; 		// int[][]
-  var mAutoscaleZ = true; 
-  var mVectorLength = 0.03;
-
-  var mBoundaryGeometry;		// int[][]
-  var mBoundaryLabels;			// int[]
-  var mBoundaryColors = null; 	// color[] an array with a color for each index. If null, the element color is used
-  var mBoundaryStroke = 1;	  	// stroke
-  var mBoundaryDraw = true;
-  
-  // Implementation variables
-  var mColor = EJSS_DRAWING2D.colorCoded(16, EJSS_DRAWING2D.ColorMapper.SPECTRUM); 		// ColorCoded
-
-  // -------------------------------------
-  // Public methods for mesh geometry
-  // -------------------------------------
-
-  self.getClass = function() {
-  	return "ElementMesh";
-  }
-
-  /**
-   * Indicates what type to consider for the setData argument.
-   * Allows using the same data for different displays.
-   * @param type int or String // one of 0=MESH_2D, 1=MESH_3D, 2=SCALAR_2D_FIELD, 3=SCALAR_3D_FIELD, 4=VECTOR_2D_FIELD, 5=VECTOR_3D_FIELD
-   */
-  self.setDataType = function(type) {
-    switch (type) {
-      case "MESH_2D" : mDataType = 0; break;
-      case "MESH_3D" : mDataType = 1; break;
-      case "SCALAR_2D_FIELD" : mDataType = 2; break;
-      case "SCALAR_3D_FIELD" : mDataType = 3; break;
-      case "VECTOR_2D_FIELD" : mDataType = 4; break;
-      case "VECTOR_3D_FIELD" : mDataType = 5; break;
-      default : mDataType = type; 
-     }
-    self.setChanged(true);
-  }
-  
-  self.getDataType = function() {
-  	return mDataType;
-  }
-
-  /**
-   * Provides the data based on the following structure
-   * @method setData
-   *     "data": {
-   *		"type": int, // one of  0=MESH_2D, 1=MESH_3D, SCALAR_2D_FIELD, SCALAR_3D_FIELD, VECTOR_2D_FIELD, VECTOR_3D_FIELD
-   *        "problem_mesh": mesh, // the mesh that defined the problem
-   *        "solution_mesh": mesh, // the mesh that contains the solution
-   *        "solution_values": double[][][], // the values of the field for the solution mesh
-   *	  }
-   * @param data 
-   */
-  self.setData = function(data) {
-    if (!data) return false;
-    if (mDataType<0 || mDataType>5) {
-   		self.setDataType(data["type"]);
-    }
-    switch (mDataType) {
-      case 0 : // 2D mesh
-      case 1 : // 3D mesh
-        self.setMesh(data["problem_mesh"]); 
-        return true;
-      case 2 : // scalar (real or complex) 2D solution
-      case 3 : // scalar (real or complex) 3D solution
-      case 4 : // vector (real or complex) 2D solution
-      case 5 : // vector (real or complex) 3D solution
-        self.setMesh(data["solution_mesh"]);
-        self.setFieldAtCells(data["solution_values"]);
-        return true;
-     }
-     return false; // no correct data
-  }
-
-  /**
-   * Provides the mesh based on the following structure
-   * @method setMesh
-   *     "mesh": {
-   *		"points":[[x0,y0],[x1,y1],...],
-   *		"cells":[[p00,p01,p02],[p10,p11,p12],...],
-   *		"boundary":[[p00,p01],[p10,p11],...], // end points for each segment of the boundary		
-   *		"boundary_labels":int [l0, l1, l2,...] // one for each boundary segment
-   *	} 
-   * @param mesh 
-   */
-  self.setMesh = function(mesh) {
-    self.setPoints(mesh["points"]);
-    self.setCells(mesh["cells"]);
-    self.setBoundary(mesh["boundary"]);
-    self.setBoundaryLabels(mesh["boundary_labels"]);
-    self.setChanged(true);
-  }
-  
-//  self.getMesh = function() {
-//  	return {"points": mPoints,  "cells": mCells, "values": mValues, "boundary": mBoundaryGeometry};
-//  }
-
-  /**
-   * Provides the array of points that conform the mesh and its boundary
-   * @method setPoints
-   * @param meshs The double[nPoints][2] where nPoints is the number of points in the mesh
-   */
-  self.setPoints = function(points) {
-    mPoints = points;
-    self.setChanged(true);
-  }
-  
-  self.getPoints = function() {
-  	return mPoints;
-  }
-
-  /**
-   * Provides the field value for each point in the mesh
-   * @method setValues
-   * @param values The double[nPoints]array with the value for each mesh vertex
-   */
-  self.setFieldAtPoints = function(values) {
-    mValues = values;
-    mCellValues = null;
-    if(mAutoscaleZ && mValues != null) mColor.setAutoscaleArray2(mValues); 
-//    console.log ("Field at points changed");
-    self.setChanged(true);
-  }
-  
-  self.getFieldAtPoints = function() {
-  	return mValues;
-  }
-
-  /**
-   * Provides the geometry of the mesh
-   * @method setCells
-   * @param cells the int[nCells][nPoints] array with the points in each mesh.
-   * For example,if the first mesh is a triangle joining points 0,3,7, one gets: meshs[0] = { 0, 3, 7 }; 
-   */
-  self.setCells = function(cells) {
-    mMeshGeometry = cells;
-    self.setChanged(true);
-  }
-
-  self.getCells = function() {
-  	return mMeshGeometry;
-  }
-
-  /**
-   * Provides the field value for each point in the mesh
-   * @method setValues
-   * @param values The double[nPoints]array with the value for each mesh vertex
-   */
-  self.setFieldAtCells = function(values) {
-    mCellValues = values;
-    mValues = null;
-    if(mAutoscaleZ && mCellValues != null) mColor.setAutoscaleArray3(mCellValues); 
-    self.setChanged(true);
-  }
-  
-    self.getFieldAtCells = function() {
-  	return mCellValues;
-  }
-  
-  /**
-   * Provides the geometry of the mesh
-   * @method setVectorLength
-   * @param length the double length for vectors in the field 
-   */
-  self.setVectorLength = function(length) {
-    if (mVectorLength !== length) {
-      mVectorLength = length;
-      self.setChanged(true);
-    }
-  }
-
-  self.getVectorLength = function() {
-  	return mVectorLength;
-  }
-
-  
-  /**
-   * Provides the data for the boundary.
-   * @method setBoundary
-   * @param meshs The int[nOfSegments][nPointsInSegment] array with the mesh information, where:
-   * <ul>
-   * <li>First index = nOfSegments : number of segments in the boundary</li>
-   * <li>Second index = nPointsInSegment : the points in this segment</li>
-   * </ul>
-   */
-  self.setBoundary = function(boundary) {
-    mBoundaryGeometry = boundary;
-    self.setChanged(true);
-  }
-
-  self.getBoundary = function() {
-  	return mBoundaryGeometry;
-  }
-
-  /**
-   * Provides the label for each boundary segment
-   * @method setBoundaryLabels
-   * @param values The int[nOfSegments] array with the label for each boundary segment
-   */
-  self.setBoundaryLabels = function(labels) {
-    mBoundaryLabels = labels;
-    self.setChanged(true);
-  }
-
-  self.getBoundaryLabels = function() {
-  	return mBoundaryLabels;
-  }
-
-  /**
-   * The color to use for each boundary index 
-   * There must be a color for each index 
-   * If not enough colors are given, or colors is null, the element draw color is used
-   * @method setBoundaryColors
-   * @param colors
-   */
-  self.setBoundaryColors = function(colors) {
-    mBoundaryColors = colors;
-    self.setChanged(true);
-  }
-  
-  self.getBoundaryColors = function() {
-    return mBoundaryColors;
-  }
-  
-  self.setBoundaryLineWidth = function(width) {
-    mBoundaryStroke = Math.max(1, width);
-    self.setChanged(true);
-  }
-
-  self.getBoundaryLineWidth = function() {
-    return mBoundaryStroke;
-  }
-
-  self.setBoundaryStroke = function(stroke) {
-    mBoundaryStroke = stroke;
-    self.setChanged(true);
-  }
-
-  self.getBoundaryStroke = function() {
-    return mBoundaryStroke;
-  }
-
-  self.setDrawBoundary = function(draw) {
-    mBoundaryDraw = draw;
-    self.setChanged(true);
-  }
-
-  self.getDrawBoundary = function() {
-    return mBoundaryDraw;
-  }
-
-  // -------------------------------------
-  // Public methods for coloring the meshs
-  // -------------------------------------
-
-  /**
-   * Returns the ColorCoded for customization
-   * @method getDrawer
-   * @return
-   */
-  self.getColorCoded = function() {
-    return mColor;
-  }
-  
-  /**
-   * Sets the autoscale flag and the floor and ceiling values for the colors.
-   *
-   * If autoscaling is true, then the min and max values of z are span the colors.
-   *
-   * If autoscaling is false, then floor and ceiling values limit the colors.
-   * Values below min map to the first color; values above max map to the last color.
-   *
-   * @method setAutoscaleZ
-   * @param isAutoscale
-   * @param floor
-   * @param ceil
-   */
-  self.setAutoscaleZ = function (isAutoscale, floor, ceil) {
-    mAutoscaleZ = isAutoscale;
-    if (mAutoscaleZ) {
-    	if(mValues != null)	mColor.setAutoscaleArray2(mValues); 
-    	else if(mCellValues != null) mColor.setAutoscaleArray3(mCellValues); 
-    } else mColor.setScale(floor, ceil);
-    self.setChanged(true);
-  }
-  
-  /**
-   * Gets the autoscale flag for z.
-   *
-   * @method isAutoscaleZ
-   * @return boolean
-   */
-  self.isAutoscaleZ = function() {
-    return mAutoscaleZ;
-  }
-
-  /**
-   * Returns bounds for an element
-   * @override
-   * @method getBounds
-   * @return Object{left,rigth,top,bottom}
-   */
-  self.getBounds = function(element) {
-  	var xmin=0, xmax=0, ymin=0, ymax=0;
-  	var points = self.getPoints();
-  	if (points && points.length>0) {
-      var len = points.length;
-      xmax = xmin = points[0][0];
-	  ymax = ymin = points[0][1];    	
-	  for(var j=1; j<len; j++) {
-			var x = points[j][0], y = points[j][1];
-			if(x>xmax) xmax=x; if(y>ymax) ymax=y; if(x<xmin) xmin=x; if(y<ymin) ymin=y;
-	  }
-	}    
-    var x = self.getX(), y = self.getY();
-    var sx = self.getSizeX(), sy = self.getSizeY();
-  	var mx = sx/2, my = sy/2;  	
-  	var d = self.getRelativePositionOffset(sx,sy);
-	var result =  {
-		left: ((x+d[0])-mx)+xmin*sx,
-		right: ((x+d[0])-mx)+xmax*sx,
-		top: ((y+d[1])-my)+ymax*sy,
-		bottom: ((y+d[1])-my)+ymin*sy
-	}
-	return result;
-  };  
-
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING2D.Mesh.registerProperties(self, controller);
-  };
-	
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1]);
-  self.setRelativePosition("SOUTH_WEST");
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Shape
- * @class Shape 
- * @constructor  
- */
-EJSS_DRAWING2D.Meter = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-      controller.registerProperty("Value", element.setValue, element.getValue);
-      controller.registerProperty("Minimum", element.setMinimum, element.getMinimum);
-      controller.registerProperty("Maximum", element.setMaximum, element.getMaximum);
-
-      controller.registerProperty("AngleForMinimum", element.setAngleForMinimum, element.getAngleForMinimum);
-      controller.registerProperty("AngleForMaximum", element.setAngleForMaximum, element.getAngleForMaximum);
-
-      controller.registerProperty("NumberOfMarks",element.setNumberOfMarks,element.getNumberOfMarks);
-      controller.registerProperty("BigMark",element.setBigMark,element.getBigMark);
-      controller.registerProperty("MediumMark",element.setMediumMark,element.getMediumMark);
-      controller.registerProperty("Digits",element.setDigits,element.getDigits);
-
-      controller.registerProperty("Radius", element.setRadius);
-      controller.registerProperty("CircleColor",element.setCircleColor);
-      controller.registerProperty("CircleWidth",element.setCircleWidth);
-      controller.registerProperty("FillColor",element.setFillColor);
-      
-      controller.registerProperty("Foreground",element.setForeground);
-      controller.registerProperty("LineWidth",element.setLineWidth);
-
-      controller.registerProperty("ArrowColor",element.setArrowColor);
-      controller.registerProperty("ArrowWidth",element.setArrowWidth);
-
-      controller.registerProperty("DrawLines",element.setDrawLines);
-      controller.registerProperty("DrawText",element.setDrawText);
-
-      controller.registerProperty("Brand",element.setBrand);
-      controller.registerProperty("Units",element.setUnits);
-      
-      controller.registerProperty("MarksFont",element.setMarksFont);
-      controller.registerProperty("BrandFont",element.setBrandFont);
-      controller.registerProperty("UnitsFont",element.setUnitsFont);
-    }
-
-};
-
-/**
- * Creates a 2D circular meter
- * @method shape
- */
-EJSS_DRAWING2D.meter = function (mName) {
-  var self = EJSS_DRAWING2D.group(mName);
-
-  // Configuration variables
-  var mValue = 0.0;
-  var mMinimum =   0;
-  var mMaximum = 100;
-
-  var mNumberOfMarks = 21;
-  var mBigMark = 4;
-  var mMediumMark = 2;
-  var mDigits = 0;
-
-  var mAngleForMinimum = Math.PI/2 + 1.5*Math.PI/2;
-  var mAngleForMaximum = Math.PI/2 - 1.5*Math.PI/2;
-
-  // Implementation variables
-  var mArrow, mCircle, mSegments, mTexts, mBrand, mUnits;
-  var mColor = "Black", mDangerColor = "Red";
-  var mForegroundCreated = false;
-
-  var mElements = [];
-  
-  self.getElement = function(keyword) {
-	  return mElements[keyword];
-  };
-  
-  // ----------------------------------------------------
-  // public functions
-  // ----------------------------------------------------
-  
-  /**
-   * Sets the value of the element. 
-   * @method setValue
-   * @param value
-   */
-  self.setValue = function(value) {
-    if (mValue!=value) {
-    	mValue = value;
-    	self.adjustPosition();
-    }
-  }
-  
-  /**
-   * @method getValue
-   * @return current value
-   */
-  self.getValue = function() { 
-    return mValue; 
-  };    
-
-  /**
-   * Sets the minimum value of the element. 
-   * @method setMinimum
-   * @param value
-   */
-  self.setMinimum = function(value) {
-    if (mMinimum!=value) {
-    	mMinimum = value;
-        self.setChanged(true);
-    }
-  }
-  
-  /**
-   * @method getMinimum
-   * @return current minimum
-   */
-  self.getMinimum = function() { 
-    return mMinimum; 
-  };    
-
-  /**
-   * Sets the minimum value of the element. 
-   * @method setMaximum
-   * @param value
-   */
-  self.setMaximum = function(value) {
-	if (mMaximum!=value) {
-		mMaximum = value;
-        self.setChanged(true);
-	}
-  }
-  
-  /**
-   * @method getMaximum
-   * @return current maximum
-   */
-  self.getMaximum = function() { 
-    return mMaximum; 
-  };    
-
-  /**
-   * Sets the angle at which to display the minimum value 
-   * @method setAngleForMinimum
-   * @param value
-   */
-  self.setAngleForMinimum = function(value) {
-    if (mAngleForMinimum!=value) {
-    	mAngleForMinimum = value;
-        self.setChanged(true);
-    }
-  }
-  
-  /**
-   * @method getAngleForMinimum
-   * @return current angle at which to display the minimum value
-   */
-  self.getAngleForMinimum = function() { 
-    return mAngleForMinimum; 
-  };    
-
-  /**
-   * Sets the angle at which to display the maximum value 
-   * @method setAngleForMaximum
-   * @param value
-   */
-  self.setAngleForMaximum = function(value) {
-	if (mAngleForMaximum!=value) {
-		mAngleForMaximum = value;
-        self.setChanged(true);
-	}
-  }
-  
-  /**
-   * @method getAngleForMaximum
-   * @return current angle at which to display the maximum value 
-   */
-  self.getAngleForMaximum = function() { 
-    return mAngleForMaximum; 
-  };    
-
-  /***
-   * Sets the number of marks
-   * @method setNumberOfMarks(value)
-   * @visibility public
-   * @param value int
-   */ 
-  self.setNumberOfMarks = function(value) {
-	  if (value!=mNumberOfMarks) {
-		  mNumberOfMarks = value;
-        self.setChanged(true);
-	  }
-  };
-
-  /***
-   * Gets the number of marks
-   * @method getNumberOfMarks
-   * @visibility public
-   * @return int
-   */
-  self.getNumberOfMarks = function() {
-  	return mNumberOfMarks;
-  };
-
-  /***
-   * Sets the interval for big marks
-   * @method setBigMark(value)
-   * @visibility public
-   * @param value int 
-   */ 
-  self.setBigMark = function(value) {
-	  if (value!=mBigMark) {
-        mBigMark = value;
-        self.setChanged(true);
-	  }
-  };
-
-  /***
-   * Gets the interval for big marks
-   * @method getBigMark
-   * @visibility public
-   * @return int
-   */
-  self.getBigMark = function() {
-  	return mBigMark;
-  };
-
-  /***
-   * Sets the interval for medium marks
-   * @method setMediumMark(value)
-   * @visibility public
-   * @param value int
-   */ 
-  self.setMediumMark = function(value) {
-	  if (value!=mMediumMark) {
-		  mMediumMark = value;
-        self.setChanged(true);
-	  }
-  };
- 
-  /***
-   * Gets the interval for medium marks
-   * @method getMediumMark
-   * @visibility public
-   * @return value int
-   */ 
-  self.getMediumMark = function() {
-  	return mMediumMark;
-  };
-
-
-  /***
-   * Sets the number of digits for the marks
-   * @method setDigits(value)
-   * @visibility public
-   * @param value int 
-   */ 
-  self.setDigits = function(value) {
-	  if (value!=mDigits) {
-		  mDigits = value;
-        self.setChanged(true);
-	  }
-  };
-
-  /***
-   * Gets the number of digits for the marks
-   * @method getPrecision
-   * @visibility public
-   * @return int
-   */
-  self.getDigits = function() {
-  	return mDigits;
-  };
-  
-  // ----------------------------------------------------
-  // Properties overwritten
-  // ----------------------------------------------------
-
-  /**
-   * Sets the radius of the element. 
-   * @method setRadius
-   * @param value
-   */
-  self.setRadius = function(value) {
-	  self.setSizeX(2*value);
-	  self.setSizeY(2*value);
-	  if (mCircle) mCircle.setChanged(true);
-	  if (mArrow) mArrow.setChanged(true);
-	  mSegments.setToEach(function(element) { element.setChanged(true); });
-	  mTexts.setToEach(function(element) { element.setChanged(true); });
-	  if (mBrand) mBrand.setChanged(true);
-	  if (mUnits) mUnits.setChanged(true);
-  };
-
-  self.setCircleColor = function(value) { mCircle.getStyle().setLineColor(value); };
-  
-  self.setCircleWidth = function(value) { mCircle.getStyle().setLineWidth(value); };
-
-  self.setFillColor = function(value) { mCircle.getStyle().setFillColor(value); };
-
-  self.setArrowColor = function(value) {
-	  if (value=="Red") mDangerColor = "Yellow";
-	  else mDangerColor = "Red";
-	  mColor = value;
-	  mArrow.getStyle().setLineColor(value);
-	  mArrow.getStyle().setFillColor(value);
-  };
-
-  self.setArrowWidth = function(value) { mArrow.getStyle().setLineWidth(value); }
-
-  self.setForeground = function(value) { 
-	  mSegments.setToEach(function(element) { element.getStyle().setLineColor(value); });
-	  mTexts.setToEach(function(element) { element.getFont().setFillColor(value); });
-	  mBrand.getFont().setFillColor(value);
-	  mUnits.getFont().setFillColor(value);
-}
-  
-  self.setLineWidth = function(value) { 
-	  mSegments.setToEach(function(element) { element.getStyle().setLineWidth(value); });
-  }
-
-  self.setDrawLines = function(value) { 
-	  mSegments.setToEach(function(element,value) { element.setVisible(value); },value);
-  }
-  
-  self.setDrawText = function(value) { 
-	  mTexts.setToEach(function(element,value) { element.setVisible(value); },value);
-  }
-
-  self.setFont = function(value) { 
-	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
-	  mBrand.getFont().setFont(value);
-	  mUnits.getFont().setFont(value);
-  }
-
-  self.setFont = function(value) { 
-	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
-	  mBrand.getFont().setFont(value);
-	  mUnits.getFont().setFont(value);
-  }
-  self.setMarksFont = function(value) { 
-	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
-  }
-  self.setBrandFont = function(value) { mBrand.getFont().setFont(value); }
-  self.setUnitsFont = function(value) { mUnits.getFont().setFont(value); }
-
-  self.setBrand = function(value) { mBrand.setText(value); }
-  self.setUnits= function(value) { mUnits.setText(value); }
-
-  // ----------------------------------------------------
-  // Properties and copies
-  // ----------------------------------------------------
-
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.Meter.registerProperties(self,controller);
-  };
-
-  // ----------------------------------------------------
-  // private or protected functions
-  // ----------------------------------------------------
-
-  self.superSetParent = self.setParent;
-  
-  self.setParent = function(parent, sibling) {
-	self.superSetParent(parent,sibling);
-	if (!mForegroundCreated) {
-	  self.createBasics();
-	  self.createForeground();
-	  mForegroundCreated = true;
-    }
-	self.addParticularChildren();
-	self.adjustForeground();
-  }
-
-  self.dataCollected = function() {
-	  if (self.isChanged()) {
-		  self.adjustForeground();
-		  self.setChanged(false);
-	  }
-  }; 
-  
-  self.addParticularChildren = function() {
-		if (mCircle) mCircle.setParent(self);
-		if (mSegments) mSegments.setToEach(function(element) { element.setParent(self); });
-		if (mTexts) mTexts.setToEach(function(element) { element.setParent(self); });
-		if (mBrand) mBrand.setParent(self);
-		if (mUnits) mUnits.setParent(self);
-		if (mArrow) mArrow.setParent(self);
-  };
-
-  self.createBasics = function() {
-    mCircle = EJSS_DRAWING2D.shape(mName+".circle");
-    mCircle.setSize([1,1]);
-    mCircle.setShapeType("ELLIPSE");
-    mCircle.getStyle().setLineWidth(3);
-    mCircle.getStyle().setLineColor("Grey");
-    mCircle.getStyle().setFillColor("White");
-    mElements['circle'] = mCircle;
-
-    mArrow = EJSS_DRAWING2D.arrow(mName+".arrow");
-    mArrow.setSize([0.45,0]);
-    mArrow.getStyle().setLineWidth(2);
-    mArrow.setMarkStart("WEDGE");
-    mArrow.setMarkEnd("POINTED");
-    mElements['arrow'] = mArrow;
-  };
-  
-  self.createForeground = function() {
-    mSegments = EJSS_DRAWING2D.segmentSet(mName+".segments");
-    mSegments.setToEach(function(element) { element.setRelativePosition("SOUTH_WEST"); });
-    mElements['segments'] = mSegments;
-
-    mTexts = EJSS_DRAWING2D.textSet(mName+".texts");
-    mTexts.setToEach(function(element) { element.getFont().setFont("normal bold 12px \"Courier New\", Courier, monospace"); });
-    mElements['texts'] = mTexts;
-
-    mBrand = EJSS_DRAWING2D.text(mName+".brand");
-    mBrand.setPosition([0,0.20]);
-    mBrand.setText("Meter");
-    mBrand.getFont().setFont("normal bold 12px \"Courier New\", Courier, monospace");
-    mElements['brand'] = mBrand;
-
-    mUnits = EJSS_DRAWING2D.text(mName+".Units");
-    mUnits.setPosition([0,-0.25]);
-    mUnits.setText("%");
-    mUnits.getFont().setFont("normal bold 12px \"Courier New\", Courier, monospace");
-    mElements['units'] = mUnits;
-}
-  
-  self.interpolateAngle= function(value) {
-	 return mAngleForMinimum + (value-mMinimum)/(mMaximum-mMinimum)*(mAngleForMaximum-mAngleForMinimum);
-  };
-
-  self.valueFromAngle= function(angle) {
-	  angle = Math.max(Math.min(angle,mAngleForMinimum),mAngleForMaximum);
-	  mValue = mMaximum - (angle-mAngleForMaximum)/(mAngleForMinimum-mAngleForMaximum)*(mMaximum-mMinimum);
-      return angle;
-  };
-
-  self.adjustPosition = function() {
-	  var actualValue = mValue;
-	  if (mValue<mMinimum) {
-		  actualValue = mMinimum;
-		  mArrow.getStyle().setLineColor(mDangerColor);
-		  mArrow.getStyle().setFillColor(mDangerColor);
-	  }
-	  else if (mValue>mMaximum) {
-		  actualValue = mMaximum;
-		  mArrow.getStyle().setLineColor(mDangerColor);
-		  mArrow.getStyle().setFillColor(mDangerColor);
-	  }
-	  else {
-		  actualValue = mValue;
-		  mArrow.getStyle().setLineColor(mColor);
-		  mArrow.getStyle().setFillColor(mColor);
-	  }
-	  var angle = mAngleForMinimum + (actualValue-mMinimum)/(mMaximum-mMinimum)*(mAngleForMaximum-mAngleForMinimum);
-	  mArrow.setTransformation(angle);
-  }
-
-  self.foregroundIsInside = function() { return true; };
-  
-  self.adjustForeground = function() {
-	  var MARK = 1.0/12;
-	  
-	  mSegments.setNumberOfElements(mNumberOfMarks);
-	  var dAngle = (mAngleForMaximum-mAngleForMinimum)/(mNumberOfMarks-1);
-	  var angle = mAngleForMinimum;
-	  var mediumMarksCounter = 0;
-	  var bigMarksCounter = 0;
-	  var direction =  self.foregroundIsInside() ? -MARK : MARK;
-	  
-	  for (var i=0; i<mNumberOfMarks; i++) {
-	    var segment = mSegments.getElement(i);
-	    var xPos = Math.cos(angle)/2;
-	    var yPos = Math.sin(angle)/2;
-	    segment.setPosition([xPos,yPos]);
-	    if (i%mBigMark==0) {
-	      bigMarksCounter++;
-	      segment.setSize([2*direction*xPos,2*direction*yPos]);
-	    }
-	    else if (i%mMediumMark==0) {
-	      mediumMarksCounter++;
-	      segment.setSize([1.5*direction*xPos,1.5*direction*yPos]);
-	    }
-	    else {
-	      segment.setSize([direction*xPos,direction*yPos]);
-	    }
-	    angle += dAngle;
-	  }
-	  
-	  mTexts.setNumberOfElements(bigMarksCounter); //+mediumMarksCounter);
-	  var text_counter=0;
-      var fontSize =  mTexts.getElement(0).getFont().getFontSize();
-      direction =  self.foregroundIsInside() ? 1.7 : 2.5;
-      if (fontSize>30) direction *= 1.5;
-      else if (fontSize>20) direction *= 1.3;
-      else if (fontSize>15) direction *= 1.1;
-	  for (i=0; i<mNumberOfMarks; i++) {
-	    var segment = mSegments.getElement(i);
-	    if (i%mBigMark==0) { // || i%mediumMark==0) {
-	      var text = mTexts.getElement(text_counter);
-	      var pos = segment.getPosition();
-	      var size = segment.getSize();
-	      text.setPosition([pos[0]+direction*size[0],pos[1]+direction*size[1]]);
-	      var mark_value = ((mNumberOfMarks-1-i)*mMinimum + i*mMaximum)/(mNumberOfMarks-1);
-	      text.setText(""+mark_value.toFixed(mDigits));
-	      text_counter++;
-	    }
-	  }
-	  self.adjustPosition();  
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  return self;
-};
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Shape
- * @class Shape 
- * @constructor  
- */
-EJSS_DRAWING2D.Pipe = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-      controller.registerProperty("Points",element.setPoints,element.getPoints);
-      controller.registerProperty("PipeWidth",element.setPipeWidth,element.getPipeWidth);
-    },
-
-    /**
-     * static copyTo method, to be used by sets
-     */
-    copyTo : function(source, dest) {
-      EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
-
-      dest.setPoints(source.getPoints());
-      dest.setPipeWidth(source.getPipeWidth());
-    }
-
-};
-
-/**
- * Creates a 2D shape
- * @method shape
- */
-EJSS_DRAWING2D.pipe = function (name) {
-  var self = EJSS_DRAWING2D.element(name);
-
-  var mPoints = [[0.1,0.2],[0.1,0.3]];
-  var mPipeWidth = 5;
-
-  self.getClass = function() {
-  	return "ElementPipe";
-  };
-
-  // ----------------------------------------------------
-  // public functions
-  // ----------------------------------------------------
-
-  self.setPoints = function(points) {
-      mPoints = points;
-      self.setChanged(true);
-  };
-
-  self.getPoints = function() {
-  	return mPoints;
-  };
-
-  self.setPipeWidth = function(width) { 
-    mPipeWidth = width; 
-    self.setChanged(true);
-  };
-    
-  self.getPipeWidth = function() { 
-    return mPipeWidth; 
-  };
-  
-  // ----------------------------------------------------
-  // Properties and copies
-  // ----------------------------------------------------
-
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.Pipe.registerProperties(self,controller);
-  };
-
-  /**
-   * Copies itself to another element
-   * Extended copyTo method. To be used by Sets
-   * @method copyTo
-   */
-  self.copyTo = function(element) {
-    EJSS_DRAWING2D.Pipe.copyTo(self,element);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1]);
-  self.setRelativePosition("SOUTH_WEST");
-  self.getStyle().setLineWidth(1);
-  self.getStyle().setFillColor("Blue");
-  return self;
-};
-
-
-/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia and Félix J. García 
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*/
-
-/**
- * Framework for 2D drawing.
- * @module 2Ddrawing
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/***
- * A PlottingPanel is a 2D drawing panel with added decoration. The decoration includes axes, gutters and titles.
- * @class EJSS_DRAWING2D.PlottingPanel
- * @parent EJSS_DRAWING2D.DrawingPanel
- * @constructor
- */
-
-EJSS_DRAWING2D.PlottingPanel = {
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.DrawingPanel.registerProperties(element, controller);
-		// super class
-
-		// title (text and font)
-     /*** 
-	  * The title at the top center of the panel
-	  * @property Title
-	  * @type String
-	  * @default "Plot"
-	  */ 
-		controller.registerProperty("Title", element.getTitle().setText);
-		controller.registerProperty("TitleFont", element.getTitle().getFont().setFont);
-		controller.registerProperty("TitleColor", element.getTitle().getFont().setFillColor);
-		controller.registerProperty("TitleMargin", element.getTitle().setMarginY);
-
-		controller.registerProperty("TitleX", element.getTitleX().setText);
-		controller.registerProperty("TitleXFont", element.getTitleX().getFont().setFont);
-		controller.registerProperty("TitleXColor", element.getTitleX().getFont().setFillColor);
-		controller.registerProperty("TitleXMargin", element.getTitleX().setMarginY);
-
-		controller.registerProperty("TitleY", element.getTitleY().setText);
-		controller.registerProperty("TitleYFont", element.getTitleY().getFont().setFont);
-		controller.registerProperty("TitleYColor", element.getTitleY().getFont().setFillColor);
-		controller.registerProperty("TitleYMargin", element.getTitleY().setMarginX);
-		controller.registerProperty("MathTitles", element.setMathTitles, element.getMathTitles);
- 
-		// Grid
-		controller.registerProperty("GridXShow", element.getGrid().setShowX, element.getGrid().getShowX);
-		controller.registerProperty("GridXTicks", element.getGrid().setTicksX, element.getGrid().getTicksX);
-		controller.registerProperty("GridXStep", element.getGrid().setStepX, element.getGrid().getStepX);
-		controller.registerProperty("GridXAutoStepMin", element.getGrid().setAutoStepXMin, element.getGrid().getAutoStepXMin);
-		controller.registerProperty("GridXAutoTicksRange", element.getGrid().setAutoTicksXRange, element.getGrid().getAutoTicksXRange);
-		controller.registerProperty("GridXScale", element.getGrid().setScaleX, element.getGrid().getScaleX);
-		controller.registerProperty("GridXScalePrecision", element.getGrid().setScalePrecisionX, element.getGrid().getScalePrecisionX);
-		controller.registerProperty("GridXFixedTick", element.getGrid().setFixedTickX, element.getGrid().getFixedTickX);				
-		controller.registerProperty("GridXAutoTicks", element.getGrid().setAutoTicksX, element.getGrid().getAutoTicksX);
-		controller.registerProperty("GridXLineColor", element.getGrid().setLineColorX);
-		controller.registerProperty("GridXLineWidth", element.getGrid().setLineWidthX);
-		controller.registerProperty("GridXShapeRendering", element.getGrid().setShapeRenderingX);
-
-		controller.registerProperty("GridYShow", element.getGrid().setShowY, element.getGrid().getShowY);
-		controller.registerProperty("GridYTicks", element.getGrid().setTicksY, element.getGrid().getTicksY);
-		controller.registerProperty("GridYStep", element.getGrid().setStepY, element.getGrid().getStepY);
-		controller.registerProperty("GridYAutoStepMin", element.getGrid().setAutoStepYMin, element.getGrid().getAutoStepYMin);
-		controller.registerProperty("GridYAutoTicksRange", element.getGrid().setAutoTicksYRange, element.getGrid().getAutoTicksYRange);
-		controller.registerProperty("GridYScale", element.getGrid().setScaleY, element.getGrid().getScaleY);
-		controller.registerProperty("GridYScalePrecision", element.getGrid().setScalePrecisionY, element.getGrid().getScalePrecisionY);		
-		controller.registerProperty("GridYFixedTick", element.getGrid().setFixedTickY, element.getGrid().getFixedTickY);
-		controller.registerProperty("GridYAutoTicks", element.getGrid().setAutoTicksY, element.getGrid().getAutoTicksY);
-		controller.registerProperty("GridYLineColor", element.getGrid().setLineColorY);
-		controller.registerProperty("GridYLineWidth", element.getGrid().setLineWidthY);
-		controller.registerProperty("GridYShapeRendering", element.getGrid().setShapeRenderingY);
-
-		// axis
- 		controller.registerProperty("AxisXShow", element.getAxisX().setShow);
-		controller.registerProperty("AxisXLineColor", element.getAxisX().getStyle().setLineColor);
-		controller.registerProperty("AxisXLineWidth", element.getAxisX().getStyle().setLineWidth);
-		controller.registerProperty("AxisXShapeRendering", element.getAxisX().getStyle().setShapeRendering);		
-		controller.registerProperty("AxisXFixedTick", element.getAxisX().setFixedTick, element.getAxisX().getFixedTick);
-		controller.registerProperty("AxisXAutoTicks", element.getAxisX().setAutoTicks, element.getAxisX().getAutoTicks);
-		controller.registerProperty("AxisXTicks", element.getAxisX().setTicks, element.getAxisX().getTicks);
-		controller.registerProperty("AxisXStep", element.getAxisX().setStep, element.getAxisX().getStep);
-		controller.registerProperty("AxisXTickStep", element.getAxisX().setTickStep, element.getAxisX().getTickStep);
-		controller.registerProperty("AxisXAutoStepMin", element.getAxisX().setAutoStepMin, element.getAxisX().getAutoStepMin);
-		controller.registerProperty("AxisXAutoTicksRange", element.getAxisX().setAutoTicksRange, element.getAxisX().getAutoTicksRange);
-		controller.registerProperty("AxisXScale", element.getAxisX().setScale, element.getAxisX().getScale);
-		controller.registerProperty("AxisXScalePrecision", element.getAxisX().setScalePrecision, element.getAxisX().getScalePrecision);	    
-	    controller.registerProperty("AxisXFont", element.getAxisX().getFont().setFont);
-		controller.registerProperty("AxisXFontColor", element.getAxisX().getFont().setFillColor);
-
- 		controller.registerProperty("AxisYShow", element.getAxisY().setShow);
-		controller.registerProperty("AxisYLineColor", element.getAxisY().getStyle().setLineColor);
-		controller.registerProperty("AxisYLineWidth", element.getAxisY().getStyle().setLineWidth);
-		controller.registerProperty("AxisYShapeRendering", element.getAxisY().getStyle().setShapeRendering);
-		controller.registerProperty("AxisYFixedTick", element.getAxisY().setFixedTick, element.getAxisY().getFixedTick);
-		controller.registerProperty("AxisYAutoTicks", element.getAxisY().setAutoTicks, element.getAxisY().getAutoTicks);
-		controller.registerProperty("AxisYTicks", element.getAxisY().setTicks, element.getAxisY().getTicks);
-		controller.registerProperty("AxisYStep", element.getAxisY().setStep, element.getAxisY().getStep);
-		controller.registerProperty("AxisYTickStep", element.getAxisY().setTickStep, element.getAxisY().getTickStep);
-		controller.registerProperty("AxisYAutoStepMin", element.getAxisY().setAutoStepMin, element.getAxisY().getAutoStepMin);
-		controller.registerProperty("AxisYAutoTicksRange", element.getAxisY().setAutoTicksRange, element.getAxisY().getAutoTicksRange);
-		controller.registerProperty("AxisYScale", element.getAxisY().setScale, element.getAxisY().getScale);
-		controller.registerProperty("AxisYScalePrecision", element.getAxisY().setScalePrecision, element.getAxisY().getScalePrecision);
-		controller.registerProperty("AxisYFont", element.getAxisY().getFont().setFont);
-		controller.registerProperty("AxisYFontColor", element.getAxisY().getFont().setFillColor);
-
-		// Axis and Grid
-		controller.registerProperty("XFixedTick", function(v) {
-			element.getAxisX().setFixedTick(v);
-			element.getGrid().setFixedTickX(v);
-		});
-		controller.registerProperty("YFixedTick", function(v) {
-			element.getAxisY().setFixedTick(v);
-			element.getGrid().setFixedTickY(v);
-		});
-
-		//controller.registerProperty("GridXTicks", element.getGrid().setTicksX, element.getGrid().getTicksX);
-		//controller.registerProperty("AxisXTicks", element.getAxisX().setTicks, element.getAxisX().getTicks);
-		controller.registerProperty("XTicks", function(v) {
-			element.getAxisX().setTicks(v);
-			element.getGrid().setTicksX(v);
-		});
-		controller.registerProperty("YTicks", function(v) {
-			element.getAxisY().setTicks(v);
-			element.getGrid().setTicksY(v);
-		});
-
-		//controller.registerProperty("GridXStep", element.getGrid().setStepX, element.getGrid().getStepX);
-		//controller.registerProperty("AxisXStep", element.getAxisX().setStep, element.getAxisX().getStep);
-		controller.registerProperty("XStep", function(v) {
-			element.getAxisX().setStep(v);
-			element.getGrid().setStepX(v);
-		});
-		controller.registerProperty("YStep", function(v) {
-			element.getAxisY().setStep(v);
-			element.getGrid().setStepY(v);
-		});
-
-		controller.registerProperty("XTickStep", function(v) {
-			element.getAxisX().setTickStep(v);
-			element.getGrid().setTickStepX(v);
-		});
-		controller.registerProperty("YTickStep", function(v) {
-			element.getAxisY().setTickStep(v);
-			element.getGrid().setTickStepY(v);
-		});
-
-		//controller.registerProperty("GridXAutoStepMin", element.getGrid().setAutoStepXMin, element.getGrid().getAutoStepXMin);
-		//controller.registerProperty("AxisXAutoStepMin", element.getAxisX().setAutoStepMin, element.getAxisX().getAutoStepMin);
-		controller.registerProperty("XAutoStepMin", function(v) {
-			element.getAxisX().setAutoStepMin(v);
-			element.getGrid().setAutoStepXMin(v);
-		});
-		controller.registerProperty("YAutoStepMin", function(v) {
-			element.getAxisY().setAutoStepMin(v);
-			element.getGrid().setAutoStepYMin(v);
-		});
-
-		//controller.registerProperty("GridXAutoTicksRange", element.getGrid().setAutoTicksXRange, element.getGrid().getAutoTicksXRange);
-		//controller.registerProperty("AxisXAutoTicksRange", element.getAxisX().setAutoTicksRange, element.getAxisX().getAutoTicksRange);
-		controller.registerProperty("XAutoTicksRange", function(v) {
-			element.getAxisX().setAutoTicksRange(v);
-			element.getGrid().setAutoTicksXRange(v);
-		});
-		controller.registerProperty("YAutoTicksRange", function(v) {
-			element.getAxisY().setAutoTicksRange(v);
-			element.getGrid().setAutoTicksyRange(v);
-		});
-
-		//controller.registerProperty("GridXScale", element.getGrid().setScaleX, element.getGrid().getScaleX);
-		//controller.registerProperty("AxisXScale", element.getAxisX().setScale, element.getAxisX().getScale);
-		controller.registerProperty("XScale", function(v) {
-			element.getAxisX().setScale(v);
-			element.getGrid().setScaleX(v);
-		});
-		controller.registerProperty("YScale", function(v) {
-			element.getAxisY().setScale(v);
-			element.getGrid().setScaleY(v);
-		});
-
-		//controller.registerProperty("GridXScalePrecision", element.getGrid().setScalePrecisionX, element.getGrid().getScalePrecisionX);
-		//controller.registerProperty("AxisXScalePrecision", element.getAxisX().setScalePrecision, element.getAxisX().getScalePrecision);
-		controller.registerProperty("XScalePrecision", function(v) {
-			element.getAxisX().setScalePrecision(v);
-			element.getGrid().setScalePrecisionX(v);
-		});
-		controller.registerProperty("YScalePrecision", function(v) {
-			element.getAxisY().setScalePrecision(v);
-			element.getGrid().setScalePrecisionY(v);
-		});
-
-		//controller.registerProperty("GridXAutoTicks", element.getGrid().setAutoTicksX, element.getGrid().getAutoTicksX);
-		//controller.registerProperty("AxisXAutoTicks", element.getAxisX().setAutoTicks, element.getAxisX().getAutoTicks);
-		controller.registerProperty("XAutoTicks", function(v) {
-			element.getAxisX().setAutoTicks(v);
-			element.getGrid().setAutoTicksX(v);
-		});
-		controller.registerProperty("YAutoTicks", function(v) {
-			element.getAxisY().setAutoTicks(v);
-			element.getGrid().setAutoTicksY(v);
-		});
-		
-	}
-};
-
-EJSS_DRAWING2D.plottingPanel = function(mName,mGraphicsMode) {
-	var self = EJSS_DRAWING2D.drawingPanel(mName,mGraphicsMode);
-	
-	/**
-	 * @method getGrid
-	 * @return grid element
-	 */
-	self.getGrid = function() {
-		return mGrid;
-	};
-	
-	/***
-	 * @method getAxisX()
-	 * @return the axis element for the X dimension
-     * @visibility public
-	 * @see EJSS_DRAWING2D.Axis
-	 */
-	self.getAxisX = function() {
-		return mAxisX;
-	};
-	
-	/***
-	 * @method getAxisY()
-	 * @return the axis element for the Y dimension
-     * @visibility public
-	 * @see EJSS_DRAWING2D.Axis
-	 */
-	self.getAxisY = function() {
-		return mAxisY;
-	};
-	
-	/**
-	 * @method getTitleX
-	 * @return axis X title element
-	 */
-	self.getTitleX = function() {
-		return mTitleX;
-	};
-	
-	/**
-	 * @method getTitleY
-	 * @return axis Y title element
-	 */
-	self.getTitleY = function() {
-		return mTitleY;
-	};
-	
-	/**
-	 * @method getTitle
-	 * @return plot title element
-	 */
-	self.getTitle = function() {
-		return mTitle;
-	};
-
-	self.setMathTitles = function(enabled) {
-		enabled = !!enabled;
-		mTitle.setMathText(enabled);
-		mTitleX.setMathText(enabled);
-		mTitleY.setMathText(enabled);
-		self.setChanged(true);
-	};
-
-	self.getMathTitles = function() {
-		return mTitle.getMathText();
-	};
-	
-	/**
-	 * @method getFixedTickX
-	 * @return x fixed tick
-	 */
-	self.getFixedTickX = function() {
-		return getGrid().getFixedTickX();
-	};
-
-	/**
-	 * @method getFixedTickY
-	 * @return y fixed tick
-	 */
-	self.getFixedTickY = function() {
-		return getGrid().getFixedTickY();
-	};
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.PlottingPanel.registerProperties(self, controller);
-	};
-	
-	var mBottomGroup = EJSS_DRAWING2D.group(mName + ".bottomgroup");
-	mBottomGroup.setRelativePosition("SOUTH_WEST");
-	mBottomGroup.panelChangeListener = function(event) {
-		if (event == "bounds") {
-			var xmin = self.getRealWorldXMin();
-			var xmax = self.getRealWorldXMax();
-			var ymin = self.getRealWorldYMin();
-			var ymax = self.getRealWorldYMax();
-			var sx = Math.abs(xmax - xmin); 
-			var sy = Math.abs(ymax - ymin);
-			mBottomGroup.setSize([sx, sy]);
-			mBottomGroup.setPosition([xmin, ymin]);
-			return true;
-		}
-	};
-	mBottomGroup.panelChangeListener("bounds");
-
-	var mGrid = EJSS_DRAWING2D.grid(mName + ".grid");
-	mGrid.setGroup(mBottomGroup);
-	mGrid.setRelativePosition("SOUTH_WEST");
-	mGrid.setLineColorX("lightgray");
-	mGrid.setShapeRenderingX("RENDER_CRISPEDGES");
-	mGrid.setLineColorY("lightgray");
-	mGrid.setShapeRenderingY("RENDER_CRISPEDGES");
-	mGrid.setSize([1,1]);
-	mGrid.setPosition([0, 0]);
-	mGrid.panelChangeListener = function(event) {
-		if (event == "bounds") {
-			var xmin = self.getRealWorldXMin();
-			var xmax = self.getRealWorldXMax();
-			mGrid.setScaleX([xmin, xmax]);
-			mGrid.setTicksXMode(self.getTypeScaleX());
-			var ymin = self.getRealWorldYMin();
-			var ymax = self.getRealWorldYMax();
-			mGrid.setScaleY([ymin, ymax]);
-			mGrid.setTicksYMode(self.getTypeScaleY());		
-			
-			// mGrid.setInvertedScaleY(self.getInvertedScaleY());
-			return true;
-		}
-	};
-	var mTopGroup = EJSS_DRAWING2D.group(mName + ".topgroup");
-	mTopGroup.setRelativePosition("SOUTH_WEST");
-	mTopGroup.panelChangeListener = function(event) {
-		if (event == "bounds") {
-			var xmin = self.getRealWorldXMin();
-			var xmax = self.getRealWorldXMax();
-			var ymin = self.getRealWorldYMin();
-			var ymax = self.getRealWorldYMax();
-			var sx = Math.abs(xmax - xmin); 
-			var sy = Math.abs(ymax - ymin);
-			mTopGroup.setSize([sx, sy]);
-			mTopGroup.setPosition([xmin, ymin]);
-			return true;
-		}
-	};
-	mTopGroup.panelChangeListener("bounds");
-
-	var mAxisX = EJSS_DRAWING2D.axis(mName + ".axisX");
-	mAxisX.setGroup(mTopGroup);
-	mAxisX.setRelativePosition("WEST");
-	mAxisX.getStyle().setLineColor("black");
-	mAxisX.getStyle().setShapeRendering("RENDER_CRISPEDGES");
-	mAxisX.getFont().setFontSize(10);
-	mAxisX.setSize([1, 1]);
-	mAxisX.setPosition([0, 0]);
-	mAxisX.setOrient("AXIS_HORIZONTAL");
-	mAxisX.panelChangeListener = function(event) {
-		if (event == "bounds") {
-			var xmin = self.getRealWorldXMin();
-			var xmax = self.getRealWorldXMax();
-			mAxisX.setScale([xmin, xmax]);
-			mAxisX.setTicksMode(self.getTypeScaleX());
-			
-			if(self.getInvertedScaleY()) {
-				mAxisX.setTextPosition("TICKS_DOWN");
-				mTitleX.setMarginY(-30);
-				mTitle.setMarginY(20);
-			} else {
-				mAxisX.setTextPosition("TICKS_UP");
-				mTitleX.setMarginY(30);
-				mTitle.setMarginY(-20);
-			}
-			return true;
-		}
-	};
-	mAxisX.setTicksMode(self.getTypeScaleX());
-	
-	
-	var mAxisY = EJSS_DRAWING2D.axis(mName + ".axisY");
-	mAxisY.setGroup(mTopGroup);
-	mAxisY.setRelativePosition("SOUTH");
-	mAxisY.getStyle().setLineColor("black");
-	mAxisY.getStyle().setShapeRendering("RENDER_CRISPEDGES");
-	mAxisY.getFont().setFontSize(10);
-	mAxisY.setSize([1, 1]);
-	mAxisY.setPosition([0, 0]);
-	mAxisY.setOrient("AXIS_VERTICAL");
-	mAxisY.panelChangeListener = function(event) {
-		if (event == "bounds") {
-			var ymin = self.getRealWorldYMin();
-			var ymax = self.getRealWorldYMax();
-			mAxisY.setScale([ymin, ymax]);
-			mAxisY.setTicksMode(self.getTypeScaleY());
-			
-			mAxisY.setInvertedScaleY(self.getInvertedScaleY());			
-			return true;
-		}
-	};
-	mAxisY.setTicksMode(self.getTypeScaleY());
-	
-	var mTitleX = EJSS_DRAWING2D.text(mName + ".titleX");
-	mTitleX.setGroup(mTopGroup);
-	mTitleX.setRelativePosition("CENTER");
-	mTitleX.getFont().setFontSize(12);
-	mTitleX.setPosition([0.5, 0]);
-	mTitleX.setMarginY(30);
-	mTitleX.setText("x");
-
-	var mTitleY = EJSS_DRAWING2D.text(mName + ".titleY");
-	mTitleY.setGroup(mTopGroup);
-	mTitleY.setRelativePosition("CENTER");
-	mTitleY.getFont().setFontSize(12);
-	mTitleY.setWritingMode("MODE_DOWNTOP");
-	mTitleY.setPosition([0, 0.5]);
-	mTitleY.setMarginX(-40);
-	mTitleY.setText("y");
-
-	var mTitle = EJSS_DRAWING2D.text(mName + ".title");
-	mTitle.setGroup(mTopGroup);
-	mTitle.setRelativePosition("CENTER");
-	mTitle.getFont().setFontSize(12);
-	mTitle.setPosition([0.5, 1.0]);
-	mTitle.setMarginY(-20);
-	mTitle.setText("Plot");
-
-	self.getStyle().setLineColor('black');
-	self.getStyle().setFillColor('white');
-	self.getStyle().setShapeRendering("RENDER_CRISPEDGES");
-
-	self.setGutters([50, 50, 50, 50]);
-	self.getGuttersStyle().setLineColor('black');
-	self.getGuttersStyle().setFillColor('rgb(211,216,255)');
-	self.getGuttersStyle().setShapeRendering("RENDER_CRISPEDGES");
-
-	self.addDecoration(mBottomGroup);
-	self.addDecoration(mGrid);
-	self.addDecoration(mTopGroup, -1, true);
-	self.addDecoration(mAxisX, -1, true);
-	self.addDecoration(mAxisY, -1, true);
-	self.addDecoration(mTitleX, -1, true);
-	self.addDecoration(mTitleY, -1, true);
-	self.addDecoration(mTitle, -1, true);
-
-	return self;
-};
-/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*
-* This code is Open Source and is provided "as is".
-*/
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Polygon
- * @class Polygon 
- * @constructor  
- */
-EJSS_DRAWING2D.Polygon = {
-  	NO_CONNECTION : 0, 	// The next point will not be connected to the previous one
- 	LINE_CONNECTION : 1,	// The next point will be connected to the previous one by a segment
-
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
-  	
-		dest.setPoints(source.getPoints());
-  	},
-
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Element.registerProperties(element, controller);
-		// super class
-
-		controller.registerProperty("Points", element.setPoints, element.getPoints);
-		controller.registerProperty("PointsX", element.setPointsX);
-		controller.registerProperty("PointsY", element.setPointsY);
-		controller.registerProperty("LastPoint", element.addPoint, element.getLastPoint);		
-	}
-			
-};
-
-/**
- * Creates a 2D Polygon
- * @method polygon
- */
-EJSS_DRAWING2D.polygon = function(name) {
-	var self = EJSS_DRAWING2D.element(name);
-
-  	var mPointList = []; 	// The current list of points  	
-	var mTempX = null;
-	var mTempY = null; 
-	 
-	self.getClass = function() {
-		return "ElementPolygon";
-	}
-		  
-  /**
-   * Adds a new point to the Polygon.
-   * @method addPoint
-   * @param x double The X coordinate of the point 
-   * 		or point double[] The double[2] array with the coordinates of the point.
-   * @param y double The Y coordinate of the point.
-   * @param style connected or not.
-   */
-  self.addPoint = function (x, y, style) {
-    if(x instanceof Array)    	
-    	addPoint(x[0], x[1], x[2]);
-    else 
-    	addPoint (x, y, style);
-    self.setChanged(true);
-  }
-
-  /**
-   * Adds an array of points to the Polygon.
-   * @method addPoints
-   * @param xInput double The double[] array with the X coordinates of the points.
-   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
-   * @param yInput double The double[] array with the Y coordinates of the points.
-   */
-  self.addPoints  = function(x, y) {
-    if (x==undefined || x==null || x[0]==undefined) return;
-  	if(x[0] instanceof Array) {    
-    	for (var i=0,n=x.length; i<n; i++) addPoint (x[i][0],x[i][1],x[i][2]);  		
-  	}
-    else {
-    	var n = Math.min(x.length,y.length);
-    	for (var i=0; i<n; i++) addPoint (x[i],y[i]);
-    }
-    self.setChanged(true);
-  }
-
-  /**
-   * Sets an array of points to the Polygon.
-   * @method setPoints
-   * @param x double The double[] array with the X coordinates of the points.
-   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
-   * @param y double The double[] array with the Y coordinates of the points.
-   */
-  self.setPoints  = function(x, y) {
-  	self.clear();
-  	self.addPoints(x,y);
-  	self.setChanged(true);
-  }
-
-
-  /**
-   * Adds the X coordinates of an array of points to the Polygon.
-   * @method addXPoints
-   * @param x double The double[] array with the X coordinates of the points.
-   */
-  self.setPointsX  = function(x) {
-    if (mTempY==null) mTempX = x;
-    else {
-      self.setPoints(x,mTempY);
-      mTempY = null;
-    }
-  }
-
-  /**
-   * Adds the Y coordinates of an array of points to the Polygon.
-   * @method addYPoints
-   * @param y double The double[] array with the Y coordinates of the points.
-   */
-  self.setPointsY  = function(y) {
-    if (mTempX==null) mTempY = y;
-    else {
-      self.setPoints(mTempX,y);
-      mTempX = null;
-    }
-  }
-
-  /**
-   * Returns all points.
-   * @method getPoints
-   * @return points
-   */
-  self.getPoints = function () {
-    return mPointList; 
-  }
-
-  /**
-   * Gets last point.
-   * @method getLastPoint
-   * @return point
-   */
-  self.getLastPoint = function () {
-  	if(mPointList.length > 0) 
-    	return mPointList[mPointList.length-1];
-    else return [];
-  }
-
-  /**
-   * Clears all points from all segments of the Polygon.
-   * @method clear
-   */
-  self.clear = function() {
-    mPointList = [];
-  	self.setChanged(true);
-  }
-  
-  /**
-   * Returns bounds for an element
-   * @override
-   * @method getBounds
-   * @return Object{left,rigth,top,bottom}
-   */
-  self.getBounds = function(element) {
-  	var xmin, xmax, ymin, ymax;
-  	var points = self.getPoints();
-    var len = points.length;
-    if(len == 0) {
-    	xmin = xmax = ymin = ymax = 0;
-    }             
-    else {
-		xmax = xmin = points[0][0];
-		ymax = ymin = points[0][1];    	
-		for(var j=1; j<len; j++) {
-			var x = points[j][0], y = points[j][1];
-			if(x>xmax) xmax=x; if(y>ymax) ymax=y; if(x<xmin) xmin=x; if(y<ymin) ymin=y;
-		}
-	}    
-    var x = self.getX(), y = self.getY();
-    var sx = self.getSizeX(), sy = self.getSizeY();
-  	var mx = sy/2, my = sy/2;  	
-  	var d = self.getRelativePositionOffset(sx,sy);
-	return {
-		left: ((x+d[0])-mx)+xmin*sx,
-		right: ((x+d[0])-mx)+xmax*sx,
-		top: ((y+d[1])-my)+ymax*sy, 
-		bottom: ((y+d[1])-my)+ymin*sy
-	}
-  };  
-  
-  function addPoint(_x, _y, _style) {
-    if (isNaN(_x) || isNaN(_y)) { 
-    	return; 
-    }
-    
-    mPointList[mPointList.length] = [_x, _y, _style];
-  }
-
-
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING2D.Polygon.registerProperties(self, controller);
-  };
-  
-  self.copyTo = function(element) {
-    EJSS_DRAWING2D.Polygon.copyTo(self,element);
-  };
-  
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-	self.setSize([1,1]);
-	self.setRelativePosition("SOUTH_WEST");
-	
-	return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//PolygonSet
-//---------------------------------
-
-/**
- * PolygonSet
- * @class PolygonSet 
- * @constructor  
- */
-EJSS_DRAWING2D.PolygonSet = {
-    
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING2D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      controller.registerProperty("Points", 
-          function(v) { set.setToEach(function(element,value) { element.setPoints(value); }, v); }
-      );
-      controller.registerProperty("LastPoint", 
-          function(v) { set.setToEach(function(element,value) { element.addPoint(value); }, v); }
-      );           
-    }        
-};
-
-/**
- * Creates a set of Segments
- * @method polygonSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING2D.polygonSet = function (mName) {
-  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.polygon, mName);
-
-  // Static references
-  var PolygonSet = EJSS_DRAWING2D.PolygonSet;		// reference for PolygonSet
-
-  /**
-   * Registers properties in a ControlElement
-   * @method registerProperties
-   * @param controller A ControlElement that becomes the element controller
-   */
-  self.registerProperties = function(controller) {
-    PolygonSet.registerProperties(self,controller);
-  };
-
-  return self;
-};/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Ruler
- * @class Ruler 
- * @constructor  
- */
-EJSS_DRAWING2D.Ruler = {
-  sROTATE_ICON : "data:image/png;base64,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",
-  sMOVE_ICON   : "data:image/png;base64,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",
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-      controller.registerProperty("Minimum", element.setMinimum);
-      controller.registerProperty("Maximum", element.setMaximum);
-
-      controller.registerProperty("NumberOfMarks",element.setNumberOfMarks,element.getNumberOfMarks);
-      controller.registerProperty("BigMark",element.setBigMark);
-      controller.registerProperty("MediumMark",element.setMediumMark);
-      controller.registerProperty("MarkFactor",element.setMarkFactor);
-      controller.registerProperty("Digits",element.setDigits);
-
-      controller.registerProperty("BorderWidth",element.setBorderWidth);
-      controller.registerProperty("BorderColor",element.setBorderColor);
-      controller.registerProperty("FillColor",element.setFillColor);
-      controller.registerProperty("LineWidth",element.setLineWidth);
-      controller.registerProperty("LineColor",element.setLineColor);
-      controller.registerProperty("TextColor",element.setTextColor);
-      controller.registerProperty("TextFont",element.setTextFont);
-
-      controller.registerProperty("Width",element.setWidth);
-      controller.registerProperty("Length",element.setLength);
-      
-      controller.registerProperty("DrawLines",element.setDrawLines);
-      controller.registerProperty("DrawText",element.setDrawText);
-
-      controller.registerProperty("Enabled",element.setEnabled);
-      controller.registerProperty("Rotates",element.setRotates);
-
-      controller.registerAction("OnDrag",element.getOnRotationInformation);
-      controller.registerAction("OnRotation",element.getOnRotationInformation);
-
-    }
-};
-
-/**
- * Creates a 2D ruler
- * @method ruler
- */
-EJSS_DRAWING2D.ruler = function (mName) {
-  var self = EJSS_DRAWING2D.group(mName);
-
-  // Configuration variables
-  var mLength = 1.1;
-  var mWidth = 0.2;
-  
-  var mMinimum = 0;
-  var mMaximum = 1;
-
-  var mNumberOfMarks = 101;
-  var mBigMark = 10;
-  var mMediumMark = 5;
-  var mMarkFactor = 0.1;
-  var mDigits = 0;
-
-  // Implementation variables
-  var mGroup,mBody;
-  var mSegments, mTexts;
-  var mLeftHandle, mRightHandle;
-  var mLeftRotate, mRightRotate;
-  var mForegroundCreated = false;
-
-  var mElements = [];
-  var mScaleChanged = true;
-  
-  self.getElement = function(keyword) {
-	  return mElements[keyword];
-  };
-  
-  self.superSetChanged = self.setChanged;
-  
-  self.setChanged = function(changed) {
-	self.superSetChanged(changed);
-	if (changed) for (var i=0,n=mElements.length; i<n; i++) mElements[i].setChanged(changed);
-  }
-
-  
-  // ----------------------------------------------------
-  // public functions
-  // ----------------------------------------------------
-
-  self.setWidth = function(value) { 
-	  if (value!=mWidth) {
-		  mWidth = value;
-		  self.mustAdjust();
-	  }
-  }
-  self.getWidth = function() { return mWidth; }
-
-  self.setLength = function(value) { 
-	  if (value!=mLength) {
-		  mLength = value;
-		  self.mustAdjust();
-      }
-  }
-  self.getLength = function() { return mLength; }
-
-  /**
-   * Sets the minimum value of the element. 
-   * @method setMinimum
-   * @param value
-   */
-  self.setMinimum = function(value) {
-    if (mMinimum!=value) {
-    	mMinimum = value;
-    	mScaleChanged = true;
-    }
-  }
-  
-  /**
-   * @method getMinimum
-   * @return current minimum
-   */
-  self.getMinimum = function() { 
-    return mMinimum; 
-  };    
-
-  /**
-   * Sets the minimum value of the element. 
-   * @method setMaximum
-   * @param value
-   */
-  self.setMaximum = function(value) {
-	if (mMaximum!=value) {
-		mMaximum = value;
-    	mScaleChanged = true;
-	}
-  }
-  
-  /**
-   * @method getMaximum
-   * @return current maximum
-   */
-  self.getMaximum = function() { 
-    return mMaximum; 
-  };    
-  
-  /***
-   * Sets the number of marks
-   * @method setNumberOfMarks(value)
-   * @visibility public
-   * @param value int
-   */ 
-  self.setNumberOfMarks = function(value) {
-	  if (value!=mNumberOfMarks) {
-		  mNumberOfMarks = value;
-	      mScaleChanged = true;
-	  }
-  };
-
-  /***
-   * Gets the number of marks
-   * @method getNumberOfMarks
-   * @visibility public
-   * @return int
-   */
-  self.getNumberOfMarks = function() {
-  	return mNumberOfMarks;
-  };
-
-
-  /***
-   * Sets the interval for big marks
-   * @method setBigMark(value)
-   * @visibility public
-   * @param value int 
-   */ 
-  self.setBigMark = function(value) {
-	  if (value!=mBigMark) {
-        mBigMark = value;
-    	mScaleChanged = true;
-	  }
-  };
-
-  /***
-   * Gets the interval for big marks
-   * @method getBigMark
-   * @visibility public
-   * @return int
-   */
-  self.getBigMark = function() {
-  	return mBigMark;
-  };
-
-  /***
-   * Sets the interval for medium marks
-   * @method setMediumMark(value)
-   * @visibility public
-   * @param value int 
-   */ 
-  self.setMediumMark = function(value) {
-	  if (value!=mMediumMark) {
-        mMediumMark = value;
-    	mScaleChanged = true;
-	  }
-  };
-
-  /***
-   * Gets the interval for medium marks
-   * @method getMediumMark
-   * @visibility public
-   * @return int
-   */
-  self.getMediumMark = function() {
-  	return mMediumMark;
-  };
-  
-  /***
-   * Sets the factor that divide the value in marks
-   * @method setMarkFactor(value)
-   * @visibility public
-   * @param value int|double 
-   */ 
-  self.setMarkFactor = function(value) {
-	  if (value!=mMarkFactor) {
-        mMarkFactor = value;
-    	mScaleChanged = true;
-	  }
-  };
-
-  /***
-   * Gets the factor that divide the displayed value in marks
-   * @method getMarkFactor
-   * @visibility public
-   * @return int|double
-   */
-  self.getMarkFactor = function() {
-  	return mMarkFactor;
-  };
-
-  /***
-   * Sets the maximum value to display in a mark
-   * @method setMaximumMark(value)
-   * @visibility public
-   * @param value int|double 
-   */ 
-  self.setMaximumMark = function(value) {
-	  if (value!=mMaximumMark) {
-        mMaximumMark = value;
-    	mScaleChanged = true;
-	  }
-  };
-
-  /***
-   * Gets the maximum value to display in a mark
-   * @method getMaximumMark
-   * @visibility public
-   * @return value int|double 
-   */ 
-  self.getMaximumMark = function() {
-  	return mMaximumMark;
-  };
-
-  /***
-   * Sets the number of digits for the marks
-   * @method setDigits(value)
-   * @visibility public
-   * @param value int 
-   */ 
-  self.setDigits = function(value) {
-	  if (value!=mDigits) {
-		mDigits = value;
-	    mScaleChanged = true;
-	  }
-  };
-
-  /***
-   * Gets the number of digits for the marks
-   * @method getPrecision
-   * @visibility public
-   * @return int
-   */
-  self.getDigits = function() {
-  	return mDigits;
-  };
-  
-
-  // ----------------------------------------------------
-  // Properties overwritten
-  // ----------------------------------------------------
-
-  self.mustAdjust = function() { mScaleChanged = true; }
-  
-  self.setBorderWidth = function(value) {  mBody.getStyle().setLineWidth(value); }
-  self.setBorderColor = function(value) {  mBody.getStyle().setLineColor(value); }
-  self.setFillColor = function(value) { mBody.getStyle().setFillColor(value); }
-
-  self.setLineWidth = function(value) { 
-	  mSegments.setToEach(function(element) { element.getStyle().setLineWidth(value); });
-  }
-  self.setLineColor = function(value) { 
-	  mSegments.setToEach(function(element) { element.getStyle().setLineColor(value); });
-  }
-  self.setDrawLines = function(value) { 
-	  mSegments.setToEach(function(element,value) { element.setVisible(value); },value);
-  }
-  
-  self.setTextColor = function(value) { 
-	  mTexts.setToEach(function(element) { element.getFont().setFillColor(value); });
-  }
-  self.setTextFont = function(value) { 
-	  mTexts.setToEach(function(element) { element.getFont().setFont(value); });
-  }
-  self.setDrawText = function(value) { 
-	  mTexts.setToEach(function(element,value) { element.setVisible(value); },value);
-  }
-
-  self.setEnabled = function(value) { 
-	  mLeftHandle.setVisible(value);
-	  mRightHandle.setVisible(value);
-  };
-
-  self.setRotates = function(value) { 
-	  mLeftRotate.setVisible(value);
-	  mRightRotate.setVisible(value);
-  };
-  
-  // ----------------------------------------------------
-  // Properties and copies
-  // ----------------------------------------------------
-
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.Ruler.registerProperties(self,controller);
-  };
-
-  // ----------------------------------------------------
-  // private functions
-  // ----------------------------------------------------
-
-  self.superSetParent = self.setParent;
-  
-  self.setParent = function(parent, sibling) {
-	self.superSetParent(parent,sibling);
-	if (!mForegroundCreated) {
-      self.createRuler();
-	  mForegroundCreated = true;
-	}
-	self.addParticularChildren();
-	self.adjustForeground();
-  }
-
-  self.dataCollected = function() {
-	  if (mScaleChanged) {
-		  self.adjustForeground();
-		  mScaleChanged = false;
-	  }
-  };
-
-  self.addParticularChildren = function() { 
-	mGroup.setParent(self);
-	mBody.setParent(mGroup);
-	mSegments.setToEach(function(element) { element.setParent(mGroup); });
-	mTexts.setToEach(function(element) { element.setParent(mGroup); });
-	mLeftHandle.setParent(self);
-	mRightHandle.setParent(self);
-	mLeftRotate.setParent(self);
-	mRightRotate.setParent(self);
-  };
-
-  self.createBody = function() {
-	var body = EJSS_DRAWING2D.shape(mName+".body");
-	body.setShapeType("ROUND_RECTANGLE");
-	body.setCornerRadius(5);
-    return body;
-  }
-
-  self.createRuler = function() {
-	mGroup = EJSS_DRAWING2D.group(mName+".group");
-	mElements['group'] = mGroup;
-
-	mBody = self.createBody();
-	mBody.getStyle().setFillColor("rgba(0,255,0,0.2)");
-	mElements['body'] = mBody;
-
-	mSegments = EJSS_DRAWING2D.segmentSet(mName+".segments");
-	mSegments.setToEach(function(element) { element.setRelativePosition("SOUTH_WEST"); });
-	mSegments.setToEach(function(element) { element.getStyle().setLineWidth(0.5); });
-	mElements['segments'] = mSegments;
-
-	mTexts = EJSS_DRAWING2D.textSet(mName+".texts");
-	mTexts.setToEach(function(element) { element.getFont().setFont("normal normal 8px \"Courier New\", Courier, monospace"); });
-	mTexts.setToEach(function(element) { element.setRelativePosition("NORTH"); });
-	mElements['texts'] = mTexts;
-
-	mLeftHandle = EJSS_CORE.promoteToControlElement(
-				EJSS_DRAWING2D.image(mName+".left_handle"),self.getView(),mName+".left_handle");
-	mLeftHandle.setImageUrl(EJSS_DRAWING2D.Ruler.sMOVE_ICON);
-	mLeftHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_ANY");
-	mLeftHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setAffectsGroup(true);
-	mLeftHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
-	mLeftHandle.setSize([10,10]);
-	mLeftHandle.setPixelSize(true);
-	mLeftHandle.setProperty("OnDrag",moved);
-	mElements['left_handle'] = mLeftHandle;
-
-	mRightHandle = EJSS_CORE.promoteToControlElement(
-				EJSS_DRAWING2D.image(mName+".right_handle"),self.getView(),mName+".right_handle");
-	mRightHandle.setImageUrl(EJSS_DRAWING2D.Ruler.sMOVE_ICON);
-	mRightHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_ANY");
-	mRightHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setAffectsGroup(true);
-	mRightHandle.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
-	mRightHandle.setProperty("OnDrag",moved);
-	mRightHandle.setSize([10,10]);
-	mRightHandle.setPixelSize(true);
-	mElements['right_handle'] = mRightHandle;
-		
-	mLeftRotate = EJSS_CORE.promoteToControlElement(
-			EJSS_DRAWING2D.image(mName+".left_rotate"),self.getView(),mName+".left_rotate");
-	mLeftRotate.setImageUrl(EJSS_DRAWING2D.Ruler.sROTATE_ICON);
-	mLeftRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_NO_MOVE");
-	mLeftRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
-	mLeftRotate.setSize([8,8]);
-	mLeftRotate.setPixelSize(true);
-	mLeftRotate.setProperty("OnDrag",rotated);
-	mElements['left_rotate'] = mLeftRotate;
-
-	mRightRotate = EJSS_CORE.promoteToControlElement(
-			EJSS_DRAWING2D.image(mName+".right_rotate"),self.getView(),mName+".right_rotate");
-	mRightRotate.setImageUrl(EJSS_DRAWING2D.Ruler.sROTATE_ICON);
-	mRightRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setMotionEnabled("ENABLED_NO_MOVE");
-	mRightRotate.getInteractionTarget(EJSS_DRAWING2D.PanelInteraction.TARGET_POSITION).setSensitivity(10);
-	mRightRotate.setSize([8,8]);
-	mRightRotate.setPixelSize(true);
-	mRightRotate.setProperty("OnDrag",rotated);
-	mElements['right_rotate'] = mRightRotate;
-
-  };
-
-  self.adjustBody = function() {
-		mBody.setSize([mLength,mWidth]);
-  };
-
-  self.adjustForeground = function() {
-	mLeftHandle.setPosition([-0.125*mLength,0]);
-	mRightHandle.setPosition([0.125*mLength,0]);
-	mLeftRotate.setPosition([-0.35*mLength,0]);
-	mRightRotate.setPosition([0.35*mLength,0]);
-	
-	mGroup.setY(mWidth*0.3);
-	self.adjustBody();
-	
-	var MARGIN = (mLength - Math.abs(mMaximum-mMinimum))/2;
-	var MARK = mWidth/6;
-	  
-	mSegments.setNumberOfElements(mNumberOfMarks);
-	var dx = Math.abs(mMaximum-mMinimum)/(mNumberOfMarks-1);
-	var xPos = -mLength/2+MARGIN;
-	var mediumMarksCounter = 0;
-	var bigMarksCounter = 0;
-
-	for (var i=0; i<mNumberOfMarks; i++) {
-	  var segment = mSegments.getElement(i);
-	  segment.setPosition([xPos,mWidth/2]);
-	  if (i%mBigMark==0) {
-	    bigMarksCounter++;
-	    segment.setSize([0,-2*MARK]);
-	  }
-	  else if (i%mMediumMark==0) {
-	    mediumMarksCounter++;
-	    segment.setSize([0,-1.5*MARK]);
-	  }
-	  else segment.setSize([0,-MARK]);
-	  xPos += dx;
-	}
-	
-	mTexts.setNumberOfElements(bigMarksCounter);
-	var text_counter=0;
-	for (i=0; i<mNumberOfMarks; i++) {
-	  var segment = mSegments.getElement(i);
-	  if (i%mMediumMark==0) {
-		  // locate units
-	  }
-	  if (i%mBigMark==0) {
-	    var text = mTexts.getElement(text_counter);
-	    text.setX(segment.getX());
-	    text.setY(mWidth/2+segment.getSizeY()*1.1);
-	    var mark_value = ((mNumberOfMarks-1-i)*mMinimum + i*mMaximum)/(mNumberOfMarks-1) /mMarkFactor;
-	    text.setText(""+mark_value.toFixed(mDigits));
-	    text_counter++;
-	  }
-	}
-  };
-   
-  self.getOnRotationInformation = function() {
-	  return { position : self.getPosition(), element : self, 
-		  point : self.getGroupPanel().getPanelInteraction().getInteractionPoint(),
-		  angle : self.getTransformation() };
-  };
-
-  function moved(point,info) {
-	  var controller = self.getController();    		
-	  if (controller) {
-		controller.invokeImmediateAction("OnDrag");
-	  }
-  };
-
-  self.computeRotation = function(rightIcon,point) {
-	  if (rightIcon) return Math.atan2(point[1],point[0]);
-	  else return Math.atan2(-point[1],-point[0]);
-  };
-  
-  function rotated(point,info) {
-	  var point = info.point;
-	  var element = info.element;
-	  var group_pos = self.getAbsolutePosition(true);
-	  point[0] -= group_pos[0];
-	  point[1] -= group_pos[1];
-	  var rotation = self.computeRotation(element==mRightRotate,point);
-	  self.setTransformation(rotation);
-	  self.setChanged(true);
-	  var controller = self.getController();    		
-	  if (controller) {
-//		controller.immediatePropertyChanged("Value");
-		controller.invokeImmediateAction("OnRotation");
-	  }	        
-
-  }
-  
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  return self;
-};
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * ScalarField
- * @class ScalarField 
- * @constructor  
- */
-EJSS_DRAWING2D.ScalarField = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-		controller.registerProperty("ZData", element.setData, element.getData);
-		controller.registerProperty("MinimumZ", element.setMinimumZ, element.getMinimumZ);
-		controller.registerProperty("MaximumZ", element.setMaximumZ, element.getMaximumZ);
-//		controller.registerProperty("AutoscaleZ", element.setAutoscaleZ, element.getAutoscaleZ);
-//		controller.registerProperty("SymmetricZ", element.setSymmetricZ, element.getSymmetricZ);
-		//controller.registerProperty("ExpandedZ", element.setMinimumX, element.getMinimumX);
-
-//		controller.registerProperty("FloorColor", element.setFloorColor, element.getFloorColor);
-//		controller.registerProperty("CeilColor", element.setCeilColor, element.getCeilColor);
-		controller.registerProperty("NumColors", element.getColorMapper().setNumberOfColors);
-		controller.registerProperty("Colors", element.getColorMapper().setColorPalette);
-		controller.registerProperty("Palette", element.getColorMapper().setPaletteType);
-//		controller.registerProperty("ShowGrid", element.setShowGrid, element.getShowGrid);
-
-        controller.registerProperty("AutoUpdate", element.setAutoupdate);  
-
-		controller.registerProperty("ParallelDrawing", element.setParallelDrawing);
-    },
-};
-
-/**
- * Creates a 2D scalarField
- * @method ScalarField
- */
-EJSS_DRAWING2D.scalarField = function (name) {
-	var self = EJSS_DRAWING2D.element(name);
- 
-  	var mColorMapper = EJSS_DRAWING2D.colorCoded(16, EJSS_DRAWING2D.ColorMapper.SPECTRUM); 
-	var mCeilColor = mColorMapper.getCeilColor();
-	var mFloorColor = mColorMapper.getFloorColor();
- 	var mShowGrid = true;
-	var mData = [];
-	var mAutoUpdate=true;
-	var mzMax = 1;
-	var mzMin = -1;
-	var mAutoscaleZ = true;
-	var mSymmetricZ = false;
-	var mParallelDrawing = false;
- 
-	self.getClass = function() {
-  		return "ElementScalarField";
-	}
-
-   	/**
-   	* @method setParallelDrawing
-   	* @param parallel
-   	*/
-  	self.setParallelDrawing = function (parallel) {
-	  	if(mParallelDrawing != parallel) {
-    		mParallelDrawing = parallel;
-    		self.setChanged(true);
-    	}
-  	}
-  
-  	/**
-   	* @method getParallelDrawing
-   	* @return parallel
-   	*/
-  	self.getParallelDrawing = function() {
-    	return mParallelDrawing;
-  	}
-
-   	/**
-   	* @method setFloorColor
-   	* @param color
-   	*/
-  	self.setFloorColor = function (color) {
-	  	if(mFloorColor != color) {
-    		mFloorColor = color;
-    		mColorMapper.setFloorCeilColor(mFloorColor,mCeilColor);
-    		self.setChanged(true);
-    	}
-  	}
-  
-  	/**
-   	* @method getFloorColor
-   	* @return color
-   	*/
-  	self.getFloorColor = function() {
-    	return mFloorColor;
-  	}
-
-   	/**
-   	* @method setCeilColor
-   	* @param color
-   	*/
-  	self.setCeilColor = function (color) {
-	  	if(mCeilColor != color) {
-    		mCeilColor = color;
-    		mColorMapper.setFloorCeilColor(mFloorColor,mCeilColor);
-    		self.setChanged(true);
-    	}
-  	}
-  
-  	/**
-   	* @method getCeilColor
-   	* @return color
-   	*/
-  	self.getCeilColor = function() {
-    	return mCeilColor;
-  	}
-
-	/** 
-	 * @method setData
-	 * @param data
-	 */
-	self.setData = function (data) {
-	  if (mAutoUpdate || mData != data) {
-	    mData = data;
-		mDataChanged = true;
-		self.setChanged(true);
-	  }
-	}
-	  
-	/**
-	 * @method getData
-	 * @return
-	 */
-	self.getData = function() { 
-		return mData; 
-	}
-	 
-	self.setAutoupdate= function (auto) {
-	  mAutoUpdate = auto;
-      if (mAutoUpdate) mDataChanged = true;
-    }
-    
-	/** 
-	 * @method getMaximumZ
-	 * @return max
-	 */
-  	self.getMaximumZ = function() {
-  		return mzMax;
-  	}
-
-	/** 
-	 * Sets ceiling value for the colors 
-	 *
-	 * @method setMaximumZ
-	 * @param max
-	 */
-  	self.setMaximumZ = function(max) {
-  		if(mzMax != max) {
-  			mzMax = max;
-	    	if (!mAutoscaleZ) {
-	    		mColorMapper.setScale(mzMin, mzMax);		
-	  		}
-			self.setChanged(true);
-  		};
-  	}
-
-	/** 
-	 * @method getMinimumZ
-	 * @return min
-	 */
-  	self.getMinimumZ = function() {
-  		return mzMin;
-  	}
-
-	/** 
-	 * Sets floor value for the colors 
-	 *
-	 * @method setMinimumZ
-	 * @param min
-	 */
-  	self.setMinimumZ = function(min) {
-  		if(mzMin != min) {
-  			mzMin = min;
-	    	if (!mAutoscaleZ) {
-	    		mColorMapper.setScale(mzMin, mzMax);		
-	  		}
-			self.setChanged(true);
-  		};
-  	}
-
-  	/**
-   	* Sets the autoscale flag.
-   	*
-   	* If autoscaling is true, then the min and max values of z are span the colors.
-   	*
-   	* If autoscaling is false, then MaximumZ and MinimumZ values limit the colors.
-   	* Values below min map to the first color; values above max map to the last color.
-   	*
-   	* @method setAutoscaleZ
-   	* @param isAutoscale
-   	*/
-  	self.setAutoscaleZ = function (isAutoscale) {
-	  	if(mAutoscaleZ != isAutoscale) {
-	    	mAutoscaleZ = isAutoscale;
-	    	self.setChanged(true);
-	    }
-  	}
-  
-  	/**
-   	* Gets the autoscale flag for z.
-   	*
-   	* @method getAutoscaleZ
-   	* @return boolean
-   	*/
-  	self.getAutoscaleZ = function() {
-    	return mAutoscaleZ;
-  	}
-
-   	/**
-   	* @method setSymmetricZ
-   	* @param isAutoscale
-   	*/
-  	self.setSymmetricZ = function (symmetric) {
-	  	if(mSymmetricZ != symmetric) {
-    		mSymmetricZ = symmetric;
-    		mColorMapper.setSymmetricZ(mSymmetricZ);
-    		self.setChanged(true);
-    	}
-  	}
-  
-  	/**
-   	* @method getSymmetricZ
-   	* @return boolean
-   	*/
-  	self.getSymmetricZ = function() {
-    	return mSymmetricZ;
-  	}
-
-	/** 
-	 * @method setColorMapper
-	 * @param colormapper
-	 */
-	self.setColorMapper = function (colormapper) {
-	  	if(mColorMapper != colormapper) {
-	  		mColorMapper = colormapper;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getColorMapper
-	 * @return
-	 */
-	self.getColorMapper = function() { 
-		return mColorMapper; 
-	}
-	 
-	/** 
-	 * @method setShowGrid
-	 * @param showgrid
-	 */
-	self.setShowGrid = function (showgrid) {
-	  	if(mShowGrid != showgrid) {
-	  		mShowGrid = showgrid;
-	  		self.setChanged(true);
-	  	}
-	}
-	  
-	/**
-	 * @method getShowGrid
-	 * @return
-	 */
-	self.getShowGrid = function() { 
-		return mShowGrid; 
-	}
-
-	self.registerProperties = function(controller) {
-    	EJSS_DRAWING2D.ScalarField.registerProperties(self,controller);
-	};
-  
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-	return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/***
- * A Segment is a 2D drawing element that displays a single line 
- * @class EJSS_DRAWING2D.Segment
- * @parent EJSS_DRAWING2D.Element
- * @constructor  
- */
-EJSS_DRAWING2D.Segment = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-      controller.registerProperty("Offset", element.setRelativePosition, element.getRelativePosition);
-    },  
-
-
-};
-
-/**
- * Creates a 2D Segment
- * @method segment
- */
-EJSS_DRAWING2D.segment = function (name) {
-  var self = EJSS_DRAWING2D.element(name);
-
-  self.getClass = function() {
-  	return "ElementSegment";
-  };
-  
-    self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.Segment.registerProperties(self,controller);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([0.1,0.1]);
-  self.setRelativePosition("SOUTH_WEST");
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//SegmentSet
-//---------------------------------
-
-/**
- * SegmentSet
- * @class SegmentSet 
- * @constructor  
- */
-EJSS_DRAWING2D.SegmentSet = {
-    
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING2D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      controller.registerProperty("Offset", 
-          function(v) { set.setToEach(function(element,value) { element.setRelativePosition(value); }, v); }
-      );
-    }
-    
-};
-
-
-/**
- * Creates a set of Segments
- * @method segmentSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING2D.segmentSet = function (mName) {
-  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.segment, mName);
-
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.SegmentSet.registerProperties(self,controller);
-  };
-  
-  return self;
-};/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * SetSquare
- * @class SetSquare 
- * @constructor  
- */
-EJSS_DRAWING2D.SetSquare = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Ruler.registerProperties(element,controller); // super class
-
-      controller.registerProperty("Height",element.setHeight);
-    }
-
-};
-
-/**
- * Creates a 2D shape
- * @method shape
- */
-EJSS_DRAWING2D.setSquare = function (mName) {
-  var self = EJSS_DRAWING2D.ruler(mName);
-  
-  var mHeight = self.getLength();
-
-  // Implementation variables
-  // ----------------------------------------------------
-  // public functions
-  // ----------------------------------------------------
-
-  // ----------------------------------------------------
-  // Properties and copies
-  // ----------------------------------------------------
-
-  self.setHeight = function(value) { 
-	  if (value!=mHeight) {
-		  mHeight = value;
-		  self.mustAdjust();
-      }
-  }
-  self.getHeight = function() { return mHeight; }
-
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.SetSquare.registerProperties(self,controller);
-  };
-
-  // ----------------------------------------------------
-  // private functions
-  // ----------------------------------------------------
-
-  self.createBody = function() {
-	var body = EJSS_DRAWING2D.polygon(mName+".body");
-	return body;
-  }
-
-  self.adjustBody = function() {
-	    var w = self.getWidth(), l = self.getLength(), h = self.getHeight();
-	    var hyp = Math.sqrt(l*l+h*h);
-	    var l2 = (h-w)*l/h - w - w*hyp/h; // interior length
-	    var h2 = (h-w) - w*h/l - w*hyp/l; // interior height
-	    
-	    var points = [[0,0,1],[l,0,1],[0,-h,1],[0,0,1],
-	                 [w,-w,0],[w,-w-h2,1],[w+l2,-w,1],[w,-w,1]];
-	    for (var i=0; i<points.length; i++) {
-	    	points[i][0] -= l/2;
-	    	points[i][1] += w/2;
-	    };
-		self.getElement('body').setPoints(points);
-		
-		self.getElement('left_handle').setPosition([w+l2/4-l/2,0]);
-		self.getElement('right_handle').setPosition([w+3*l2/4-l/2,0]);
-		self.getElement('left_rotate').setPosition([w/2-l/2,0]);
-		self.getElement('right_rotate').setPosition([w+l2+w/2-l/2,0]);	  
-  };
-  
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-    self.setMaximum(0.99);
-	self.setNumberOfMarks(100);
-
-  return self;
-};
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/***
- * A Shape is a 2D drawing element that displays a 2D shape (such as a rectangle, ellipse, etc.) 
- * @class EJSS_DRAWING2D.Shape
- * @parent EJSS_DRAWING2D.Element
- */
-EJSS_DRAWING2D.Shape = {
-    NONE : 0,
-    ELLIPSE : 1,
-    RECTANGLE : 2,
-    ROUND_RECTANGLE : 3,
-    WHEEL : 4,
-    POINT : 5,
-
-    /**
-     * Static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller);
-
-	 /*** 
-	  * Type of shape
-	  * @property ShapeType 
-	  * @type int|String
-	  * @values 0:"NONE", 1:"ELLIPSE", 2:"RECTANGLE", 3:"ROUND_RECTANGLE", 4:"WHEEL", 5:"POINT" 
-	  * @default "ELLIPSE" 
-	  */  
-      controller.registerProperty("ShapeType",element.setShapeType);
-      
-	 /*** 
-	  * Radius for the corners of a round rectangular shape
-	  * @property CornerRadius 
-	  * @type int
-	  * @default 10 
-	  */  
-      controller.registerProperty("CornerRadius",element.setCornerRadius);
-    },
-
-    /**
-     * Static copyTo method, to be used by sets
-     */
-    copyTo : function(source, dest) {
-      EJSS_DRAWING2D.Element.copyTo(source,dest);
-
-      dest.setShapeType(source.getShapeType());
-      dest.setCornerRadius(source.getCornerRadius());
-    }
-
-};
-
-/**
- * Creates a 2D shape
- * @method shape
- */
-EJSS_DRAWING2D.shape = function (name) {
-  var self = EJSS_DRAWING2D.element(name);
-
-  // Instance variables
-  var mCornerRadius = 10;
-  var mShapeType = EJSS_DRAWING2D.Shape.ELLIPSE;
-
-  // ----------------------------------------------------
-  // Public functions
-  // ----------------------------------------------------
-
-  /***
-   * Sets the value of the property ShapeType
-   * @method setShapeType(shapeType)
-   * @visibility public
-   * @param shapeType int|String 
-   */ 
-  self.setShapeType = function(shapeType) {
-    if (typeof shapeType === 'string')
-      mShapeType = EJSS_DRAWING2D.Shape[shapeType.toUpperCase()];
-    else 
-      mShapeType = shapeType;
-  };
-
-  /***
-   * Gets the value of the property ShapeType
-   * @method getShapeType
-   * @visibility public
-   * @return int|String 
-   */ 
-  self.getShapeType = function() {
-  	return mShapeType;
-  }
-
-  /***
-   * Sets the value of the property CornerRadius
-   * @method setCornerRadius
-   * @param radius int
-   */
-  self.setCornerRadius = function(radius) {
-    if(mCornerRadius != radius) {
-    	mCornerRadius = radius;
-    	self.setChanged(true);
-    }
-  };
-
-  /***
-   * Gets the value of the property CornerRadius
-   * @method getCornerRadius
-   * @return int
-   */
-  self.getCornerRadius = function() {
-    return mCornerRadius;
-  };
-
-  // ----------------------------------------------------
-  // Private functions
-  // ----------------------------------------------------
-
-  /***
-   * Returns the class name
-   * @method getClass
-   * @visibility private
-   * @return String
-   */
-  self.getClass = function() {
-  	return "ElementShape";
-  }
-
-  /***
-   * Extended registerProperties method
-   * @method registerProperties
-   * @param controller
-   * @visibility private
-   */
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.Shape.registerProperties(self,controller);
-  };
-
-  /***
-   * Extended copyTo method
-   * @method copyTo
-   * @param Element
-   * @visibility private
-   */
-  self.copyTo = function(element) {
-    EJSS_DRAWING2D.Shape.copyTo(self,element);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  /*** @property Size @default [0.1,0.1] */
-  self.setSize([0.1,0.1]);
-  
-  /*** @property RelativePosition @default "CENTER" */
-  self.setRelativePosition("CENTER");
-  
-  /*** @property FillColor @default "Blue" */  
-  self.getStyle().setFillColor("Blue");
-  
-  /*** @property LineColor @default "Black" */  
-  self.getStyle().setLineColor("Black");
-    
-  return self;
-};
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//ShapeSet
-//---------------------------------
-
-/**
- * ShapeSet
- * @class ShapeSet 
- * @constructor  
- */
-EJSS_DRAWING2D.ShapeSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING2D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      controller.registerProperty("ShapeType", 
-          function(v) { set.setToEach(function(element,value) { element.setShapeType(value); }, v); }
-      );
-      controller.registerProperty("CornerRadius", 
-          function(v) { set.setToEach(function(element,value) { element.setCornerRadius(value); }, v); }
-      );
-    }
-
-};
-
-
-/**
- * Creates a set of shapes
- * @method shapeSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING2D.shapeSet = function (mName) {
-  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.shape, mName);
-
-  // Static references
-  var ShapeSet = EJSS_DRAWING2D.ShapeSet;		// reference for ShapeSet
-  
-  self.registerProperties = function(controller) {
-    ShapeSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
-/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia and Félix J. García 
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*/
-
-/**
- * Framework for 2D drawing.
- * @module 2Ddrawing
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/***
- * A SimplePanel is a 2D drawing panel with no decoration. 
- * @class EJSS_DRAWING2D.SimplePanel
- * @see EJSS_DRAWING2D.PlottingPanel
- * @constructor
- */
-EJSS_DRAWING2D.SimplePanel = {
-	GRAPHICS2D_SVG : "SVG",
-	GRAPHICS2D_CANVAS : "Canvas",
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		// No super class
-		// EJSS_INTERFACE.Element.registerProperties(element.getGraphics(), controller);
-
-		controller.registerProperty("MinimumX", element.setWorldXMin, element.getWorldXMin);
-		controller.registerProperty("MaximumX", element.setWorldXMax, element.getWorldXMax);
-		controller.registerProperty("MinimumY", element.setWorldYMin, element.getWorldYMin);
-		controller.registerProperty("MaximumY", element.setWorldYMax, element.getWorldYMax);
-		controller.registerProperty("Bounds", element.setWorldCoordinates, element.getWorldCoordinates);
-
-
-		controller.registerProperty("MarginX", element.setMarginX,element.getMarginX);
-		controller.registerProperty("MarginY", element.setMarginY,element.getMarginY);
-
-		controller.registerProperty("Parent", element.getGraphics().setParent, element.getGraphics().getParent);
-		controller.registerProperty("Width", element.getGraphics().setWidth, element.getGraphics().getWidth);
-		controller.registerProperty("Height", element.getGraphics().setHeight, element.getGraphics().getHeight);
-
-		controller.registerProperty("Graphics", element.setGraphics);
-
-		controller.registerProperty("Background", element.getStyle().setFillColor);
-		controller.registerProperty("Foreground", element.getStyle().setLineColor);
-		controller.registerProperty("LineColor", element.getStyle().setLineColor);
-		controller.registerProperty("LineWidth", element.getStyle().setLineWidth);
-		controller.registerProperty("DrawLines", element.getStyle().setDrawLines);
-		controller.registerProperty("FillColor", element.getStyle().setFillColor);
-		controller.registerProperty("DrawFill", element.getStyle().setDrawFill);
-		controller.registerProperty("ShapeRendering", element.getStyle().setShapeRendering);
-
-	    controller.registerProperty("Visibility", element.getGraphics().getStyle().setVisibility);      
-        controller.registerProperty("Display", element.getGraphics().getStyle().setDisplay); 
-		controller.registerProperty("CSS", element.getGraphics().getStyle().setCSS);
-	}
-};
-
-/**
- * Constructor for SimplePanel
- * @method simplePanel
- * @param mName string
- * @returns An abstract 2D drawing panel
- */
-EJSS_DRAWING2D.simplePanel = function(mName) {
-	var self = {}; // reference returned	
-	var mGraphics = EJSS_GRAPHICS.svgGraphics(mName); // graphics implementation (default: SVG)
-
-	// Instance variables
-	var mStyle = EJSS_DRAWING2D.style(mName);	// style for panel
-	var mElements = [];							// elements list for panel
-	var mElementsChanged = false;				// whether elements list has changed
-	var mCollectersList = [];		            // Array of all control elements that need a call to dataCollected() after data collection
-
-	// Configuration variables	
-	var mWorld = {
-		// preferred dimensions
-		xminPreferred : -1, xmaxPreferred : 1, yminPreferred : -1, ymaxPreferred : 1,
-		// origin in panel
-		xorigin : 0, yorigin : 0,
-		// pixel per unit for panel
-		xscale : 1, yscale : 1		
-	};
-
-	// Implementation variables
-	var mPanelChanged = true;	// whether panel changed (style, decorations, gutters)
-	var mMustScale = true;		// whether panel must scale
-
-	// ----------------------------------------
-	// Instance functions
-	// ----------------------------------------
-
-	/**
-	 * Get name for drawing panel
-	 * @method getName
-	 * @return string
-	 */
-	self.getName = function() {
-		return mName;
-	};
-
-	/**
-	 * Returns the graphics implementation
-	 * @method getGraphics
-	 * @return Graphics
-	 */
-	self.getGraphics = function() {
-		return mGraphics;
-	};
-
-	/**
-	 * Returns the svg image in Base64 format
-	 * @method importGraphics
-	 * @return string 
-	 */
-    self.importGraphics = function(callback) {
-    	return mGraphics.importSVG(callback);
-    }
-    
-	/**
-	 * Return the drawing style of the inner rectangle for panel
-	 * @method getStyle
-	 * @return Style
-	 */
-	self.getStyle = function() {
-		return mStyle;
-	};
-
-	/**
-	 * Set graphics
-	 * @method setGraphics
-	 * @param type
-	 */
-	self.setGraphics = function(type) {
-		if (type == EJSS_DRAWING2D.SimplePanel.GRAPHICS2D_SVG) {
-			mGraphics = EJSS_GRAPHICS.svgGraphics(mName);
-		} else if (type == EJSS_DRAWING2D.SimplePanel.GRAPHICS2D_CANVAS) {
-			// mGraphics = EJSS_GRAPHICS.canvasGraphics(mName);
-			console.log("WARNING: setGraphics() - Canvas not supported");
-		} else {
-			console.log("WARNING: setGraphics() - Graphics not supported");
-		}
-	};
-	
-	// ----------------------------------------
-	// World coordinates
-	// ----------------------------------------
-
-	/**
-	 * Sets the preferred minimum X coordinate for the panel
-	 * @method setWorldXMin
-	 * @param xmin
-	 */
-	self.setWorldXMin = function(xmin) {
-		if (xmin !== mWorld.xminPreferred) {
-			mWorld.xminPreferred = xmin;
-			mMustScale = true;
-		}
-	};
-
-	/**
-	 * Returns the preferred minimum X coordinate for the panel
-	 * @method getWorldXMin
-	 * @return double
-	 */
-	self.getWorldXMin = function() {
-		return mWorld.xminPreferred;
-	};
-
-	/**
-	 * Sets the preferred maximum X coordinate for the panel
-	 * @method setWorldXMax
-	 * @param xmax
-	 */
-	self.setWorldXMax = function(xmax) {
-		if (xmax !== mWorld.xmaxPreferred) {
-			mWorld.xmaxPreferred = xmax;
-			mMustScale = true;
-		}
-	};
-
-	/**
-	 * Returns the preferred maximum X coordinate for the panel
-	 * @method getWorldXMax
-	 * @return double
-	 */
-	self.getWorldXMax = function() {
-		return mWorld.xmaxPreferred;
-	};
-
-	/**
-	 * Sets the preferred minimum Y coordinate for the panel
-	 * @method setWorldYMin
-	 * @param ymin
-	 */
-	self.setWorldYMin = function(ymin) {
-		if (ymin !== mWorld.yminPreferred) {
-			mWorld.yminPreferred = ymin;
-			mMustScale = true;
-		}
-	};
-
-	/**
-	 * Returns the preferred minimum Y coordinate for the panel
-	 * @method getWorldYMin
-	 * @return double
-	 */
-	self.getWorldYMin = function() {
-		return mWorld.yminPreferred;
-	};
-
-	/**
-	 * Sets the preferred maximum Y coordinate for the panel
-	 * @method setWorldYMax
-	 * @param ymax
-	 */
-	self.setWorldYMax = function(ymax) {
-		if (ymax !== mWorld.ymaxPreferred) {
-			mWorld.ymaxPreferred = ymax;
-			mMustScale = true;
-		}
-	};
-
-	/**
-	 * Returns the preferred maximum Y coordinate for the panel
-	 * @method getWorldYMax
-	 * @return double
-	 */
-	self.getWorldYMax = function() {
-		return mWorld.ymaxPreferred;
-	};
-
-	/**
-	 * Sets the preferred user coordinates for the panel
-	 * @method setWorldCoordinates
-	 * @param bounds
-	 */
-	self.setWorldCoordinates = function(bounds) {
-		self.setWorldXMin(bounds[0]);
-		self.setWorldXMax(bounds[1]);
-		self.setWorldYMin(bounds[2]);
-		self.setWorldYMax(bounds[3]);
-	};
-
-	/**
-	 * Gets the preferred user coordinates for the panel
-	 * @method getWorldCoordinates
-	 * @return bounds
-	 */
-	self.getWorldCoordinates = function() {
-		return [self.getWorldXMin(), self.getWorldXMax(), self.getWorldYMin(), self.getWorldYMax()];
-	};
-
-	// ----------------------------------------
-	// Elements
-	// ----------------------------------------
-
-	/**
-	 * Add a element to the panel. Elements are asked to draw themselves
-	 * whenever the panel needs to render. For this purpose, they will receive a
-	 * calls to draw().
-	 * Elements are reported of changes in the world coordinates of the panel, in case
-	 * they need to recalculate themselves.
-	 * @method addElement
-	 * @param element Element
-	 * @param position int
-	 */
-	self.addElement = function(element, position) {
-		EJSS_TOOLS.addToArray(mElements, element, position);
-		// set this panel to decoration element
-		element.setPanel(self);
-		if (element.dataCollected) mCollectersList.push(element);
-		// elements list has changed
-		mElementsChanged = true;
-	};
-
-	/**
-	 * Remove a element to the panel.
-	 * @method removeElement
-	 * @param element Element
-	 */
-	self.removeElement = function(element) {
-		EJSS_TOOLS.removeFromArray(mElements, element);
-		element.setPanel(null);
-		if (element.dataCollected) EJSS_TOOLS.removeFromArray(mCollectersList, element);
-		// elements list has changed
-		mElementsChanged = true;
-	};
-
-	/**
-	 * Return the array of a elements.
-	 * @method getElements
-	 * @return Elements
-	 */
-	self.getElements = function() {
-		return mElements;
-	};
-
-	/**
-	 * Return the position of a element.
-	 * @method indexOfElement
-	 * @param element Element
-	 * @return integer
-	 */
-	self.indexOfElement = function(element) {
-		return mElements.indexOf(element);
-	};
-
-	// ----------------------------------------
-	// Apply transformations and conversions
-	// ----------------------------------------
-
-	/**
-	 * Converts a Y pixel value so that 0 is at the bottom
-	 * @method toPixelAxisY
-	 * @param y double
-	 */
-	self.toPixelAxisY = function(y) {
-		return (mWorld.yorigin - y) - (mWorld.yscale * mWorld.yminPreferred);
-	};
-
-	/**
-	 * Converts a X pixel value so that 0 is at the left
-	 * @method toPixelAxisX
-	 * @param x double
-	 */
-	self.toPixelAxisX = function(x) {
-		return (mWorld.xorigin + x) - (mWorld.xscale * mWorld.xminPreferred);
-	};
-
-	/**
-	 * To be used only after a call to render()!
-	 * Projects a point from world coordinates to pixel coordinates.
-	 * @method toPixelPosition
-	 * @param point double[] The original coordinates
-	 * @return double[] The same array once transformed
-	 */
-	self.toPixelPosition = function(point) {
-		var pos = [];
-		pos[0] = mWorld.xorigin + mWorld.xscale * (point[0] - mWorld.xminPreferred);		
-		pos[1] = mWorld.yorigin + mWorld.yscale * (point[1] - mWorld.yminPreferred);			
-		return pos;
-	};
-
-	/**
-	 * To be used only after a call to render()!
-	 * Projects a module from world coordinates to pixel coordinates
-	 * @method toPixelMod
-	 * @param point double[] The original module
-	 * @return double[] The same array once transformed
-	 */
-	self.toPixelMod = function(mod) {
-		var pmod = [];
-		pmod[0] = mod[0] * mWorld.xscale;
-		pmod[1] = mod[1] * mWorld.yscale;		
-		return pmod;
-	};
-
-	/**
-	 * To be used only after a call to render()!
-	 * Projects a point from pixel coordinates to world coordinates
-	 * @method toPanelPosition
-	 * @param point double[] The original coordinates
-	 * @return double[] The same array once transformed
-	 */
-	self.toPanelPosition = function(point) {	
-		var pos = [];
-		pos[0] = mWorld.xminPreferred + (point[0] - mWorld.xorigin) / mWorld.xscale;
-		pos[1] = mWorld.yminPreferred + (point[1] - mWorld.yorigin) / mWorld.yscale;
-		return pos;
-	};
-
-	/**
-	 * To be used only after a call to render()!
-	 * Projects a module from pixel coordinates to world coordinates
-	 * @method toPanelMod
-	 * @param point double[] The original module
-	 * @return double[] The same array once transformed
-	 */
-	self.toPanelMod = function(mod) {
-		var pmod = [];
-		pmod[0] = ((mWorld.xscale == 0)? 0 : mod[0]/mWorld.xscale);
-		pmod[1] = ((mWorld.yscale == 0)? 0 : mod[1]/mWorld.yscale);		
-		return pmod;
-	};
-
-	/**
-	 * Get pixel position of the origin
-	 * @return array pixel position
-	 */
-	self.getPixelPositionWorldOrigin = function() {
-		return [mWorld.xorigin,mWorld.yorigin];
-	}
-
-	/**
-	 * Recomputes the scales of the panel.
-	 * @method recomputeScales
-	 */
-	self.recomputeScales = function() {	
-		// get sizes and scale
-		var width = mGraphics.getWidth(); // width in pixels
-		var height = mGraphics.getHeight(); // height in pixels
-		var xPixPerUnit = width / (mWorld.xmaxPreferred - mWorld.xminPreferred); // the x scale in pixels
-		var yPixPerUnit = height / (mWorld.ymaxPreferred - mWorld.yminPreferred); // the y scale in pixels
-		
-		// centered
-		mWorld.xscale = xPixPerUnit;
-		mWorld.yscale = -yPixPerUnit;
-		mWorld.xorigin =  0.5;
-		mWorld.yorigin = height + 0.5;
-		
-		mMustScale = false;
-	};
-	
-	// ----------------------------------------
-	// Drawing functions
-	// ----------------------------------------
-
-	/**
-	 * Reset the scene
-	 * @method reset
-	 */
-	self.reset = function() {
-		mGraphics.reset();
-	};
-	
-	/**
-	 * Render the scene
-	 * @method render
-	 */
-	self.render = function() {
-		var reseted = false;
-		if (mElementsChanged) {// whether elements added or removed, reset the scene
-			mGraphics.reset();
-			reseted = true;
-			mElementsChanged = false;
-		}
-
-        // check for data collection
-		for (var i = 0, n = mCollectersList.length; i < n; i++)
-			mCollectersList[i].dataCollected();
-
-		// recompute scales
-		if (mMustScale) 
-			self.recomputeScales();
-
-		if (mPanelChanged || reseted) {// whether panel changed or reseted
-			mGraphics.drawPanel(self);
-		}
-
-		// draw visible elements
-		mGraphics.draw(mElements, reseted);
-
-		// set changed to false
-		mPanelChanged = false;
-		for (var i = 0, n = mElements.length; i < n; i++)
-			mElements[i].setChanged(false);
-	};
-
-	// ----------------------------------------------------
-	// Properties
-	// ----------------------------------------------------
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.SimplePanel.registerProperties(self, controller);
-	};
-
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-	mStyle.setLineColor('black');
-	mStyle.setFillColor('rgb(239,239,255)');
-	mStyle.setChangeListener(function(change) {
-		mPanelChanged = true;
-	});
-
-
-	return self;
-};
-
-/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*
-* This code is Open Source and is provided "as is".
-*/
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Spring
- * @class Spring 
- * @constructor  
- */
-EJSS_DRAWING2D.Spring = {
-  DEF_RADIUS : 0.05,
-  DEF_LOOPS : 8,
-  DEF_PPL : 15,
-
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
-  	
-		dest.setRadius(source.getRadius());
-		dest.setSolenoid(source.getSolenoid());
-		dest.setThinExtremes(source.getThinExtremes());
-		dest.setLoops(source.getLoops());
-		dest.setPointsPerLoop(source.getPointsPerLoop());
-  	},
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Element.registerProperties(element, controller);
-		// super class
-
-		controller.registerProperty("Radius", element.setRadius, element.getRadius);
-		controller.registerProperty("Solenoid", element.setSolenoid, element.getSolenoid);
-		controller.registerProperty("ThinExtremes", element.setThinExtremes, element.getThinExtremes);
-		controller.registerProperty("Loops", element.setLoops, element.getLoops);
-		controller.registerProperty("PointsPerLoop", element.setPointsPerLoop, element.getPointsPerLoop);
-	},
-};
-
-/**
- * Creates a 2D Spring
- * @method spring
- */
-EJSS_DRAWING2D.spring = function(name) {
-	var self = EJSS_DRAWING2D.element(name);
-  	
-	  // Configuration variables
-	var mRadius = EJSS_DRAWING2D.Spring.DEF_RADIUS;
-	var mSolenoid = 0.0;
-	var mThinExtremes = true;
-	var mLoops;
-	var mPointsPerLoop;
-
-	self.getClass = function() {
-		return "ElementSpring";
-	}
-
-	/***
-	 * Set radius
-	 * @method setRadius
- 	 * @param radius
-	 */
-	self.setRadius = function(radius) {
-		if(mRadius != radius) {
-			mRadius = radius;
-			self.setChanged(true);
-		}		
-	}
-
-	self.getRadius = function() {
-		return mRadius;
-	}
-
-	self.setSolenoid = function(solenoid) {
-		if(mSolenoid != solenoid) {
-			mSolenoid = solenoid;
-			self.setChanged(true);
-		}
-	}
-
-	self.getSolenoid = function() {
-		return mSolenoid;
-	}
-
-	self.setThinExtremes = function(thinExtremes) {
-		if(mThinExtremes != thinExtremes) {
-			mThinExtremes = thinExtremes;
-			self.setChanged(true);
-		}
-	}
-
-	self.getThinExtremes = function() {
-		return mThinExtremes;
-	}
-
-	self.setLoops = function(loops) {
-		if(mLoops != loops) {
-			mLoops = loops;
-			self.setChanged(true);
-		}
-	}
-
-	self.getLoops = function() {
-		return mLoops;
-	}
-
-	self.setPointsPerLoop = function(pointsPerLoop) {
-		if(mPointsPerLoop != pointsPerLoop) {
-			mPointsPerLoop = pointsPerLoop;
-			self.setChanged(true);
-		}
-	}
-
-	self.getPointsPerLoop = function() {
-		return mPointsPerLoop;
-	}
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.Spring.registerProperties(self, controller);
-	};
-
-  	self.copyTo = function(element) {
-    	EJSS_DRAWING2D.Spring.copyTo(self,element);
-  	};
-
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-  	self.setSize([0.1,0.1]);
-  	self.setLoops(EJSS_DRAWING2D.Spring.DEF_LOOPS);
-  	self.setPointsPerLoop(EJSS_DRAWING2D.Spring.DEF_PPL);
-	self.setRelativePosition("SOUTH_WEST");
-	
-	return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//SpringSet
-//---------------------------------
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * SpringSet
- * @class SpringSet 
- * @constructor  
- */
-EJSS_DRAWING2D.SpringSet = {
-	
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING2D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      controller.registerProperty("Radius", 
-          function(v) { set.setToEach(function(element,value) { element.setRadius(value); }, v); }
-      );
-      controller.registerProperty("Solenoid", 
-          function(v) { set.setToEach(function(element,value) { element.setSolenoid(value); }, v); }
-      );           
-      controller.registerProperty("ThinExtremes", 
-          function(v) { set.setToEach(function(element,value) { element.setThinExtremes(value); }, v); }
-      );           
-      controller.registerProperty("Loops", 
-          function(v) { set.setToEach(function(element,value) { element.setLoops(value); }, v); }
-      );           
-      controller.registerProperty("PointsPerLoop", 
-          function(v) { set.setToEach(function(element,value) { element.setPointsPerLoop(value); }, v); }
-      );           
-    }        
-};
-
-/**
- * Creates a set of Segments
- * @method springSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING2D.springSet = function (mName) {
-  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.spring, mName);
-
-  // Static references
-  var SpringSet = EJSS_DRAWING2D.SpringSet;		// reference for SpringSet
-  
-  self.registerProperties = function(controller) {
-    SpringSet.registerProperties(self,controller);
-  };
-
-  return self;
-};/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Shape
- * @class Shape 
- * @constructor  
- */
-EJSS_DRAWING2D.Tank = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-      controller.registerProperty("LevelColor",element.setLevelColor);
-      controller.registerProperty("Level",element.setLevel);
-      controller.registerProperty("Closed",element.setClosed);
-    },
-
-    /**
-     * static copyTo method, to be used by sets
-     */
-    copyTo : function(source, dest) {
-      EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy
-
-      dest.setLevel(source.getLevel());
-      dest.setLevelColor(source.getLevelColor());
-    }
-
-};
-
-/**
- * Creates a 2D shape
- * @method shape
- */
-EJSS_DRAWING2D.tank = function (name) {
-  var self = EJSS_DRAWING2D.element(name);
-
-  var mLevel = 0;
-  var mLevelColor = "blue";
-
-  // Implementation variables
-  var Tank = EJSS_DRAWING2D.Tank;
-
-  self.getClass = function() {
-  	return "ElementTank";
-  }
-
-  // ----------------------------------------------------
-  // public functions
-  // ----------------------------------------------------
-
-  self.setLevel = function(level) {
-      mLevel = level;
-      self.setChanged(true);
-  };
-
-  self.getLevel = function() {
-  	return mLevel;
-  }
-
-  /**
-   * Set the color of the level
-   * @param color a stroke style
-   */
-  self.setLevelColor = function(color) { 
-    if (typeof color !== "string") color = EJSS_TOOLS.DisplayColors.getLineColor(color);
-    if (color!=mLevelColor) {
-      mLevelColor = color; 
-      self.setChanged(true);
-    }
-    return self;
-  };
-    
-  /**
-   * Get the line color
-   */
-  self.getLevelColor = function() { 
-    return mLevelColor; 
-  };
-  
-  // ----------------------------------------------------
-  // Properties and copies
-  // ----------------------------------------------------
-
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-    Tank.registerProperties(self,controller);
-  };
-
-  /**
-   * Copies itself to another element
-   * Extended copyTo method. To be used by Sets
-   * @method copyTo
-   */
-  self.copyTo = function(element) {
-    Tank.copyTo(self,element);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([0.1,0.1]);
-  self.setRelativePosition("CENTER");
-  self.getStyle().setFillColor("White");
-  self.getStyle().setLineColor("Black");
-  self.getStyle().setDrawFill(false);
-    
-  return self;
-};
-
-
-/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*
-* This code is Open Source and is provided "as is".
-*/
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/***
- * A Text is a 2D drawing element that displays a text 
- * @class EJSS_DRAWING2D.Text
- * @parent EJSS_DRAWING2D.Element
- */
-EJSS_DRAWING2D.Text = {
-	MODE_TOPDOWN : 0,
-	MODE_RIGTHLEFT : 1,
-	MODE_DOWNTOP : 2,
-	MODE_LEFTRIGHT: 3,
-	
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
-  		EJSS_DRAWING2D.Font.copyTo(source.getFont(),dest.getFont());
-  		
-		dest.setText(source.getText());
-		dest.setMathText(source.getMathText());
-		dest.setWritingMode(source.getWritingMode());
-  	},
-  	
-	/**
-	 * Parses lightweight mathematical text. This parser is used only when
-	 * MathText is explicitly enabled. Supported forms: _x, _{text}, ^x, ^{text}.
-	 * A backslash escapes the following character.
-	 */
-	parseMathText : function(value) {
-		var source = (value === undefined || value === null) ? "" : String(value);
-
-		function findClosingBrace(text, openIndex) {
-			var depth = 1;
-			for (var i = openIndex + 1; i < text.length; i++) {
-				if (text.charAt(i) === "\\") { i++; continue; }
-				if (text.charAt(i) === "{") depth++;
-				else if (text.charAt(i) === "}") {
-					depth--;
-					if (depth === 0) return i;
-				}
-			}
-			return -1;
-		}
-
-		function parseRange(text) {
-			var nodes = [];
-			var plain = "";
-			function flush() {
-				if (plain.length) nodes.push({ type: "text", text: plain });
-				plain = "";
-			}
-
-			for (var i = 0; i < text.length; i++) {
-				var ch = text.charAt(i);
-				if (ch === "\\") {
-					if (i + 1 < text.length) plain += text.charAt(++i);
-					else plain += ch;
-					continue;
-				}
-				if ((ch !== "_" && ch !== "^") || i + 1 >= text.length) {
-					plain += ch;
-					continue;
-				}
-
-				var argument;
-				var next = text.charAt(i + 1);
-				if (next === "{") {
-					var close = findClosingBrace(text, i + 1);
-					if (close < 0) { plain += ch; continue; }
-					argument = text.substring(i + 2, close);
-					i = close;
-				}
-				else { argument = next; i++; }
-
-				flush();
-				nodes.push({
-					type: "script",
-					script: ch === "_" ? "sub" : "super",
-					children: parseRange(argument)
-				});
-			}
-			flush();
-			return nodes;
-		}
-
-		return parseRange(source);
-	},
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Element.registerProperties(element, controller);
-		// super class
-
-	 	/*** 
-	  	* Text
-	  	* @property Text 
-	  	* @type String
-	  	* @default "" 
-	  	*/  
-		controller.registerProperty("Text", element.setText);
-		controller.registerProperty("MathText", element.setMathText);
-		controller.registerProperty("Framed", element.setFramed);
-		controller.registerProperty("WritingMode", element.setWritingMode);
-
-	 	/*** 
-	  	* Font description in one declaration
-	  	* @property Font 
-	  	* @type String - https://www.w3schools.com/cssref/pr_font_font.asp
-	  	* @default "20px Arial" 
-	  	*/  
-		controller.registerProperty("Font", function (e) {
-				element.setDrawingSize([-1,-1]);
-				element.getFont().setFont(e);
-			});
-
-	 	/*** 
-	  	* Font family
-	  	* @property FontFamily 
-	  	* @type String
-	  	* @default "Arial" 
-	  	*/  
-		controller.registerProperty("FontFamily", element.getFont().setFontFamily);
-
-	 	/*** 
-	  	* Font size
-	  	* @property FontSize 
-	  	* @type String
-	  	* @default "20" 
-	  	*/  
-		controller.registerProperty("FontSize", function (e) {
-				element.setDrawingSize([-1,-1]);
-				element.getFont().setFontSize(e);
-			});
-
-		controller.registerProperty("LetterSpacing", element.getFont().setLetterSpacing);
-
-	 	/*** 
-	  	* Outline color
-	  	* @property OutlineColor 
-	  	* @type String
-	  	* @default "none" 
-	  	*/  
-		controller.registerProperty("OutlineColor", element.getFont().setOutlineColor);
-
-		controller.registerProperty("FontWeight", element.getFont().setFontWeight);
-
-	 	/*** 
-	  	* Fill color
-	  	* @property FillColor 
-	  	* @type String
-	  	* @default "none" 
-	  	*/  
-		controller.registerProperty("FillColor", element.getFont().setFillColor);
-
-	 	/*** 
-	  	* Font style
-	  	* @property FontStyle 
-	  	* @type String
-	  	* @default "normal" 
-	  	*/  
-		controller.registerProperty("FontStyle", element.getFont().setFontStyle);
-
-		controller.registerProperty("MarginX", element.getMarginX().setMarginX);
-		controller.registerProperty("MarginY", element.getMarginY().setMarginY);
-	},
-};
-
-/**
- * Creates a 2D Text
- * @method text
- */
-EJSS_DRAWING2D.text = function(mName) {
-	var self = EJSS_DRAWING2D.element(mName);
-
-	var mText = "";
-	var mMathText = false;
-	var mWritingMode = EJSS_DRAWING2D.Text.MODE_LEFTRIGHT;
-	var mFont = EJSS_DRAWING2D.font(mName);	// font for text
-	var mFramed = false; 
-	var mMarginX = 0;
-	var mMarginY = 0;
-	
-	var mDrawingSize = [-1,-1]; // autocalculated 
-
-	self.getClass = function() {
-		return "ElementText";
-	}
-
-  	/***
-   	* Sets text
-   	* @method setText
-   	* @visibility public
-   	* @param string
-   	*/
-	self.setText = function(text) {
-		text = text + ""; // convert text to string
-		if(mText != text) {
-			mText = text;
-			self.setChanged(true);
-			mDrawingSize = [-1,-1];
-		}
-	}
-
-  	/***
-   	* Gets text
-   	* @method getText
-   	* @visibility public
-   	* @return string
-   	*/
-	self.getText = function() {
-		return mText;
-	}
-
-	self.setMathText = function(enabled) {
-		enabled = !!enabled;
-		if (mMathText != enabled) {
-			mMathText = enabled;
-			self.setChanged(true);
-			mDrawingSize = [-1,-1];
-		}
-	}
-
-	self.getMathText = function() {
-		return mMathText;
-	}
-
-	self.setDrawingSize = function(drawingSize) {
-		mDrawingSize = drawingSize;
-	}
-
-	self.getDrawingSize = function() {
-		return mDrawingSize;
-	}
-
-	self.getSizeX = function() {		
-		return mDrawingSize[0]; 
-	}
-
-	self.getSizeY = function() {
-		return mDrawingSize[1];
-	}
-
-	self.setMarginX = function(margin) {
-		if(mMarginX != margin) {
-			mMarginX = margin;
-			self.setChanged(true);
-		}
-	}
-
-	self.getMarginX = function() {
-		return mMarginX;
-	}
-
-	self.setMarginY = function(margin) {
-		if(mMarginY != margin) {
-			mMarginY = margin;
-			self.setChanged(true);
-		}
-	}
-
-	self.getMarginY = function() {
-		return mMarginY;
-	}
-
-	self.getFont = function() {
-		return mFont;
-	}
-
-	self.setFramed = function(framed) {
-		if(mFramed != framed) {
-			mFramed = framed;
-			self.setChanged(true);
-		}
-	}
-
-	self.getFramed = function() {
-		return mFramed;
-	}
-
-	self.setWritingMode = function(writemode) {
-	    if (typeof writemode == "string") writemode = EJSS_DRAWING2D.Text[writemode.toUpperCase()];
-	    if (mWritingMode != writemode) {
-	      mWritingMode = writemode;
-	      self.setChanged(true);
-	    }
-	}
-
-	self.getWritingMode = function() {
-		return mWritingMode;
-	}
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.Text.registerProperties(self, controller);
-	};
-
-  	self.copyTo = function(element) {
-    	EJSS_DRAWING2D.Text.copyTo(self,element);
-  	};
-
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-  	mFont.setChangeListener(function (change) { self.setChanged(true); });
-	self.setPixelSize(true); 
-	return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//TextSet
-//---------------------------------
-
-/**
- * TextSet
- * @class TextSet 
- * @constructor  
- */
-EJSS_DRAWING2D.TextSet = {
-	
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING2D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      
-      controller.registerProperty("Text", 
-          function(v) { set.setToEach(function(element,value) { element.setText(value); }, v); }
-      );
-      controller.registerProperty("Framed", 
-          function(v) { set.setToEach(function(element,value) { element.setFramed(value); }, v); }
-      );           
-      controller.registerProperty("WritingMode", 
-          function(v) { set.setToEach(function(element,value) { element.setWritingMode(value); }, v); }
-      );           
-      controller.registerProperty("Font", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFont(value); }, v); }
-      );          
-      controller.registerProperty("FontFamily", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFontFamily(value); }, v); }
-      );           
-      controller.registerProperty("FontSize", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFontSize(value); }, v); }
-      );           
-      controller.registerProperty("LetterSpacing", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setLetterSpacing(value); }, v); }
-      );           
-      controller.registerProperty("OutlineColor", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setOutlineColor(value); }, v); }
-      );           
-      controller.registerProperty("FontWeight", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFontWeight(value); }, v); }
-      );           
-      controller.registerProperty("FillColor", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFillColor(value); }, v); }
-      );           
-    }         
-    
-};
-
-
-/**
- * Creates a set of Texts
- * @method textSet
- * @param mName
- */
-EJSS_DRAWING2D.textSet = function (mName) {
-  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.text, mName);
-
-  // Static references
-  var TextSet = EJSS_DRAWING2D.TextSet;		// reference for TextSet
-
-  /**
-   * Registers properties in a ControlElement
-   * @method registerProperties
-   * @param controller A ControlElement that becomes the element controller
-   */
-  self.registerProperties = function(controller) {
-    TextSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
-
-/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*
-* This code is Open Source and is provided "as is".
-*/
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/***
- * A Trace is a sophistication of the Trail element. 
- * The extra features are the possibility to specify markers that will be displayed at 
- * each point of the trace.
- * @class EJSS_DRAWING2D.Trace 
- * @parent EJSS_DRAWING2D.Trail
- * @constructor  
- */
-EJSS_DRAWING2D.Trace = {
-  ELLIPSE : 0, 	
-  RECTANGLE : 1,	
-  AREA : 2,	
-  BAR : 3,
-
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
-  		EJSS_DRAWING2D.Trail.copyTo(source,dest);
-  		EJSS_DRAWING2D.Style.copyTo(source.getMarkStyle(),dest.getMarkStyle());
-  		
-		dest.setMarkType(source.getMarkType());
-		dest.setMarkSize(source.getMarkSize());
-  	},
-  	
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Trail.registerProperties(element, controller);
-		// super class
-
-	 /*** 
-	  * Type of marker to draw
-	  * @property MarkType 
-	  * @type int|String
-	  * @values 0="ELLIPSE", 1="RECTANGLE", 2:"AREA", 3:"BAR" 
-	  * @default "ELLIPSE" 
-	  */ 
-	  controller.registerProperty("MarkType", element.setMarkType, element.getMarkType);
-
-	 /*** 
-	  * Axis for bar or area markers
-	  * @property MarkAxisY 
-	  * @type int
-	  * @default 0 
-	  */ 
-	  controller.registerProperty("MarkAxisY", element.setMarkAxisY, element.getMarkAxisY);
-
-	 /*** 
-	  * Size of the marker to draw
-	  * @property MarkSize 
-	  * @type int[2] providing the width and height in pixels
-	  * @default [0,0] 
-	  */ 
-		controller.registerProperty("MarkSize", element.setMarkSize, element.getMarkSize);
-
-	 /*** 
-	  * Color for the lines of the markers
-	  * @property MarkLineColor
-	  * @type String
-	  * @see http://www.w3schools.com/cssref/css_colornames.asp
-	  * @default "Black"
-	  */ 
-      	controller.registerProperty("MarkLineColor",  element.getMarkStyle().setLineColor);
-
-	 /*** 
-	  * Marker stroke width
-	  * @property MarkLineWidth 
-	  * @type double
-	  * @default 0.5
-	  */ 
-      	controller.registerProperty("MarkLineWidth",  element.getMarkStyle().setLineWidth);
-
-	 /*** 
-	  * Whether the marker lines are drawn
-	  * @property MarkDrawLines 
-	  * @type boolean
-	  * @default true 
-	  */ 
-      	controller.registerProperty("MarkDrawLines",  element.getMarkStyle().setDrawLines);
-
-	 /*** 
-	  * The fill color for the markers
-	  * @property MarkFillColor 
-	  * @type String
-	  * @see http://www.w3schools.com/cssref/css_colornames.asp
-	  * @default "Blue"
-	  */ 
-      	controller.registerProperty("MarkFillColor",  element.getMarkStyle().setFillColor);
-
-	 /*** 
-	  * Whether the marker are filled
-	  * @property MarkDrawFill 
-	  * @type boolean
-	  * @default true
-	  */ 
-      	controller.registerProperty("MarkDrawFill",   element.getMarkStyle().setDrawFill);
-
-	}
-
-};
-
-/**
- * Creates a 2D Trace
- * @method trace
- */
-EJSS_DRAWING2D.trace = function(mName) {
-	var self = EJSS_DRAWING2D.trail(mName);
- 
-    // Instance variables
-	var mMarkType = EJSS_DRAWING2D.Trace.ELLIPSE;
-    var mMarkStyle = EJSS_DRAWING2D.style(mName);	// style for mark
-    var mMarkRelativePosition = EJSS_DRAWING2D.Element.CENTER;  
-	var mMarkSizeX = 0;
-	var mMarkSizeY = 0;
-	var mMarkAxisY = 0;
-	var mMarkStyleList = [];
-		 
-	self.getClass = function() {
-		return "ElementTrace";
-	}
-
-	/***
-	 * Set a list of styles
-	 * @param list
-     * @visibility public
-	 */
-	self.setMarkStyleList = function(list) {
-	    if (typeof list == "undefined" || list === null) { 
-	    	mMarkStyleList = [];
-	    } else if (Array.isArray(list)) {  // list
-	      	mMarkStyleList = list.slice();
-	      	self.setChanged(true);
-	    } 
-	};
-	
-	/***
-	 * Get the list of styles
-	 * @method getMarkStyleList()
-	 * @return list
-     * @visibility public
-	 */
-	self.getMarkStyleList = function() {
-	  return mMarkStyleList;
-	};
-
-	/**
-	 * Sets the mark relative position of the element with respect to its (x,y) coordinates.
-	 */
-	self.setMarkRelativePosition = function(position) {
-	  if (typeof position == "string") position = EJSS_DRAWING2D.Element[position.toUpperCase()];
-	  if (mMarkRelativePosition != position) {
-	    mMarkRelativePosition = position;
-	  	self.setChanged(true);
-	  }
-	};
-	  
-	self.getMarkRelativePosition = function() { 
-	  return mMarkRelativePosition;
-	};
-
-	/***
-	 * Return the style of the mark
-	 * @method getMarkStyle() 
-     * @visibility public
-	 */
-	self.getMarkStyle = function() { 
-	  return mMarkStyle; 
-	};
-
-	/***
-	 * Set the size of the mark
-	 * @method setMarkSize(size)
-	 * @param size int[2]|double[2] array with the size in pixels
-     * @visibility public
-	 */
-	self.setMarkSize = function(size) {
-	  if((mMarkSizeX != size[0]) || (mMarkSizeY != size[1])) { 
-	  	mMarkSizeX = size[0];
-	  	mMarkSizeY = size[1];
-	  	self.setChanged(true);
-	  }
-	};
-	
-	/***
-	 * Get the sizes of the mark
-	 * @method getMarkSize()
-	 * @return double[]
-     * @visibility public
-	 */
-	self.getMarkSize = function() {
-	  return [mMarkSizeX, mMarkSizeY];
-	};
-
-	/***
-	 * Set the type of the mark
-	 * @method setMarkType(type)
-	 * @param type int|String One of: "CENTER":0,"NORTH":1,"SOUTH":2,"EAST":3,"WEST":4,"NORTH_EAST":5,"NORTH_WEST":6,
-	 *                 "SOUTH_EAST":7,"SOUTH_WEST":8 
-     * @visibility public
-	 */
-	self.setMarkType = function(type) {
-	  if (typeof type == "string") type = EJSS_DRAWING2D.Trace[type.toUpperCase()];
-	  if(mMarkType != type) {
-	  	mMarkType = type;
-	  	self.setChanged(true);
-	  }
-	};
-	
-	/***
-	 * Get the type of the mark
-	 * @method getMarkType()
-	 * @return int
-     * @visibility public
-	 */
-	self.getMarkType = function() {
-	  return mMarkType;
-	};
-
-	/***
-	 * Set the limit axis for bar or area marks
-	 * @method setMarkAxisY()
-	 * @param int
-     * @visibility public
-	 */
-	self.setMarkAxisY = function(axisY) {
-	  if(mMarkAxisY != axisY) {
-	  	mMarkAxisY = axisY;
-	  	self.setChanged(true);
-	  }
-	};
-  
-	/***
-	 * Get the limit axis for bar or area marks
-	 * @method getMarkAxisY()
-	 * @return int
-     * @visibility public
-	 */
-	self.getMarkAxisY = function() {
-	  return mMarkAxisY;
-	};
-  
-   self.formatPoint = function(src) {
-   		// override
-   		var size = src.length;
-   		src[size++] = mMarkType;
-   		src[size] = EJSS_DRAWING2D.style();
-   		EJSS_DRAWING2D.Style.copyTo(mMarkStyle,src[size++]);
-		src[size++] = mMarkSizeX;
-		src[size++] = mMarkSizeY;
-		src[size] = mMarkAxisY;
-		return src;
-   }
-  
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.Trace.registerProperties(self, controller);
-	};
-  
-  	self.copyTo = function(element) {
-    	EJSS_DRAWING2D.Trace.copyTo(self,element);
-  	};
-  
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-	return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//TraceSet
-//---------------------------------
-
-/**
- * TraceSet
- * @class TraceSet 
- * @constructor  
- */
-EJSS_DRAWING2D.TraceSet = {
-  
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var TrailSet = EJSS_DRAWING2D.TrailSet;
-      
-      TrailSet.registerProperties(set,controller);
-      
-	 /*** 
-	  * Type of marker to draw
-	  * @property MarkType 
-	  * @type int|String
-	  * @values 0="ELLIPSE", 1="RECTANGLE", 2:"AREA", 3:"BAR" 
-	  * @default "ELLIPSE" 
-	  */ 
-	  controller.registerProperty("MarkType", 
-          function(v) { set.setToEach(function(element,value) { element.setMarkType(value); }, v); }
-      );
-      
-	 /*** 
-	  * Size of the marker to draw
-	  * @property MarkSize 
-	  * @type int[2] providing the width and height in pixels
-	  * @default [0,0] 
-	  */ 
-	  controller.registerProperty("MarkSize", 
-          function(v) { set.setToEach(function(element,value) { element.setMarkSize(value); }, v); }
-      );           
-      
-	 /*** 
-	  * Color for the lines of the markers
-	  * @property MarkLineColor
-	  * @type String
-	  * @see http://www.w3schools.com/cssref/css_colornames.asp
-	  * @default "Black"
-	  */ 
-	  controller.registerProperty("MarkLineColor", 
-          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setLineColor(value); }, v); }
-      );   
-      
-      /*** 
-	  * Marker stroke width
-	  * @property MarkLineWidth 
-	  * @type double
-	  * @default 0.5
-	  */         
-      controller.registerProperty("MarkLineWidth", 
-          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setLineWidth(value); }, v); }
-      );           
-      
-      /*** 
-	  * Whether the marker lines are drawn
-	  * @property MarkDrawLines 
-	  * @type boolean
-	  * @default true 
-	  */
-      controller.registerProperty("MarkDrawLines", 
-          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setDrawLines(value); }, v); }
-      );           
-      
-      /*** 
-	  * The fill color for the markers
-	  * @property MarkFillColor 
-	  * @type String
-	  * @see http://www.w3schools.com/cssref/css_colornames.asp
-	  * @default "Blue"
-	  */
-	  controller.registerProperty("MarkFillColor", 
-          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setFillColor(value); }, v); }
-      );           
-      
-      /*** 
-	  * Whether the marker are filled
-	  * @property MarkDrawFill 
-	  * @type boolean
-	  * @default true
-	  */
-	  controller.registerProperty("MarkDrawFill", 
-          function(v) { set.setToEach(function(element,value) { element.getMarkStyle().setDrawFill(value); }, v); }
-      );           
-      
-      /*** 
-	  * Position of the marker relative to the point 
-	  * @property MarkRelativePosition 
-	  * @type int|String
-	  * @values "CENTER":0,"NORTH":1,"SOUTH":2,"EAST":3,"WEST":4,"NORTH_EAST":5,"NORTH_WEST":6,
-	  * "SOUTH_EAST":7,"SOUTH_WEST":8 
-	  * @default "CENTER
-	  */
-	  controller.registerProperty("MarkRelativePosition", 
-          function(v) { set.setToEach(function(element,value) { element.setMarkRelativePosition(value); }, v); }
-      );           
-    }    
-};
-
-
-/**
- * Creates a set of Segments
- * @method traceSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING2D.traceSet = function (mName) {
-  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.trace, mName);
-
-  // Static references
-  var TraceSet = EJSS_DRAWING2D.TraceSet;		// reference for TraceSet
-  
-  self.registerProperties = function(controller) {
-    TraceSet.registerProperties(self,controller);
-  };
-
-  return self;
-};/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*
-* This code is Open Source and is provided "as is".
-*/
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/***
- * A Trail is a two-dimensional drawable that displays a collection of points in the plane. 
- * The points are added to the trail either through the <tt>InputX</tt> and <tt>InputY</tt>
- * properties, or using the element’s <tt>addPoint</tt> or <tt>moveToPoint</tt> functions. 
- * The points are displayed using lines which connect the points, each with the previous one, 
- * thus forming a polygonal line (which looks like a trail). The trail can be disconnected 
- * at some points if the <tt>Connected</tt> property is set temporarily to false, or if 
- * the <tt>moveToPoint</tt> function is used.<br/> 
- * The number of points in a trail can be limited through the <tt>Maximum</tt> property. 
- * Adding points past the limit causes the trail to remove the first points in it.<br/>
- *<br/>
- * Trails can be broken into several segments using the <tt>newSegment</tt> function. 
- * Each segment behaves like a sub-trail, but segments can have different drawing 
- * styles (line width and color). Also, the user can delete the points in the last 
- * segment without affecting the previous segments.
- * @class EJSS_DRAWING2D.Trail 
- * @parent EJSS_DRAWING2D.Element
- * @constructor  
- */
-EJSS_DRAWING2D.Trail = {
-  NO_CONNECTION : 0, 	// The next point will not be connected to the previous one
-  LINE_CONNECTION : 1,	// The next point will be connected to the previous one by a segment
-
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
-  		
-		dest.setActive(source.getActive());
-		dest.setNoRepeat(source.getNoRepeat());
-		dest.setClearAtInput(source.getClearAtInput());
-		dest.setSkip(source.getSkip());
-		dest.setInputLabels(source.getInputLabels());
-		dest.setMaximumPoints(source.getMaximumPoints());
-		dest.setConnectionType(source.getConnectionType());
-		dest.setPoints(source.getPoints());
-  	},
-  	
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING2D.Element.registerProperties(element, controller);
-		// super class
-
-	 /*** 
-	  * Whether the trail should accept input points. 
-	  * @property Active
-	  * @type boolean
-	  * @default true 
-	  */  
-		controller.registerProperty("Active", element.setActive, element.getActive);
-
-	 /*** 
-	  * Whether the trail ignores repeated input points 
-	  * @property NoRepeat
-	  * @type boolean
-	  * @default false 
-	  */  
-		controller.registerProperty("NoRepeat", element.setNoRepeat, element.getNoRepeat);
-
-	 /*** 
-	  * Whether the trail clears all points when receiving new input. (Useful if input is an array.)
-	  * @property ClearAtInput
-	  * @type boolean
-	  * @default false 
-	  */  
-		controller.registerProperty("ClearAtInput", element.setClearAtInput, element.getClearAtInput);
-
-	 /*** 
-	  * Whether the trail should display only one oout of many inpout points. 
-	  * If Skip is positive, it indicates how many points the trail will take to display one.
-	  * @property Skip
-	  * @type int
-	  * @default 0 
-	  */  
-		controller.registerProperty("Skip", element.setSkip, element.getSkip);
-
-		controller.registerProperty("ColumnNames", element.setInputLabels, element.getInputLabels);
-
-	 /*** 
-	  * The maximum number of points the trail accepts. If more input is received, the trail
-	  * will discard the corresponding first points.
-	  * @property Maximum
-	  * @type int
-	  * @default 0 indicating no limit
-	  */  
-		controller.registerProperty("Maximum", element.setMaximumPoints, element.getMaximumPoints);
-
-		controller.registerProperty("ConnectionType", element.setConnectionType, element.getConnectionType);		
-
-	 /*** 
-	  * Whether the next input point should be connected to the previous one. 
-	  * @property Connected
-	  * @type boolean
-	  * @default true 
-	  */  		
-	  controller.registerProperty("Connected", element.setConnected, element.isConnected);		
-		
-		controller.registerProperty("Points", element.setPoints, element.getPoints);		
-		controller.registerProperty("LastPoint", element.addPoint, element.getLastPoint);
-
-	 /*** 
-	  * The next input point for the trail. 
-	  * @property Input
-	  * @type int[2]|double[2] An array with a pair of [x,y] coordinates, 
-	  * or int[n][2]|double[n][2] a double array with n pairs of [x,y] coordinates. 
-	  * @default "none" 
-	  */ 
-	  controller.registerProperty("Input", element.addPoints);
-
-	 /*** 
-	  * The X coordinate for the next input point for the trail. 
-	  * @property InputX
-	  * @type int|double The X coordinate for the input point 
-	  * or int[n]|double[n] a double array with the X coordinates for n input points. 
-	  * @default "none" 
-	  */ 
-	  controller.registerProperty("InputX", element.addXPoints);				
-
-	 /*** 
-	  * The Y coordinate for the next input point for the trail. 
-	  * @property InputY
-	  * @type int|double The Y coordinate for the input point 
-	  * or int[n]|double[n] a double array with the Y coordinates for n input points. 
-	  * @default "none" 
-	  */ 
-	  controller.registerProperty("InputY", element.addYPoints);
-	}
-			
-};
-
-/**
- * Creates a 2D Trail
- * Trail implements dataCollected(), which makes it a Collector of data 
- * @see _view._collectData
- * @method trail
- */
-EJSS_DRAWING2D.trail = function(name) {
-	var self = EJSS_DRAWING2D.element(name);
- 
-    // Configuration variables
-	var mActive = true;
-	var mNoRepeat = false;
-	var mClearAtInput = false;
-	var mSkip = 0;
-	var mInputLabels = ["x", "y"];	  
-	var mMaximum = 0;
-	var mConnectionType = EJSS_DRAWING2D.Trail.LINE_CONNECTION;
-	
-  	// Implementation variables
-  	var mCounter = 0;
-  	var mIsEmpty = true;
-	//  private int firstPoint = 0; // the first point of the current path 
-  	var mLastPoint = 0;	
-  	var mFlushPoint = 0; // This is the last point which was not added because of the skip parameter  	
-  	var mCurrentList = []; 	// The current list of points  	
-  	var mSegmentList = []; // The list of past Segments, if any  	
-  	var mSegmentStyle = []; // The list of past segment styles, if any
-	var mTmpList = []; // The temporal list of new points
-	var mTmpLastXAdded = 0;
-	var mTmpLastYAdded = 0;
-	 
-	self.getClass = function() {
-		return "ElementTrail";
-	}
-
-  /***
-   * Sets the active state of the trail. An inactive trail ignores all input. 
-   * @method setActive(active)
-   * @param active boolean
-   * @visibility public
-   */
-  self.setActive = function(active) {
-    if(mActive != active) {
-    	mActive = active;
-    	self.setChanged(true);
-    }
-  }
-  
-  /***
-   * Whether the trail is in active mode.
-   * @method getActive()
-   * @return boolean
-   */
-  self.getActive = function() { 
-  	return mActive; 
-  }
-  
-  /***
-   * Sets the no repeat state of the trail.
-   * When set, a trail will ignore (x,y) points which equal the last added point.
-   * @method setNoRepeat(noRepeat)
-   * @param noRepeat boolean
-   * @visibility public
-   */
-  self.setNoRepeat = function (noRepeat) {
-    if(mNoRepeat != noRepeat) {
-    	mNoRepeat = noRepeat;
-    	self.setChanged(true);
-    }
-  }
-  
-  /***
-   * Whether the trail is in no repeat mode.
-   * @method getNoRepeat()
-   * @return boolean
-   */
-  self.getNoRepeat = function() { 
-  	return mNoRepeat; 
-  }
-
-  /***
-   * Sets the trail to clear existing points when receiving 
-   * a new point or array of points.
-   * @method setClearAtInput(clear)
-   * @param clear boolean
-   * @visibility public
-   */
-  self.setClearAtInput = function(clear) {
-    if(mClearAtInput != clear) {
-    	mClearAtInput = clear;
-    	self.setChanged(true);
-    }
-  }
-  
-  /***
-   * Whether the trail is in clear at input mode.
-   * @method getClearAtInput()
-   * @return boolean
-   * @visibility public
-   */
-  self.getClearAtInput = function() { 
-  	return mClearAtInput; 
-  }
-
-  /***
-   * Sets the skip parameter. When the skip parameter is larger than zero,
-   * the trail only considers one of every 'skip' points. That is, if skip is 3, 
-   * the trail will consider only every third point sent to it. 
-   * The default is zero, meaning all points must be considered.
-   * @method setSkip(skip)
-   * @param skip int
-   * @visibility public
-   */
-  self.setSkip = function (skip) {
-    if (mSkip != skip) {
-      mSkip = skip;
-      mCounter = 0;
-      self.setChanged(true);
-    }
-  }
-  
-  /***
-   * Returns the skip parameter of the trail.
-   * @method getSkip()
-   * @return int
-   * @visibility public
-   */
-  self.getSkip = function () { 
-  	return mSkip; 
-  }
-
-  /**
-   * Sets the labels of the X,Y coordinates when the data is displayed in a table
-   * @method setInputLabels(label)
-   * @param label
-   */
-  self.setInputLabels = function (label) {
-  	if((mInputLabels[0] != label[0]) || (mInputLabels[1] != label[1])) { 
-  		mInputLabels[0] = label[0]; 
-  		mInputLabels[1] = label[1]; 
-  		self.setChanged(true);
-  	}
-  }
-
-  /**
-   * Returns the labels of the X,Y coordinates
-   * @method getInputLabels()
-   * @return labels
-   */
-  self.getInputLabels = function () { 
-  	return mInputLabels; 
-  }
-  
-  /***
-   * Sets the maximum number of points for the trail.
-   * Once the maximum is reached, adding a new point will cause
-   * remotion of the first one. This is useful to keep trails
-   * down to a reasonable size, since very long trails can slow
-   * down the rendering (in certain implementations).
-   * If the value is 0 (the default) the trail grows forever
-   * without discarding old points.
-   * @method setMaximumPoints(maximum)
-   * @param maximum int
-   * @visibility public
-   */
-  self.setMaximumPoints = function(maximum) {
-  	var max = Math.max(maximum, 2);
-  	if(mMaximum != max) {
-    	mMaximum = max;
-    	self.setChanged(true);
-    }
-  }
-
-  /***
-   * Returns the maximum number of points allowed for the trail
-   * @method getMaximumPoints()
-   * @return int
-   * @visibility public
-   */
-  self.getMaximumPoints = function() {
-    return mMaximum;
-  }
-
-  /***
-   * Whether to connect next input point with the previous one
-   * @method setConnected(connected)
-   * @param connected boolean
-   * @visibility public
-   */
-  self.setConnected = function (connected) {
-   if (connected) self.setConnectionType(EJSS_DRAWING2D.Trail.LINE_CONNECTION);
-   else self.setConnectionType(EJSS_DRAWING2D.Trail.NO_CONNECTION);
-  }
-
-  /***
-   * Gets the connection state.
-   * @method getConnected()
-   * @return boolean
-   * @visibility public
-   */
-  self.isConnected = function() {
-    return mConnectionType===EJSS_DRAWING2D.Trail.LINE_CONNECTION;
-  }
-
-  /**
-   * Sets the type of connection for the next point.
-   * @method setConnectionType(type)
-   * @param type int
-   */
-  self.setConnectionType = function (type) {
-    if (typeof type == "string") type = EJSS_DRAWING2D.Trail[type.toUpperCase()];      	
-    if(mConnectionType != type) {
-    	mConnectionType = type;
-    	self.setChanged(true);
-    }
-  }
-
-  /**
-   * Gets the connection type.
-   * @method getConnectionType()
-   * @see #setConnectionType(int)
-   */
-  self.getConnectionType = function() {
-    return mConnectionType;
-  }
-
-  /***
-   * Adds a new point to the trail.
-   * @method addPoint(x,y,style)
-   * @param x double The X coordinate of the point 
-   * 		or point double[] The double[2] array with the coordinates of the point.
-   * @param y double The Y coordinate of the point.
-   * @param style int an optional connection style: 0 = EJSS_DRAWING2D.Trail.NO_CONNECTION, 1 = EJSS_DRAWING2D.Trail.LINE_CONNECTION
-   * @visibility public
-   */
-  self.addPoint = function (x, y, style) {
-    if (!mActive) return;
-  	if (mClearAtInput) self.initialize();
-    if(x instanceof Array)    	
-    	addPoint(x[0], x[1], x[2]);
-    else 
-    	addPoint (x,y,style);
-    self.setChanged(true);
-  }
-
-
-  /***
-   * Adds an array of points to the trail.
-   * @method addPoints(x,y)
-   * @param x double The double[] array with the X coordinates of the points.
-   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
-   * @param y double The double[] array with the Y coordinates of the points.
-   * @visibility public
-   * @param len int The number of points to copy.
-   * @visibility public
-   */
-  self.addPoints  = function(x, y, len) {
-    if (!mActive) return;
-  	if (mClearAtInput) self.initialize();
-  	// number of points to copy
-  	if (typeof len == "undefined") len = Number.MAX_SAFE_INTEGER;
-	if ((typeof y == "undefined") || (y === null)) {
-      if(x[0] instanceof Array) {    
-    	for (var i=0,n=Math.min(len,x.length); i<n; i++) addPoint (x[i][0],x[i][1],x[i][2]);  		
-  	  }
-  	  else addPoint (x[0],x[1]);
-	}
-	else { // y is defined
-    	for (var i=0,n=Math.min(len,x.length,y.length); i<n; i++) addPoint (x[i],y[i]);
-  	}
-    self.setChanged(true);
-  }
-
-  /**
-   * Sets the array of X points for the input of the trail.
-   * @method addXPoints(x)
-   */
-  self.addXPoints  = function(x) {
-    if (!mActive) return;
-  	var i = 0;
-  	if(x instanceof Array) {
-  		// fill points with the values  		
-    	for (var n=x.length; i<n; i++) {
-    		if(mTmpList[i]) mTmpList[i] = [x[i],mTmpList[i][1],mTmpList[i][2]];
-    		else mTmpList[i] = [x[i],mTmpLastYAdded,mConnectionType];
-    	}  		
-    	mTmpLastXAdded = x[i];
-  	}
-    else { // only one value
-    	if(mTmpList[i]) mTmpList[i] = [x,mTmpList[i][1],mTmpList[i][2]];
-    	else mTmpList[i] = [x,mTmpLastYAdded,mConnectionType];
-    	i++;
-    	mTmpLastXAdded = x;    	
-    }
-
-	// fill points with the last value
-	while (mTmpList[i]) {
-		mTmpList[i] = [mTmpLastXAdded,mTmpList[i][1],mTmpList[i][2]];
-		i++;
-	}    	
-  }
-
-  /**
-   * Adds an array of Y points to the trail.
-   * @method addYPoints(y)
-   */
-  self.addYPoints  = function(y) {
-    if (!mActive) return;
-  	var i = 0;
-  	if(y instanceof Array) {
-  		// fill points with the values  		
-    	for (var n=y.length; i<n; i++) {
-    		if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y[i],mTmpList[i][2]];
-    		else mTmpList[i] = [mTmpLastXAdded,y[i],mConnectionType];
-    	}  		
-    	mTmpLastYAdded = y[i];
-  	}
-    else { // only one value
-    	if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y,mTmpList[i][2]];
-    	else mTmpList[i] = [mTmpLastXAdded,y,mConnectionType];
-    	i++;
-    	mTmpLastYAdded = y;    	
-    }
-
-	// fill points with the last value
-	while (mTmpList[i]) {
-		mTmpList[i] = [mTmpList[i][0],mTmpLastYAdded,mTmpList[i][2]];
-		i++;
-	}    	
-  }
-
-  /**
-   * Adds the temporal array of point to the trail.
-   * @method dataCollected()
-   */
-  self.dataCollected  = function() {
-  	if (mTmpList.length > 0) {
-  	  self.addPoints(mTmpList);
-      mTmpList = [];
-  	  self.setChanged(true);
-  	}
-  }  
-
-  /**
-   * Sets an array of points to the trail. Equivalent to clear() + addPoints(x,y)
-   * @method setPoints(x,y)
-   * @param xInput double The double[] array with the X coordinates of the points.
-   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
-   * @param yInput double The double[] array with the Y coordinates of the points.
-   */
-  self.setPoints  = function(x, y) {
-    if (!mActive) return;
-  	self.clear();
-  	self.addPoints(x,y);
-  	self.setChanged(true);
-  }
-    
-  /***
-   * Moves to the new point without drawing.
-   * (Equivalent to setting the connection type
-   * to NO_CONNECTION and adding one single point, then setting the 
-   * type back to its previous value.)
-   * @method moveToPoint(x,y)
-   * @param x double The X coordinate of the point.
-   * 	or point double[] The double[2] array with the coordinates of the point.
-   * @param y double The Y coordinate of the point.
-   * @visibility public
-   */
-  self.moveToPoint = function(x, y) { 
-    if (!mActive) return;
-  	if (mClearAtInput) self.initialize();
-  	if(x instanceof Array) 
-    	addPoint(x[0], x[1], EJSS_DRAWING2D.Trail.NO_CONNECTION);    
-    else	
-    	addPoint(x,y, EJSS_DRAWING2D.Trail.NO_CONNECTION);
-    self.setChanged(true);
-  }
-
-  self.getSegmentsCount = function() {
-    return mSegmentList.length; 
-  }
-
-  self.getSegmentPoints = function(index) {
-    return mSegmentList[index]; 
-  }
-
-  self.getSegmentStyle = function(index) {
-    return mSegmentStyle[index]; 
-  }
-
-  /**
-   * Returns current points.
-   * @method getCurrentPoints
-   * @return points
-   */
-  self.getCurrentPoints = function () {
-    return mCurrentList;
-  }
-  
-  /**
-   * Returns all points.
-   * @method getPoints
-   * @return points
-   */
-  self.getPoints = function () {
-    var points = [];
-    var size = mSegmentList.length;          	
-	for(var i=0; i<size; i++ )
-		points = points.concat(mSegmentList[i]);
-	points = points.concat(mCurrentList);
-
-    return points; 
-  }
-
-  
-  /**
-   * Gets last point.
-   * @method getLastPoint
-   * @return point
-   */
-  self.getLastPoint = function () {
-    return mLastPoint;
-  }
-
-  /***
-   * Same as clear
-   * @method reset()
-   * @visibility public
-   */
-  self.reset = function() {
-    self.clear();
-  }
-
-  /***
-   * Clears all points from all segments of the trail.
-   * @method clear()
-   * @visibility public
-   */
-  self.clear = function() {
-    mSegmentList = [];
-    mSegmentStyle = [];
-    self.initialize();
-  }
-
-  /***
-   * Clears all points from the last segment of the trail.
-   * @method clearLastSegment()
-   * @visibility public
-   */
-  self.clearLastSegment = function() {
-	if (mCurrentList.length<=0) {
-      mSegmentList.pop();
-      mSegmentStyle.pop();
-	  self.setChanged(true);
-    }
-	self.initialize();
-  }
-  
-  /***
-   * Clears all points from the last segment of the trail, 
-   * respecting previous segments.
-   * @method initialize()
-   * @visibility public
-   */
-  self.initialize  = function() {
-  	  mTmpList = [];
-	  mCurrentList = [];	  
-	  mFlushPoint = 0;
-	  mIsEmpty = true;
-	  mCounter = 0;
-	  mLastPoint = 0;
-	  self.setChanged(true);
-  }
-
-  /***
-   * Creates a new segment of the trail.
-   * @method newSegment()
-   * @visibility public
-   */
-  self.newSegment = function() {
-    if (mFlushPoint != 0) {
-    	var size = mCurrentList.length;
-    	mCurrentList[size] = self.formatPoint(mFlushPoint);
-    }
-    var size = mSegmentList.length;
-    mSegmentList[size] = mCurrentList;
-    var segmentStyle = EJSS_DRAWING2D.style(self.getName()+" #"+size);
-    EJSS_DRAWING2D.Style.copyTo(self.getStyle(),segmentStyle);
-    mSegmentStyle[size] = segmentStyle;
-
-	self.initialize();
-  }  
-  
-  /**
-   * Returns bounds for an element
-   * @override
-   * @method getBounds
-   * @return Object{left,rigth,top,bottom}
-   */
-  self.getBounds = function(element) {
-  	var xmin, xmax, ymin, ymax;
-  	var points = self.getPoints();
-  	
-  	// add mTmpList
-  	//if (mTmpList.length > 0) points = points.concat(mTmpList);
-  	
-  	  	
-    var len = points.length;
-    if(len == 0) {
-    	xmin = xmax = ymin = ymax = 0;
-    }             
-    else {
-		xmax = xmin = points[0][0];
-		ymax = ymin = points[0][1];    	
-		for(var j=1; j<len; j++) {
-			var x = points[j][0], y = points[j][1];
-			if(x>xmax) xmax=x; if(y>ymax) ymax=y; if(x<xmin) xmin=x; if(y<ymin) ymin=y;
-		}
-	}    
-    var x = self.getX(), y = self.getY();
-    var sx = self.getSizeX(), sy = self.getSizeY();
-  	var mx = sx/2, my = sy/2;  	
-  	var d = self.getRelativePositionOffset(sx,sy);
-  	
-	return {
-		left: ((x+d[0])-mx)+xmin*sx,
-		right: ((x+d[0])-mx)+xmax*sx,
-		top: ((y+d[1])-my)+ymax*sy,
-		bottom: ((y+d[1])-my)+ymin*sy
-	}
-  };  
-  
-  function addPoint(_x, _y, _type) {
-    //if (!mActive) return;
-    if (isNaN(_x) || isNaN(_y)) { 
-    	mIsEmpty = true; 
-    	return; 
-    }
-    if (mNoRepeat && mLastPoint[0]==_x && mLastPoint[1]==_y) 
-    	return;
-	if ((typeof _type == "undefined") || (_type === null))
-		_type = mConnectionType;
-
-    mFlushPoint = 0;
-    mLastPoint = self.formatPoint([_x,_y,_type]);
-    
-    if (mSkip > 0) { // Only if the counter is 0      
-      if(mCounter > 0) mFlushPoint = self.formatPoint([_x, _y, _type]);      
-      if(++mCounter >= mSkip) mCounter = 0;	        
-    }
-    
-    if (mFlushPoint == 0) {
-	    if (mMaximum > 2 && mCurrentList.length >= mMaximum) {
-	    	mCurrentList.splice(0,1) // remove the firstPoint
-	    }
-	    
-	    mCurrentList[mCurrentList.length] = self.formatPoint([_x, _y, _type]);
-	    mIsEmpty = false;
-	}
-  }
-
-	// override for subclases (for example Trace)
-   self.formatPoint = function(src) {
-   		return src;   		
-   }
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING2D.Trail.registerProperties(self, controller);
-	};
-	
-  	self.copyTo = function(element) {
-    	EJSS_DRAWING2D.Trail.copyTo(self,element);
-  	};
-  
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-	self.setSize([1,1]);
-  /*** @property RelativePosition @default "SOUTH_WEST" */  
-	self.setRelativePosition("SOUTH_WEST");
-
-	return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//TrailSet
-//---------------------------------
-
-/**
- * TrailSet
- * @class TrailSet 
- * @constructor  
- */
-EJSS_DRAWING2D.TrailSet = {
-  
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING2D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      controller.registerProperty("Active", 
-          function(v) { set.setToEach(function(element,value) { element.setActive(value); }, v); }
-      );
-      controller.registerProperty("NoRepeat", 
-          function(v) { set.setToEach(function(element,value) { element.setNoRepeat(value); }, v); }
-      );           
-      controller.registerProperty("ClearAtInput", 
-          function(v) { set.setToEach(function(element,value) { element.setClearAtInput(value); }, v); }
-      );           
-      controller.registerProperty("Skip", 
-          function(v) { set.setToEach(function(element,value) { element.setSkip(value); }, v); }
-      );           
-      controller.registerProperty("ColumnNames", 
-          function(v) { set.setToEach(function(element,value) { element.setInputLabels(value); }, v); }
-      );           
-      controller.registerProperty("Maximum", 
-          function(v) { set.setToEach(function(element,value) { element.setMaximumPoints(value); }, v); }
-      );           
-      controller.registerProperty("ConnectionType", 
-          function(v) { set.setToEach(function(element,value) { element.setConnectionType(value); }, v); }
-      );           
-      controller.registerProperty("Connected", 
-          function(v) { set.setToEach(function(element,value) { element.setConnected(value); }, v); }
-      );           
-      controller.registerProperty("Points", 
-          function(v) { set.setToEach(function(element,value) { element.setPoints(value); }, v); }
-      );           
-      controller.registerProperty("LastPoint", 
-          function(v) { set.setToEach(function(element,value) { element.addPoint(value); }, v); }
-      );           
-      controller.registerProperty("Input", 
-          function(v) { set.setToEach(function(element,value) { element.addPoints(value); }, v); }
-      );           
-      controller.registerProperty("InputX", 
-          function(v) { set.setToEach(function(element,value) { element.addXPoints(value); }, v); }
-      );           
-      controller.registerProperty("InputY", 
-          function(v) { set.setToEach(function(element,value) { element.addYPoints(value); }, v); }
-      );           
-      
-    }    
-};
-
-
-/**
- * Creates a set of Segments
- * @method trailSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING2D.trailSet = function (mName) {
-  var self = EJSS_DRAWING2D.elementSet(EJSS_DRAWING2D.trail, mName);
-
-  // Static references
-  var TrailSet = EJSS_DRAWING2D.TrailSet;		// reference for TrailSet
-  
-  // ----------------------------------------------------
-  // Set actions
-  // ----------------------------------------------------
-
-  /**
-   * Resets all elements
-   * @method reset
-   */
-  self.reset = function() {
-    var elementList = self.getElements();
-    for (var i=0,n=elementList.length;i<n;i++) elementList[i].reset();
-  }
-  
-  /**
-   * Initializes all elements
-   * @method clear
-   */
-  self.initialize = function() {
-    var elementList = self.getElements();
-    for (var i=0,n=elementList.length;i<n;i++) elementList[i].initialize();
-  }
-  
-  /**
-   * Clears all elements
-   * @method clear
-   */
-  self.clear = function() {
-    var elementList = self.getElements();
-    for (var i=0,n=elementList.length;i<n;i++) elementList[i].clear();
-  }
-  
-  // ----------------------------------------------------
-  // Custom methods
-  // ----------------------------------------------------
-  
-  /**
-   * Creates a new segment of one of the trails in the set
-   * @method newSegment
-   */
-    self.newSegment = function(index) {
-      self.getElements()[index].newSegment();
-    }
-  
-  /**
-   * Moves to the new point without drawing.
-   * (Equivalent to setting the connection type
-   * to NO_CONNECTION and adding one single point, then setting the 
-   * type back to its previous value.)
-   * @method moveToPoint
-   * @param index int The index of the trail to move to 
-   * @param x double The X coordinate of the point.
-   * 	or point double[] The double[2] array with the coordinates of the point.
-   * @param y double The Y coordinate of the point.
-   */
-   self.moveToPoint = function (index, x, y) {
-      self.getElements()[index].moveToPoint(x,y);
-    }
-    
-  /**
-   * Adds a new point to one of the trails in the set
-   * @method addPoint
-   * @param index int The index of the trail to add to 
-   * @param x double The X coordinate of the point 
-   * 		or point double[] The double[2] array with the coordinates of the point.
-   * @param y double The Y coordinate of the point.
-   * @param style
-   */
-   self.addPoint = function (index, x, y, style) {
-      self.getElements()[index].addPoint(x,y,style);
-    }
-  
-  /**
-   * Adds an array of points to one of the trails in the set
-   * @method addPoints
-   * @param index int The index of the trail to add to 
-   * @param x double The double[] array with the X coordinates of the points.
-   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
-   * @param y double The double[] array with the Y coordinates of the points.
-   */
-    self.addPoints = function (index, x, y) {
-      self.getElements()[index].addPoints(x,y);
-    }
-  
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  self.registerProperties = function(controller) {
-    TrailSet.registerProperties(self,controller);
-  };
-
-  return self;
-};/*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
  * 
@@ -24267,312 +24572,6 @@ EJSS_DRAWING2D.transformation = function(transform) {
 
 
 
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * Video
- * @class Video 
- * @constructor  
- */
-EJSS_DRAWING2D.Video = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(element,controller) {
-      EJSS_DRAWING2D.Element.registerProperties(element,controller); // super class
-
-      controller.registerProperty("VideoUrl",element.setVideoUrl);
-      controller.registerProperty("CurrentTime",element.setCurrentTime);
-      controller.registerProperty("ShowControls",element.setControls);
-      controller.registerProperty("AutoPlay",element.setAutoPlay);
-      controller.registerProperty("Type",element.setType);
-      controller.registerProperty("Poster",element.setPoster);
-      controller.registerProperty("Loop",element.setLoop);
-      controller.registerProperty("WebCam",element.setWebCam);      
-    },
-};
-
-/**
- * Creates a 2D Segment
- * @method video
- */
-EJSS_DRAWING2D.video = function (name) {
-  var self = EJSS_DRAWING2D.element(name);
-
-  var mLoop = false;
-  var mWebCam = false;
-  var mType = "";
-  var mPoster = "";
-  var mAutoPlay = true;
-  var mCurrentTime = 0;
-  var mControls = true;
-  var mPlay = true;
-  var mUrl;		// Video url
-
-  self.getClass = function() {
-  	return "ElementVideo";
-  }
-
-  self.setLoop = function(loop) {
-  	if(mLoop != loop) {
-  		mLoop = loop;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getLoop = function() {
-  	return mLoop;
-  }	
-
-  self.setPoster = function(poster) {
-  	if(mPoster != poster) {
-  		mPoster = poster;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getPoster = function() {
-  	return mPoster;
-  }	
-
-  self.setType = function(type) {
-  	if(mType != type) {
-  		mType = type;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getType = function() {
-  	return mType;
-  }	
-
-  self.setAutoPlay = function(autoPlay) {
-  	if(mAutoPlay != autoPlay) {
-  		mAutoPlay = autoPlay;
-  		mPlay = autoPlay;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getAutoPlay = function() {
-  	return mAutoPlay;
-  }	
-
-  self.setWebCam = function(webCam) {
-  	if(mWebCam != webCam) {
-  		mWebCam = webCam;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getWebCam = function() {
-  	return mWebCam;
-  }	
-
-// play,stop,controls
-
-  self.setVideoUrl = function(url) {
-  	if(mUrl != url) {
-  		mUrl = url;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getVideoUrl = function() {
-  	return mUrl;
-  }	
-
-  self.setCurrentTime = function(currentTime) {
-  	if(mCurrentTime != currentTime) {
-  		mCurrentTime = currentTime;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getCurrentTime = function() {
-  	return mCurrentTime;
-  }	
-
-  self.setControls = function(controls) {
-  	if(mControls != controls) {
-  		mControls = controls;
-  		self.setChanged(true);
-  	}
-  }	
-
-  self.getControls = function() {
-  	return mControls;
-  }	
-
-  self.play = function() {
-  	if(!mPlay) {
-	  	mPlay = true;
-	  	self.setChanged(true);
-	}
-  }	
-
-  self.stop = function() {
-  	if(mPlay) {
-	  	mPlay = false;
-	  	mAutoPlay = false;
-	  	self.setChanged(true);
-	}
-  }	
-  
-  self.isPlay = function() {
-  	return mPlay;
-  }
-
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.Video.registerProperties(self,controller);
-  };
-  
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * EJSS framework for drawing2D elements
- * @module drawing2D 
- */
-
-var EJSS_DRAWING2D = EJSS_DRAWING2D || {};
-
-/**
- * WebCamImage
- * @class WebCamImage 
- * @extends Image
- * @constructor  
- */
-EJSS_DRAWING2D.WebCamImage = {
-  // ----------------------------------------------------
-  // Static methods
-  // ----------------------------------------------------
-
-  /**
-   * static registerProperties method
-   */ 
-   registerProperties : function(element,controller) {
-    EJSS_DRAWING2D.Image.registerProperties(element,controller); // super class
-
-    controller.registerProperty("Url",element.setUrl);
-    controller.registerProperty("On",element.setOnOff, element.isOnOff)
-
-  },
-
-};
-
-/**
- * motionJPEG function
- * Creates a basic MotionJPEG image element
- * @method motionJPEG
- * @param name the name of the element
- * @returns A MotionJPEG image element
- */
-EJSS_DRAWING2D.webCamImage = function (mName) {
-  var self = EJSS_DRAWING2D.image(mName);
-  navigator.getUserMedia  = navigator.getUserMedia ||
-                          navigator.webkitGetUserMedia ||
-                          navigator.mozGetUserMedia ||
-                          navigator.msGetUserMedia;
-  
-  var mPlaying = true;
-  var mUrl;
-  var mPreviousUrl;
-  
-  self.setUrl = function(url) {
-    //if (self.getResourcePath) url = self.getResourcePath(url);
-    mUrl = url;
-  }	
-
-  self.getUrl = function() {
-  	return mUrl;
-  }	
-
-  self.setOnOff = function(on) {
-	if (on) {
-	  if (!mPlaying) self.play();
-	}
-	else {
-	  if (mPlaying) self.pause();
-	}
-  }
-
-  self.isOnOff = function() {
-	return mPlaying;
-  }
-
-  self.play = function() {
-	if (mUrl) {
-      if (mUrl != self.getImageUrl()) {
-        mPreviousUrl = self.getImageUrl();
-        if (mUrl=="local:") {
-          if (navigator.getUserMedia) {
-            navigator.getUserMedia({video: true}, 
-              function(stream) { self.forceImageUrl(stream); }, 
-              errorCallback);
-          } 
-          else self.setImageUrl(mPreviousUrl);
-        }
-        else self.setImageUrl(mUrl);
-	  }
-	}
-	mPlaying = true;
-  }
-
-  self.pause = function() {
-	mPlaying = false;
-	if (mPreviousUrl) self.setImageUrl(mPreviousUrl);
-  }
-
-/*
-  self.dataCollectedno = function() {
-  	if (mPlaying && mUrl) {
-    	// self.setChanged(true);
-    	self.setChangedImage(true);
-    }
-  }
-  
-*/
-
-  /**
-   * Extended registerProperties method. To be used by promoteToControlElement
-   * @method registerProperties
-   */
-  self.registerProperties = function(controller) {
-    EJSS_DRAWING2D.WebCamImage.registerProperties(self,controller);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  return self;
-};
 /*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
@@ -29412,354 +29411,192 @@ EJSS_DRAWING3D.group = function (name) {
 var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
 
 /**
- * Constructor for Interaction
- * @param drawing panel
- * @returns An interaction
+ * Plane
+ * @class Plane 
+ * @constructor  
  */
-EJSS_DRAWING3D.panelInteraction = function(mPanel) {
-  var self = {};	// reference returned 
+EJSS_DRAWING3D.Plane = {
 
-  var mEnabled = false;			// whether interaction is enable 
-  var mLastLocation = [0,0];	// last position on panel trying interaction 
-  var mDeltaX = 0;
-  var mDeltaY = 0;
-  var mMouseIsDown = false;		// last event is mouse down
-  var mUpLastTime = 0;			// last timestamp for mouse up  
-  var mZoomLastTime = 0;		// last timestamp for pinching  
-  var mZoomDelta = 0;
-  var mLastZoom = 0;
-  var mPinching = false;
-  var mPinchInitDistance = [0,0];
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
 
-  /**
-   * Return panel
-   * @return drawing panel 
-   */
-  self.getPanel = function() {  	
-    return mPanel;
-  };  
-
-  self.getEnabled = function() {
-  	return mEnabled;
-  } 
-
-  self.setEnabled = function(enabled) {
-  	if(mEnabled != enabled) {
-	  	mEnabled = enabled;
-	  	
-	  	if(mEnabled) {
-		  self.setHandler("move",self.handleMouseMoveEvent);
-		  self.setHandler("down",self.handleMouseDownEvent);
-		  self.setHandler("up",self.handleMouseUpEvent);     		
-		  self.setHandler("mousewheel",self.handleMouseWheelEvent);
-		  // self.setHandler("pinch",self.handlePinchGesture)
-	  	} else { 
-		  self.setHandler("move",(function() {}));
-		  self.setHandler("down",(function() {}));
-		  self.setHandler("up",(function() {}));    			  		
-		  self.setHandler("mousewheel",(function() {}));
-		  // self.setHandler("pinch",(function() {}));
-	  	}
-  	}
-  } 
-
-  /**
-   * Return the last interaction point
-   * @method getInteractionPoint
-   * @return double[]
-   */
-  self.getInteractionPoint = function() {
-    // mLastPoint = mPanel.toPanelPosition([location[0],location[1]]);
-    return mLastLocation;
-  };
-
-  /**
-   * Return the last interaction point deltas
-   * @method getInteractionDeltas
-   * @return double[]
-   */
-  self.getInteractionDeltas = function() {
-    return [mDeltaX, mDeltaY];
-  };
-
-  /**
-   * Return the last interaction zoom delta
-   * @method getInteractionZoomDelta
-   * @return double
-   */
-  self.getInteractionZoomDelta = function() {
-    return mZoomDelta;
-  };
-
-  /**
-   * Handler for mouse wheel event
-   * @method handleMouseWheelEvent
-   * @param event
-   */
-  self.handleMouseWheelEvent = function(event) {
-	// number of fingers over screen	
-	var nFingers = (typeof event.touches != "undefined")? event.touches.length:0;
-	
-	if(nFingers == 0) {  	
-        // Prevent the browser from doing its default thing (scroll, zoom)
-	    event.preventDefault(); 
-
-		mZoomDelta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));	
-        mPanel.getController().invokeAction("OnZoom");
-        
-	    // all interactions are reported to View
-	    mPanel.getController().reportInteractions();
-	}
-  };
-
-  /**
-   * Handler for pinch gesture (only supported by safari and iOS)
-   * @method handlePinchGesture
-   * @param event
-   */
-  self.handlePinchGesture = function(event) {  	
-	if(event.timeStamp - mZoomLastTime > 100) { 
-		// Prevent the browser from doing its default thing (scroll, zoom)
-		event.preventDefault();
-				
-		if (event.scale < mLastZoom) {
-		    // User moved fingers closer together
-		    mZoomDelta = 1;                
-		} else if (event.scale >= mLastZoom) {
-		    // User moved fingers further apart
-		    mZoomDelta = -1;
-		}
-		mLastZoom = event.scale;
-		
-		mPanel.getController().invokeAction("OnZoom");
-		
-		// all interactions are reported to View
-		mPanel.getController().reportInteractions();
-		
-		mZoomLastTime = event.timeStamp;
-	} 
-	
-  };
-  
-  /**
-   * Handler for mouse move event
-   * @method handleMouseMoveEvent
-   * @param event
-   * @param location
-   */
-  self.handleMouseMoveEvent = function(event) {
-	// number of fingers over screen	
-	var nFingers = (typeof event.touches != "undefined")? event.touches.length:1;
-	
-	if(nFingers == 1) {  	
-	  	var currentX = mLastLocation[0];
-	  	var currentY = mLastLocation[1];  	
-	    mLastLocation = getEventLocation(event); 
-	    
-	    mDeltaX = mLastLocation[0] - currentX;
-	    mDeltaY = mLastLocation[1] - currentY; 
-	    
-	    if (mMouseIsDown) { // Mouse is down
-      	  mPanel.getController().invokeAction("OnDrag");
-	      event.target.style.cursor = 'move';
-	    }
-	    else { // Mouse is up
-	      event.target.style.cursor = 'default';
-	    }
-	
-	}
-	
-	if (nFingers == 2) {
-		if (event.timeStamp - mZoomLastTime > 25) { // time filter
-			// Prevent the browser from doing its default thing (scroll, zoom)
-			event.preventDefault();
-			
-			var e0 = event.touches[0]; var e1 = event.touches[1];
-			var e0x = (e0.clientX || e0.x); var e0y = (e0.clientY || e0.y);
-			var e1x = (e1.clientX || e1.x); var e1y = (e1.clientY || e1.y);
-			if(mPinching) {
-	    		var newDistance = [Math.abs(e0x-e1x),Math.abs(e0y-e1y)];
-	    		var delta = newDistance[0]-mPinchInitDistance[0]; 
-	    		if (delta<3 && delta>-3) { // minimum filter
-	    			mZoomDelta = 0;
-	    		} else {
-	    			mZoomDelta = delta;
-	    			mPinchInitDistance = newDistance;								
-	    		}
-				mPanel.getController().invokeAction("OnZoom");
-			} else {
-				mPinching = true;
-	    		mPinchInitDistance = [Math.abs(e0x-e1x),Math.abs(e0y-e1y)];
-	    		mZoomDelta = 0;
-			}					
-			mZoomLastTime = event.timeStamp;
-		}
-	} else {
-		mPinching = false;
-		mPinchInitDistance = [0,0];
-	}		
-	
-    // all interactions are reported to View
-    mPanel.getController().reportInteractions();
-  };
-
-  /**
-   * Handler for mouse down event
-   * @method handleMouseDownEvent
-   * @param event
-   * @param location
-   */
-  self.handleMouseDownEvent = function(event) {
-	// number of fingers over screen	
-	var nFingers = (typeof event.touches != "undefined")? event.touches.length:1;
-	
-	if(nFingers == 1) {  	
-	  	mMouseIsDown = true;
-	  	
-	  	mLastLocation = getEventLocation(event);   		
-    	mPanel.getController().invokeAction("OnPress");
-	    self.pick(mLastLocation[0],mLastLocation[1]);
-	    
-	    // Prevent the browser from doing its default thing (scroll, zoom)
-	    event.preventDefault(); 
-	    
-	    // all interactions are reported to View
-	    mPanel.getController().reportInteractions();
-	}    
-	
-	mPinching = false;
-  };
-
-  /**
-   * Handler for mouse up event
-   * @method handleMouseUpEvent
-   * @param event
-   * @param location
-   */
-  self.handleMouseUpEvent = function(event) {
-	// number of fingers over screen	
-	var nFingers = (typeof event.touches != "undefined")? event.touches.length:1;
-	
-	if(nFingers == 1) {  	  	
-	    mMouseIsDown = false; 
-	
-	  	mLastLocation = getEventLocation(event);
-	
-      	mPanel.getController().invokeAction("OnRelease");       
-	    event.target.style.cursor = 'default';
-	
-		if(event.timeStamp - mUpLastTime < 500) { // < 500 ms is dblclick
-			mPanel.getController().invokeAction("OnDoubleClick");
-		}
-		mUpLastTime = event.timeStamp; 
-	    
-	    // all interactions are reported to View
-	    mPanel.getController().reportInteractions();
-	} 
-	
-	mPinching = false;   
-  };  
-
-  /**
-   * Get location for the touch event 
-   * @method getEventLocation 
-   * @param {Object} e
-   */
-  function getEventLocation(e) {
-  	var x, y;
-	var box = mPanel.getGraphics().getBox();
-	var oleft = box.left; // offset left in pixels
-	var otop = box.top; // offset top in pixels
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
   	
-    if ((typeof e.changedTouches != "undefined") && (e.changedTouches.length === 1)) {    	
-      	x = e.changedTouches[0].pageX;
-      	y = e.changedTouches[0].pageY;      
-	} else {
-	    x = e.x || e.clientX;
-	    y = e.y || e.clientY;
-	}  	  	
+		dest.setDirectionA(source.getDirectionA());
+		dest.setDirectionB(source.getDirectionB());
+		dest.setSizeA(source.getSizeA());
+		dest.setSizeB(source.getSizeB());
+  	},
 
-  	return [x-oleft, y-otop];
-  }
- 
-  self.setHandler = function(type, handler) {
-	  var graphics = mPanel.getGraphics();
-	  var context = graphics.getEventContext();
-	  switch (type) {
-	    case "move" : 
-		  context.addEventListener( 'mousemove', handler, false );
-		  context.addEventListener( 'touchmove', handler, false );
-	      break;
-	    default : 
-	    case "down" :
-	      context.addEventListener( 'mousedown', handler, false );
-	      context.addEventListener( 'touchstart', handler, false );
-	      break;
-	    case "up" :
-	      context.addEventListener( 'mouseup', handler, false );
-	      context.addEventListener( 'touchend', handler, false );
-	      break;
-	    case "mousewheel" :
-	      context.addEventListener( 'mousewheel', handler, false );
-		  break;	      
-	    case "pinch" :
-	      context.addEventListener( 'gesturestart', function(event) { mLastZoom = 1; }, false );
-	      context.addEventListener( 'gesturechange', handler, false );
-	      break;
-	  }
-	  return false;
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Element.registerProperties(element, controller);
+		// super class
+
+		controller.registerProperty("DirectionA", element.setDirectionA);
+		controller.registerProperty("DirectionB", element.setDirectionB);
+
+		controller.registerProperty("SizeA", element.setSizeA);
+		controller.registerProperty("SizeB", element.setSizeB);
+		
 	}
 
-  /**
-   * Picking in webgl
-   */   
-  self.pick = function (mousex, mousey) {
-    // we want to read the pixel at x, y -- so we really need a rectangle from x-1,y-1 with witdth and height equal to 1
-    var x = mousex - 1;
-    var y = mousey - 1;
-    var w = 1;
-    var h = 1;
-    
-    var gl = mPanel.getGraphics().getContext();
-    if(!gl) return;
-        
-    var data = new Uint8Array(w*h*4); // w * h * 4
-    gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    if(data.data) data=data.data;
+};
 
-// http://stackoverflow.com/questions/7156971/webgl-readpixels-is-always-returning-0-0-0-0
-// http://webgldemos.thoughtsincomputation.com/engine_tests/picking
+/**
+ * Creates a 3D Plane
+ * @method plane
+ */
+EJSS_DRAWING3D.plane = function (name) {
+  var self = EJSS_DRAWING3D.element(name);
 
-/*    
-    var indices = null, index, i;
-    for (i = 2; i < data.length; i += 4) {
-      if (data[i] > 0) // check the 'blue' key (2)
-      {
-        index = decodeFromColor(data[i-2], data[i-1], data[i], data[i+1]);
-        if (index)
-        {
-          if (!indices) indices = {};
-          indices[index] = index;
-        }
-      }
+  // Implementation variables
+  var mDirectionA = [1,0,0];
+  var mDirectionB = [0,1,0];
+  var mSizeA = 1;
+  var mSizeB = 1;
+
+  self.getClass = function() {
+  	return "ElementPlane";
+  }
+
+  self.setDirectionA = function(direction) {
+    if (!EJSS_TOOLS.compareArrays(mDirectionA,direction)) {
+        mDirectionA = direction.slice(); 
+  	    self.setMeshChanged(true);      
+    }  	
+  }
+
+  self.getDirectionA = function() {
+  	return mDirectionA;
+  }
+
+  self.setDirectionB = function(direction) {
+    if (!EJSS_TOOLS.compareArrays(mDirectionB,direction)) {
+        mDirectionB = direction.slice(); 
+  	    self.setMeshChanged(true);      
+    }  	
+  }
+
+  self.getDirectionB = function() {
+  	return mDirectionB;
+  }
+
+  self.setSizeA = function(size) {
+  	if(mSizeA != size) {
+  		mSizeA = size;
+  		self.setMeshChanged(true);
+  	}
+  }
+
+  self.getSizeA = function() {
+  	return mSizeA;
+  }
+
+  self.setSizeB = function(size) {
+  	if(mSizeB != size) {
+  		mSizeB = size;
+  		self.setMeshChanged(true);
+  	}
+  }
+
+  self.getSizeB = function() {
+  	return mSizeB;
+  }
+
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING3D.Plane.registerProperties(self, controller);
+  };
+
+  self.copyTo = function(element) {
+	EJSS_DRAWING3D.Plane.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1,1]);
+
+  return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//PlaneSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * PlaneSet
+ * @class PlaneSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.PlaneSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      ElementSet.registerProperties(set,controller);
+       
+      controller.registerProperty("DirectionA", 
+          function(v) { set.setToEach(function(element,value) { element.setDirectionA(value); }, v); }
+      );    
+      controller.registerProperty("DirectionB", 
+          function(v) { set.setToEach(function(element,value) { element.setDirectionB(value); }, v); }
+      );    
+
+      controller.registerProperty("SizeA", 
+          function(v) { set.setToEach(function(element,value) { element.setSizeA(value); }, v); }
+      );    
+      controller.registerProperty("SizeB", 
+          function(v) { set.setToEach(function(element,value) { element.setSizeB(value); }, v); }
+      );    
     }
-    self.context.bindFramebuffer(GL_FRAMEBUFFER, null);
-    self.context.viewport(0,0,self.context.gl.viewportWidth,self.context.gl.viewportHeight);
 
-    self.context.enable(GL_BLEND);
-        
-    if (indices) {
-      var ind = [];
-      for (i in indices) ind.push(indices[i]);
-      
-      if (ind[0]) return this.objects[ind];
-    }
-      
-    return null;  	
-*/  }
-    
-  return self;          
-}  
+};
+
+
+/**
+ * Creates a set of planes
+ * @method planeSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.planeSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.plane,mName);
+
+  // Static references
+  var PlaneSet = EJSS_DRAWING3D.PlaneSet;		// reference for PlaneSet
+  
+  self.registerProperties = function(controller) {
+    PlaneSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
 /*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
@@ -29775,445 +29612,723 @@ EJSS_DRAWING3D.panelInteraction = function(mPanel) {
 var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
 
 /**
- * Style object for 3D drawing
- * @class Style 
+ * Segment
+ * @class Segment 
  * @constructor  
  */
-EJSS_DRAWING3D.Style = {
-    
-  // ----------------------------------------------------
-  // Static methods
-  // ----------------------------------------------------
+EJSS_DRAWING3D.Segment = {
 
-  /**
-   * Copies one element into another
-   */
-  copyTo : function(source, dest) {
-    dest.setClosedTop(source.getClosedTop());
-    dest.setClosedBottom(source.getClosedBottom());
-    dest.setClosedLeft(source.getClosedLeft());
-    dest.setClosedRight(source.getClosedRight());
-    dest.setDrawLines(source.getDrawLines());
-    dest.setLineColor(source.getLineColor());
-    dest.setLineWidth(source.getLineWidth());
-    dest.setDrawFill(source.getDrawFill());
-    dest.setTransparency(source.getTransparency());
-    
-	dest.setAmbientColor(source.getAmbientColor());
-	dest.setFillColor(source.getFillColor());
-	dest.setSpecularColor(source.getSpecularColor());
-	dest.setAmbientReflection(source.getAmbientReflection());
-	dest.setColorReflection(source.getColorReflection());
-	dest.setSpecularReflection(source.getSpecularReflection());
-	dest.setShininessVal(source.getShininessVal());
-	
-	dest.setPaletteFloor(source.getPaletteFloor());
-	dest.setPaletteCeil(source.getPaletteCeil());
-	dest.setPaletteFloorColor(source.getPaletteFloorColor());
-	dest.setPaletteCeilColor(source.getPaletteCeilColor());	    
-  },
-  
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
+
+        dest.setLineColor(source.getLineColor());
+        dest.setLineWidth(source.getLineWidth());
+
+  	},
+
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Element.registerProperties(element, controller);
+		// super class
+
+      	controller.registerProperty("LineColor",  element.setLineColor, element.getLineColor);
+      	controller.registerProperty("LineWidth",  element.setLineWidth, element.getLineWidth);
+
+	}
+
 };
 
 /**
- * Creates a Style object for 3D drawing
+ * Creates a 3D Segment
+ * @method segment
  */
-EJSS_DRAWING3D.style = function (mName) {
-  var self = {};
-  
-  var mClosedTop = true;
-  var mClosedBottom = true;
-  var mClosedLeft = true;
-  var mClosedRight = true;
-  var mLineColor = [0,0,0];
-  var mLineWidth = 0.5;     
-  
-  // type of material
-  var mAmbientColor = [0.0,0.0,0.0];
-  var mFillColor = [0.0,0.0,0.0];
-  var mSpecularColor = [1.0,1.0,1.0];
-  var mAmbientReflection = 1.0;
-  var mColorReflection = 1.0;
-  var mSpecularReflection = 1.0;
-  var mShininessVal = 10;
+EJSS_DRAWING3D.segment = function (name) {
+  var self = EJSS_DRAWING3D.element(name);
 
-  // color palette of material
-  var mPaletteFloor; // e.g. [0.0,0.0,-5.0];
-  var mPaletteCeil;  // e.g. [0.0,0.0,5.0];
-  var mPaletteFloorColor = [1.0,0.0,-1.0];
-  var mPaletteCeilColor = [-1.0,0.0,1.0];
+  // Implementation variables
+  var mX = 0;
+  var mY = 0;
+  var mZ = 0;
+  var mSizeX = 1;				
+  var mSizeY = 1;					
+  var mSizeZ = 1;		
+  var mLineWidth = 0.01;
 
-  var mDrawLines = false;
-  var mDrawFill = true;
-  var mTransparency = 0.0;  
-  var mProjChangeListener;       
-  var mMeshChangeListener;       
+  // Implementation variables
+  self.getClass = function() {
+  	return "ElementSegment";
+  }
+
+  self.setX = function(x) { 
+    if (mX!=x) { 
+      mX = x; 
+      self.setMeshChanged(true); 
+    } 
+  };
+
+  self.getX = function() { 
+    return mX; 
+  };
+
+  self.setY = function(y) {  
+    if (mY!=y) { 
+      mY = y; 
+      self.setMeshChanged(true);
+    } 
+  };
+
+  self.getY = function() { 
+    return mY; 
+  };
+
+  self.setZ = function(z) {  
+    if (mZ!=z) { 
+      mZ = z; 
+      self.setMeshChanged(true);
+    } 
+  };
+
+  self.getZ = function() { 
+    return mZ; 
+  };
+
+  self.setPosition = function(position) {
+    self.setX(position[0]);
+    self.setY(position[1]);
+    self.setZ(position[2]);
+  };
+
+  self.getPosition = function() { 
+    return [mX, mY, mZ]; 
+  };
+
+  self.setSizeX = function(sizeX) { 
+    if (mSizeX!=sizeX) { 
+      mSizeX = sizeX; 
+      self.setMeshChanged(true);
+    } 
+  };
+
+  self.setSizeY = function(sizeY) { 
+    if (mSizeY!=sizeY) { 
+      mSizeY = sizeY; 
+      self.setMeshChanged(true);
+    }
+  };
+
+  self.setSizeZ = function(sizeZ) { 
+    if (mSizeZ!=sizeZ) { 
+      mSizeZ = sizeZ; 
+      self.setMeshChanged(true);
+    }
+  };
+
+  self.getSizeX = function() { 
+    return mSizeX; 
+  };
+
+  self.getSizeY = function() { 
+    return mSizeY; 
+  };
+
+  self.getSizeZ = function() { 
+    return mSizeZ; 
+  };
+
+  self.setSize = function(size) {
+    self.setSizeX(size[0]);
+    self.setSizeY(size[1]);
+    self.setSizeZ(size[2]);
+  };
+
+  self.getSize = function() {
+    return [self.getSizeX(), self.getSizeY(), self.getSizeZ()];
+  };
 
   /**
-   * Set a listener that will be called whenever there are style changes.
-   * I.e. a call to listener("change"); will be issued
-   */
-  self.setProjChangeListener = function(listener) {
-    mProjChangeListener = listener;
-  };
-
-  self.setMeshChangeListener = function(listener) {
-    mMeshChangeListener = listener;
-  };
-
-  //---------------------------------
-  // Closed
-  //---------------------------------
-
-  self.setClosedTop = function(closed) {
-    if (closed!=mClosedTop) {
-      mClosedTop = closed;
-      if (mMeshChangeListener) mMeshChangeListener("closedtop");
-    }
-  };
-  
-  self.getClosedTop = function() { 
-    return mClosedTop; 
-  };
-
-  self.setClosedBottom = function(closed) {
-    if (closed!=mClosedBottom) {
-      mClosedBottom = closed;
-      if (mMeshChangeListener) mMeshChangeListener("closedbottom");
-    }
-  };
-  
-  self.getClosedBottom = function() { 
-    return mClosedBottom; 
-  };
-  
-  self.setClosedLeft = function(closed) {
-    if (closed!=mClosedLeft) {
-      mClosedLeft = closed;
-      if (mMeshChangeListener) mMeshChangeListener("closedleft");
-    }
-  };
-  
-  self.getClosedLeft = function() { 
-    return mClosedLeft; 
-  };
-  
-  self.setClosedRight = function(closed) {
-    if (closed!=mClosedRight) {
-      mClosedRight = closed;
-      if (mMeshChangeListener) mMeshChangeListener("closedright");
-    }
-  };
-  
-  self.getClosedRight = function() { 
-    return mClosedRight; 
-  };
-  
-  //---------------------------------
-  // lines
-  //---------------------------------
-
-  /**
-   * Whether to draw the lines of the element
-   */
-  self.setDrawLines = function(draw) {
-    if (draw!=mDrawLines) {
-      mDrawLines = draw;
-      if (mProjChangeListener) mProjChangeListener("drawlines");
-    }
-  };
-  
-  /**
-   * Get the draw lines flag
-   */
-  self.getDrawLines = function() { 
-    return mDrawLines; 
-  };
-  
-  /**
-   * Set the line color of the element
-   * @param color a stroke style
+   * Set the line color
    */
   self.setLineColor = function(color) { 
-    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
-    if (!EJSS_TOOLS.compareArrays(color,mLineColor)) {
-      mLineColor = color.slice(); 
-      if (mProjChangeListener) mProjChangeListener("linecolor");
-    }
-    return self;
+  	self.getStyle().setFillColor(color);
   };
     
   /**
    * Get the line color
    */
   self.getLineColor = function() { 
-    return mLineColor; 
+    return self.getStyle().getFillColor();
   };
 
   /**
-   * Set the line width of the element
-   * @param width a stroke width (may be double, such as 0.5, the default)
+   * Set the line width
    */
   self.setLineWidth = function(width) { 
     if (width!=mLineWidth) {
       mLineWidth = width; 
-      if (mProjChangeListener) mProjChangeListener("linewidth");
+  	  self.setMeshChanged(true);
     }
   };
 
   /**
    * Get the line width
    */
-  self.getLineWidth = function() { return mLineWidth; };
-  
-  //---------------------------------
-  // interior fill
-  //---------------------------------
-
-  /**
-   * Whether to fill the interior of the element
-   */
-  self.setDrawFill = function(draw) {
-    if (draw!=mDrawFill) {
-      mDrawFill = draw;
-      if (mProjChangeListener) mProjChangeListener("drawfill");
-    }
-  };
-  
-  /**
-   * Get the draw fill flag
-   */
-  self.getDrawFill = function() { 
-    return mDrawFill; 
-  };
-
-  /**
-   * Set the fill color of the element
-   * @param color a fill style
-   */
-  self.setFillColor = function(color) {
-    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
-    if (!EJSS_TOOLS.compareArrays(color,mFillColor)) {
-      mFillColor = color.slice(); 
-      if (mProjChangeListener) mProjChangeListener("fillcolor");
-    }
-  };
-
-  /**
-   * Get the fill color
-   */
-  self.getFillColor = function() { 
-    return mFillColor; 
-  };
-  
-  /**
-   * Set the Ambient color of the element
-   * @param color ambient color
-   */
-  self.setAmbientColor = function(color) {
-    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
-    if (!EJSS_TOOLS.compareArrays(color,mAmbientColor)) {
-      mAmbientColor = color.slice(); 
-      if (mProjChangeListener) mProjChangeListener("ambientcolor");
-    }
-  };
-  
-  /**
-   * Get the Ambient color
-   */
-  self.getAmbientColor = function() { 
-    return mAmbientColor; 
-  };
-
-  /**
-   * Set the Specular color of the element
-   * @param color specular color
-   */
-  self.setSpecularColor = function(color) {
-    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
-    if (!EJSS_TOOLS.compareArrays(color,mSpecularColor)) {
-      mSpecularColor = color.slice(); 
-      if (mProjChangeListener) mProjChangeListener("specularcolor");
-    }
-  };
-  
-  /**
-   * Get the Specular color
-   */
-  self.getSpecularColor = function() { 
-    return mSpecularColor; 
-  };
-
-  /**
-   * Set the Ambient Reflection of the element
-   * @param k coefficient
-   */
-  self.setAmbientReflection = function(k) {
-    if (mAmbientReflection != k) {
-      mAmbientReflection = k; 
-      if (mProjChangeListener) mProjChangeListener("ambientreflection");
-    }
-  };
-  
-  /**
-   * Get the Ambient reflection
-   */
-  self.getAmbientReflection = function() { 
-    return mAmbientReflection; 
-  };
-
-  /**
-   * Set the Color Reflection of the element
-   * @param k coefficient
-   */
-  self.setColorReflection = function(k) {
-    if (mColorReflection != k) {
-      mColorReflection = k; 
-      if (mProjChangeListener) mProjChangeListener("colorreflection");
-    }
-  };
-  
-  /**
-   * Get the Color reflection
-   */
-  self.getColorReflection = function() { 
-    return mColorReflection; 
-  };
-
-  /**
-   * Set the Specular Reflection of the element
-   * @param k coefficient
-   */
-  self.setSpecularReflection = function(k) {
-    if (mSpecularReflection != k) {
-      mSpecularReflection = k; 
-      if (mProjChangeListener) mProjChangeListener("specularreflection");
-    }
-  };
-  
-  /**
-   * Get the Specular reflection
-   */
-  self.getSpecularReflection = function() { 
-    return mSpecularReflection; 
-  };
-
-  /**
-   * Set the shininess of the element
-   * @param shininess coefficient
-   */
-  self.setShininessVal = function(shininess) {
-    if (mShininessVal != shininess) {
-      mShininessVal = shininess; 
-      if (mProjChangeListener) mProjChangeListener("shininess");
-    }
-  };
-  
-  /**
-   * Get the shininess 
-   */
-  self.getShininessVal = function() { 
-    return mShininessVal; 
-  };
-
-  /**
-   * Set transparency
-   * @param transparency
-   */
-  self.setTransparency = function(transparency) {
-    if (transparency!=mTransparency) {
-      mTransparency = transparency; 
-      if (mProjChangeListener) mProjChangeListener("transparency");
-    }
-  };
-  
-  /**
-   * Get transparency
-   */
-  self.getTransparency = function() { 
-    return mTransparency; 
-  };
-
-  /**
-   * Set the palette floor of the element
-   * @param floor palette floor
-   */
-  self.setPaletteFloor = function(floor) {
-    if (floor && !EJSS_TOOLS.compareArrays(floor,mPaletteFloor)) {
-      mPaletteFloor = floor.slice(); 
-      if (mProjChangeListener) mProjChangeListener("palettefloor");
-    }
-  };
-
-  /**
-   * Get the palette floor
-   */
-  self.getPaletteFloor = function() { 
-    return mPaletteFloor; 
-  };
-
-  /**
-   * Set the palette ceil of the element
-   * @param ceil palette ceil
-   */
-  self.setPaletteCeil = function(ceil) {
-    if (ceil && !EJSS_TOOLS.compareArrays(ceil,mPaletteCeil)) {
-      mPaletteCeil = ceil.slice(); 
-      if (mProjChangeListener) mProjChangeListener("paletteceil");
-    }
-  };
-
-  /**
-   * Get the palette ceil
-   */
-  self.getPaletteCeil = function() { 
-    return mPaletteCeil; 
-  };
-
-  /**
-   * Set the palette floor color of the element
-   * @param color palette floor color
-   */
-  self.setPaletteFloorColor = function(color) {
-    if (!EJSS_TOOLS.compareArrays(color,mPaletteFloorColor)) {
-      mPaletteFloorColor = color.slice(); 
-      if (mProjChangeListener) mProjChangeListener("palettefloorcolor");
-    }
-  };
-
-  /**
-   * Get the palette floor color
-   */
-  self.getPaletteFloorColor = function() { 
-    return mPaletteFloorColor; 
-  };
-
-  /**
-   * Set the palette ceil color of the element
-   * @param color palette ceil color
-   */
-  self.setPaletteCeilColor = function(color) {
-    if (!EJSS_TOOLS.compareArrays(color,mPaletteCeilColor)) {
-      mPaletteCeilColor = color.slice(); 
-      if (mProjChangeListener) mProjChangeListener("paletteceilcolor");
-    }
-  };
-
-  /**
-   * Get the palette ceil color
-   */
-  self.getPaletteCeilColor = function() { 
-    return mPaletteCeilColor; 
+  self.getLineWidth = function() { 
+  	return mLineWidth; 
   };
 
 
-  //---------------------------------
-  // final initialization
-  //---------------------------------
-  
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING3D.Segment.registerProperties(self, controller);
+  };
+
+  self.copyTo = function(element) {
+	EJSS_DRAWING3D.Segment.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1,1]);
+  self.getStyle().setDrawFill(true);
+  self.getStyle().setDrawLines(false);
+  self.setResolution([24,2]);
+
   return self;
 };
 
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//SegmentSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * SegmentSet
+ * @class SegmentSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.SegmentSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      ElementSet.registerProperties(set,controller);
+
+      controller.registerProperty("LineWidth", 
+          function(v) { set.setToEach(function(element,value) { element.setLineWidth(value); }, v); }
+      );      
+      controller.registerProperty("LineColor", 
+          function(v) { set.setToEach(function(element,value) { element.setLineColor(value); }, v); }
+      );      
+       
+    }
+
+};
+
+
+/**
+ * Creates a set of segments
+ * @method segmentSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.segmentSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.segment,mName);
+
+  // Static references
+  var SegmentSet = EJSS_DRAWING3D.SegmentSet;		// reference for SegmentSet
+  
+  self.registerProperties = function(controller) {
+    SegmentSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
+
+/***
+ * Sphere
+ * @class EJSS_DRAWING3D.Sphere 
+ * @constructor  
+ */
+EJSS_DRAWING3D.Sphere = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
+  		EJSS_DRAWING3D.Ellipsoid.copyTo(source,dest);
+  	
+		dest.setRadius(source.getRadius());
+  	},
+
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Ellipsoid.registerProperties(element, controller);
+		// super class
+
+	 /*** 
+	  * Radius
+	  * @property Radius 
+	  * @type number
+	  * @default 0.5
+	  */ 
+      controller.registerProperty("Radius", element.setRadius);
+		
+	}
+
+};
+
+/**
+ * Creates a 3D Sphere
+ * @method sphere
+ */
+EJSS_DRAWING3D.sphere = function (name) {
+  var self = EJSS_DRAWING3D.ellipsoid(name);
+  var mRadius = 0.5;
+  
+  // Implementation variables
+  self.getClass = function() {
+  	return "ElementSphere";
+  }
+
+  self.setRadius = function(radius) {
+  	mRadius = radius;
+  	self.setSize([2*radius,2*radius,2*radius]);
+  }
+
+  self.getRadius = function() {
+  	return mRadius;
+  }
+    
+  self.copyTo = function(element) {
+	EJSS_DRAWING3D.Sphere.copyTo(self,element);
+  };
+      
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING3D.Sphere.registerProperties(self, controller);
+  };
+	    
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1,1]);
+  self.setResolution([30,20]);
+
+  return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//SphereSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * SphereSet
+ * @class SphereSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.SphereSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      ElementSet.registerProperties(set,controller); 
+
+      controller.registerProperty("Radius", 
+          function(v) { set.setToEach(function(element,value) { element.setRadius(value); }, v); }
+      );    
+
+    }
+
+};
+
+
+/**
+ * Creates a set of spheres
+ * @method sphereSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.sphereSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.sphere,mName);
+
+  // Static references
+  var SphereSet = EJSS_DRAWING3D.SphereSet;		// reference for SphereSet
+  
+  self.registerProperties = function(controller) {
+    SphereSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
+/*
+* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+* This code is part of the Easy Javascript Simulations authoring and simulation tool
+*
+* This code is Open Source and is provided "as is".
+*/
+
+var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
+
+/**
+ * Spring
+ * @class Spring 
+ * @constructor  
+ */
+EJSS_DRAWING3D.Spring = {
+  DEF_RADIUS : 1,
+  DEF_LOOPS : 8,
+  DEF_PPL : 50,
+
+	// ----------------------------------------------------
+	// Static methods
+	// ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
+  	
+		dest.setRadius(source.getRadius());
+		dest.setSolenoid(source.getSolenoid());
+		dest.setThinExtremes(source.getThinExtremes());
+		dest.setLoops(source.getLoops());
+		dest.setPointsPerLoop(source.getPointsPerLoop());		
+  	},
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Element.registerProperties(element, controller);
+		// super class	
+		controller.registerProperty("Radius", element.setRadius, element.getRadius);
+		controller.registerProperty("ThinExtremes", element.setThinExtremes, element.getThinExtremes);
+
+		controller.registerProperty("Solenoid", element.setSolenoid, element.getSolenoid);
+		controller.registerProperty("Loops", element.setLoops, element.getLoops);
+		controller.registerProperty("PointsPerLoop", element.setPointsPerLoop, element.getPointsPerLoop);
+		
+	},
+};
+
+/**
+ * Creates a 2D Spring
+ * @method spring
+ */
+EJSS_DRAWING3D.spring = function(name) {
+	var self = EJSS_DRAWING3D.element(name);
+ 
+	  // Configuration variables
+	var mRadius = EJSS_DRAWING3D.Spring.DEF_RADIUS;
+	var mSolenoid = 0.0;
+	var mThinExtremes = true;
+	var mLoops;
+	var mPointsPerLoop;
+  var mX = 0;
+  var mY = 0;
+  var mZ = 0;
+  var mSizeX = 1;				
+  var mSizeY = 1;					
+  var mSizeZ = 1;	
+  
+	self.getClass = function() {
+		return "ElementSpring";
+	}
+
+	self.setRadius = function(radius) {
+		if(mRadius != radius) {
+			mRadius = radius;
+			self.setMeshChanged(true);
+		}		
+	}
+
+	self.getRadius = function() {
+		return mRadius;
+	}
+
+	self.setSolenoid = function(solenoid) {
+		if(mSolenoid != solenoid) {
+			mSolenoid = solenoid;
+			self.setMeshChanged(true);
+		}
+	}
+
+	self.getSolenoid = function() {
+		return mSolenoid;
+	}
+
+	self.setThinExtremes = function(thinExtremes) {
+		if(mThinExtremes != thinExtremes) {
+			mThinExtremes = thinExtremes;
+			self.setMeshChanged(true);
+		}
+	}
+
+	self.getThinExtremes = function() {
+		return mThinExtremes;
+	}
+
+	self.setLoops = function(loops) {
+		if(mLoops != loops) {
+			mLoops = loops;
+			self.setMeshChanged(true);
+		}
+	}
+
+	self.getLoops = function() {
+		return mLoops;
+	}
+
+	self.setPointsPerLoop = function(pointsPerLoop) {
+		if(mPointsPerLoop != pointsPerLoop) {
+			mPointsPerLoop = pointsPerLoop;
+			self.setMeshChanged(true);
+		}
+	}
+
+	self.getPointsPerLoop = function() {
+		return mPointsPerLoop;
+	}
+
+  self.setX = function(x) { 
+    if (mX!=x) { 
+      mX = x; 
+      self.setMeshChanged(true); 
+    } 
+  };
+
+  self.getX = function() { 
+    return mX; 
+  };
+
+  self.setY = function(y) {  
+    if (mY!=y) { 
+      mY = y; 
+      self.setMeshChanged(true);
+    } 
+  };
+
+  self.getY = function() { 
+    return mY; 
+  };
+
+  self.setZ = function(z) {  
+    if (mZ!=z) { 
+      mZ = z; 
+      self.setMeshChanged(true);
+    } 
+  };
+
+  self.getZ = function() { 
+    return mZ; 
+  };
+
+  self.setPosition = function(position) {
+    self.setX(position[0]);
+    self.setY(position[1]);
+    self.setZ(position[2]);
+  };
+
+  self.getPosition = function() { 
+    return [mX, mY, mZ]; 
+  };
+
+  self.setSizeX = function(sizeX) { 
+    if (mSizeX!=sizeX) { 
+      mSizeX = sizeX; 
+      self.setMeshChanged(true);
+    } 
+  };
+
+  self.setSizeY = function(sizeY) { 
+    if (mSizeY!=sizeY) { 
+      mSizeY = sizeY; 
+      self.setMeshChanged(true);
+    }
+  };
+
+  self.setSizeZ = function(sizeZ) { 
+    if (mSizeZ!=sizeZ) { 
+      mSizeZ = sizeZ; 
+      self.setMeshChanged(true);
+    }
+  };
+
+  self.getSizeX = function() { 
+    return mSizeX; 
+  };
+
+  self.getSizeY = function() { 
+    return mSizeY; 
+  };
+
+  self.getSizeZ = function() { 
+    return mSizeZ; 
+  };
+
+  self.setSize = function(size) {
+    self.setSizeX(size[0]);
+    self.setSizeY(size[1]);
+    self.setSizeZ(size[2]);
+  };
+
+  self.getSize = function() {
+    return [self.getSizeX(), self.getSizeY(), self.getSizeZ()];
+  };
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING3D.Spring.registerProperties(self, controller);
+	};
+
+  	self.copyTo = function(element) {
+    	EJSS_DRAWING3D.Spring.copyTo(self,element);
+  	};
+
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+  	self.setSize([1,1,1]);
+    self.getStyle().setDrawFill(true);
+    self.getStyle().setDrawLines(true);
+    	
+  	self.setLoops(EJSS_DRAWING2D.Spring.DEF_LOOPS);
+  	self.setPointsPerLoop(EJSS_DRAWING2D.Spring.DEF_PPL);
+	
+	return self;
+};
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//SpringSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * SpringSet
+ * @class SpringSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.SpringSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      controller.registerProperty("Radius", 
+          function(v) { set.setToEach(function(element,value) { element.setRadius(value); }, v); }
+      );
+      controller.registerProperty("ThinExtremes", 
+          function(v) { set.setToEach(function(element,value) { element.setThinExtremes(value); }, v); }
+      );
+      controller.registerProperty("Solenoid", 
+          function(v) { set.setToEach(function(element,value) { element.setSolenoid(value); }, v); }
+      );           
+      controller.registerProperty("Loops", 
+          function(v) { set.setToEach(function(element,value) { element.setLoops(value); }, v); }
+      );           
+      controller.registerProperty("PointsPerLoop", 
+          function(v) { set.setToEach(function(element,value) { element.setPointsPerLoop(value); }, v); }
+      );           
+    }        
+};
+
+
+/**
+ * Creates a set of springs
+ * @method springSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.springSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.spring,mName);
+
+  // Static references
+  var SpringSet = EJSS_DRAWING3D.SpringSet;		// reference for SpringSet
+  
+  self.registerProperties = function(controller) {
+    SpringSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
 /*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
@@ -30229,183 +30344,1207 @@ EJSS_DRAWING3D.style = function (mName) {
 var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
 
 /**
- * Transformation object for 3D elements.
- * A transformation is an array of 7 numbers indicating
- *  [ rotation angle (in degrees), 
- *    x,y,z coordinates of the rotation axis, 
- *    x,y,z coordinates of the origin of the rotation ] 
- * @class Transformation 
+ * Surface
+ * @class Surface 
  * @constructor  
  */
-EJSS_DRAWING3D.Transformation = {
-    /**
-     * Registers properties in a ControlElement
-     * @method registerProperties
-     * @param element The element with the properties
-     * @param controller A ControlElement that becomes the element controller
-     */
-    registerProperties : function(element,controller) {
-      element.setController(controller);
-      controller.registerProperty("Parent", element.setParent, element.getParent); 
-      controller.registerProperty("Axis", element.setAxis, element.getAxis); 
-      controller.registerProperty("Angle", element.setAngle, element.getAngle); 
-      controller.registerProperty("Origin", element.setOrigin, element.getOrigin); 
-    }
+EJSS_DRAWING3D.Surface = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
+  	
+		dest.setData(source.getData());
+  	},
+
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Element.registerProperties(element, controller);
+		// super class
+
+		controller.registerProperty("Data", element.setData);
+		
+	}
+
 };
 
 /**
- * Creates a Rotation around the X axis
+ * Creates a 3D Surface
+ * @method surface
  */
-EJSS_DRAWING3D.rotationX = function (mName) {
-  var self = EJSS_DRAWING3D.transformation();
-  self.setAxis([1,0,0]);
-  return self;  
-}
-  
-/**
- * Creates a Rotation around the Y axis
- */
-EJSS_DRAWING3D.rotationY = function (mName) {
-  var self = EJSS_DRAWING3D.transformation();
-  self.setAxis([0,1,0]);
-  return self;  
-}
+EJSS_DRAWING3D.surface = function (name) {
+  var self = EJSS_DRAWING3D.element(name);
 
-/**
- * Creates a Rotation around the Z axis
- */
-EJSS_DRAWING3D.rotationZ = function (mName) {
-  var self = EJSS_DRAWING3D.transformation();
-  self.setAxis([0,0,1]);
-  return self;  
-}
+  // Implementation variables
+  var mData = [];
 
-/**
- * Creates a Transformation object for 3D element
- */
-EJSS_DRAWING3D.transformation = function (mName) {
-  var self = {};
-  
-  var mParent = null;
-  var mArray = [0,0,0,1,0,0,0];
+  self.getClass = function() {
+  	return "ElementSurface";
+  }
 
-  var mController = { 				// dummy controller object
-      propertiesChanged : function() {},
-      invokeAction : function() {}
-  };
-  
-  self.getArray = function() {
-    return mArray;
-  };
-  
-  self.setChanged = function(changed) {
-    if (changed) mParent.setProjChanged(true);
-  };
+  self.setData = function(data) {
+    if (!EJSS_TOOLS.compareArrays(mData,data)) {
+        mData = data.slice(); 
+  	    self.setMeshChanged(true);      
+    }  	
+  }
 
-  /**
-   * Set the parent
-   * @method setParent
-   * @param parent Element
-   */
-  self.setParent = function(parent) {
-    if (mParent) {
-      mParent.removeExtraTransformation(self);
-    }
-    mParent = parent;
-    if (mParent) {
-      mParent.addExtraTransformation(self);
-    }
-  };
+  self.getData = function() {
+  	return mData;
+  }
 
-  self.getParent = function() {
-    return mParent;
-  };
-  
-  //---------------------------------
-  // Customization
-  //---------------------------------
-
-  /**
-   * Set the rotation angle
-   * @method setAngle
-   * @param angle int the angle in degrees
-   */
-  self.setAngle = function(angle) {
-    mArray[0] = angle;
-  };
-
-  self.getAngle = function() {
-    return mArray[0];
-  };
-
-  /**
-   * Set the rotation axis
-   * @method setAxis
-   * @param axis double[3] the coordinates of the axis
-   */
-  self.setAxis = function(axis) {
-    mArray[1] = axis[0];
-    mArray[2] = axis[1];
-    mArray[3] = axis[2];
-  };
-
-  self.getAxis = function() {
-    return mArray.slice(1,4);
-  };
-  
-  /**
-   * Set the rotation origin
-   * @method setOrigin
-   * @param origin double[3] the coordinates of the origin
-   */
-  self.setOrigin = function(origin) {
-    mArray[4] = origin[0];
-    mArray[5] = origin[1];
-    mArray[6] = origin[2];
-  };
-
-  self.getOrigin = function() {
-    return mArray.slice(5);
-  };
-  
-  // ----------------------------------------------------
-  // Properties
-  // ----------------------------------------------------
-
-  /**
-   * Returns the controller object
-   * @method getController
-   * @return Controller
-   */
-  self.getController = function () {
-    return mController;
-  };
-
-  /**
-   * Set the controller
-   * @method setController
-   * @param Controller
-   */
-  self.setController = function (controller) {
-    mController = controller;
-  };
-  
-  /**
-   * Registers properties in a ControlElement
-   * @method registerProperties
-   * @param controller A ControlElement that becomes the element controller
-   */
   self.registerProperties = function(controller) {
-    EJSS_DRAWING3D.Transformation.registerProperties(self,controller);
+	EJSS_DRAWING3D.Surface.registerProperties(self, controller);
   };
-  
-  //---------------------------------
-  // final initialization
-  //---------------------------------
-  
+
+  self.copyTo = function(element) {
+	EJSS_DRAWING3D.Surface.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1,1]);
+
   return self;
 };
 
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//SurfaceSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * SurfaceSet
+ * @class SurfaceSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.SurfaceSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      ElementSet.registerProperties(set,controller);
+       
+      controller.registerProperty("Data", 
+          function(v) { set.setToEach(function(element,value) { element.setData(value); }, v); }
+      );    
+    }
+
+};
+
+
+/**
+ * Creates a set of surfaces
+ * @method surfaceSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.surfaceSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.surface,mName);
+
+  // Static references
+  var SurfaceSet = EJSS_DRAWING3D.SurfaceSet;		// reference for SurfaceSet
+  
+  self.registerProperties = function(controller) {
+    SurfaceSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
+
+/**
+ * Tetrahedron
+ * @class Tetrahedron 
+ * @constructor  
+ */
+EJSS_DRAWING3D.Tetrahedron = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
+  		EJSS_DRAWING3D.Cylinder.copyTo(source,dest);
+  	
+  	},
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Cylinder.registerProperties(element, controller);
+		// super class
+		
+	}
+};
+
+/**
+ * Creates a 3D Tetrahedron
+ * @method tetrahedron
+ */
+EJSS_DRAWING3D.tetrahedron = function (name) {
+  var self = EJSS_DRAWING3D.cylinder(name);
+
+  // Implementation variables
+  self.getClass = function() {
+  	return "ElementTetrahedron";
+  }
+
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING3D.Tetrahedron.registerProperties(self, controller);
+  };
+
+  self.copyTo = function(element) {
+	EJSS_DRAWING3D.Tetrahedron.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1,1]);
+  self.setTopRadius(0);
+  self.setResolutionU(4);
+
+  return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//TetrahedronSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * TetrahedronSet
+ * @class TetrahedronSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.TetrahedronSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      ElementSet.registerProperties(set,controller); 
+      
+    }
+
+};
+
+
+/**
+ * Creates a set of tetrahedrons
+ * @method tetrahedronSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.tetrahedronSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.tetrahedron,mName);
+
+  // Static references
+  var TetrahedronSet = EJSS_DRAWING3D.TetrahedronSet;		// reference for TetrahedronSet
+  
+  self.registerProperties = function(controller) {
+    TetrahedronSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
+
+/**
+ * Text
+ * @class Text 
+ * @constructor  
+ */
+EJSS_DRAWING3D.Text = {
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
+  		EJSS_DRAWING2D.Font.copyTo(source.getFont(),dest.getFont());
+
+		dest.setText(source.getText());
+		dest.setBackground(source.getBackground());
+  	},
+
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Element.registerProperties(element, controller);
+		// super class
+
+		controller.registerProperty("Text", element.setText);
+		controller.registerProperty("Background", element.setBackground);
+		controller.registerProperty("FitText", element.setFitText);
+				
+		controller.registerProperty("Font", element.getFont().setFont);
+		controller.registerProperty("FontFamily", element.getFont().setFontFamily);
+		controller.registerProperty("FontSize", element.getFont().setFontSize);
+		controller.registerProperty("FontColor", element.getFont().setFillColor);
+		controller.registerProperty("FontStyle", element.getFont().setFontStyle);		
+	}
+
+};
+
+/**
+ * Creates a 3D Text
+ * @method text
+ */
+EJSS_DRAWING3D.text = function (name) {
+  var self = EJSS_DRAWING3D.element(name);
+  
+  // Implementation variables
+  var mFont = EJSS_DRAWING2D.font(name);	// font for text
+
+  var mText = "";
+  var mBackground = "rgba(255,255,255,0)";
+  var mFitText = false;
+
+  self.getClass = function() {
+  	return "ElementText";
+  }
+
+  self.setBackground = function(color) { 
+    if (typeof color !== "string") color = EJSS_TOOLS.DisplayColors.getLineColor(color);
+    if (color != mBackground) {
+      mBackground = color; 
+  	  self.setMeshChanged(true);
+    }
+    return self;
+  };
+
+  self.getBackground = function() {
+  	return mBackground;
+  }
+
+  self.setText = function(text) {
+  	if(mText != text) {
+  	  mText = text;
+  	  self.setMeshChanged(true);
+    }
+  }
+
+  self.getText = function() {
+  	return mText;
+  }
+
+  self.setFitText = function(fit) {
+  	if(mFitText != fit) {
+  	  mFitText = fit;
+  	  self.setMeshChanged(true);
+    }
+  }
+
+  self.getFitText = function() {
+  	return mFitText;
+  }
+
+  self.getFont = function() {
+	return mFont;
+  }
+
+  self.registerProperties = function(controller) {
+	EJSS_DRAWING3D.Text.registerProperties(self, controller);
+  };
+
+  self.copyTo = function(element) {
+	EJSS_DRAWING3D.Text.copyTo(self,element);
+  };
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+
+  self.setSize([1,1,1]);
+  self.getStyle().setTransparency(255);
+
+  return self;
+};
+
+
+
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//TextSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * TextSet
+ * @class TextSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.TextSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      
+      ElementSet.registerProperties(set,controller);
+      controller.registerProperty("Text", 
+          function(v) { set.setToEach(function(element,value) { element.setText(value); }, v); }
+      );
+      controller.registerProperty("Background", 
+          function(v) { set.setToEach(function(element,value) { element.setBackground(value); }, v); }
+      );
+      controller.registerProperty("Font", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFont(value); }, v); }
+      );           
+      controller.registerProperty("FontFamily", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFontFamily(value); }, v); }
+      );           
+      controller.registerProperty("FontSize", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFontSize(value); }, v); }
+      );           
+      controller.registerProperty("FontColor", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFillColor(value); }, v); }
+      );           
+      controller.registerProperty("FontStyle", 
+          function(v) { set.setToEach(function(element,value) { element.getFont().setFontStyle(value); }, v); }
+      );           
+    }        
+
+};
+
+
+/**
+ * Creates a set of texts
+ * @method textSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.textSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.text,mName);
+
+  // Static references
+  var TextSet = EJSS_DRAWING3D.TextSet;		// reference for TextSet
+  
+  self.registerProperties = function(controller) {
+    TextSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
+/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
+
+/**
+ * Trail
+ * @class Trail 
+ * @constructor  
+ */
+EJSS_DRAWING3D.Trail = {
+  NO_CONNECTION : 0, 	// The next point will not be connected to the previous one
+  LINE_CONNECTION : 1,	// The next point will be connected to the previous one by a segment
+
+    // ----------------------------------------------------
+    // Static methods
+    // ----------------------------------------------------
+
+  	/**
+   	* Copies one element into another
+   	*/
+  	copyTo : function(source, dest) {
+      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
+  		
+		dest.setActive(source.getActive());
+		dest.setNoRepeat(source.getNoRepeat());
+		dest.setClearAtInput(source.getClearAtInput());
+		dest.setSkip(source.getSkip());
+		dest.setInputLabels(source.getInputLabels());
+		dest.setMaximumPoints(source.getMaximumPoints());
+		dest.setConnectionType(source.getConnectionType());
+		dest.setPoints(source.getPoints());
+
+		dest.setLineColor(source.getLineColor());
+		dest.setLineWidth(source.getLineWidth());
+  	},
+
+	/**
+	 * static registerProperties method
+	 */
+	registerProperties : function(element, controller) {
+		EJSS_DRAWING3D.Element.registerProperties(element, controller);
+		// super class
+
+		controller.registerProperty("Active", element.setActive, element.getActive);
+		controller.registerProperty("NoRepeat", element.setNoRepeat, element.getNoRepeat);
+		controller.registerProperty("ClearAtInput", element.setClearAtInput, element.getClearAtInput);
+		controller.registerProperty("Skip", element.setSkip, element.getSkip);
+		controller.registerProperty("ColumnNames", element.setInputLabels, element.getInputLabels);
+		controller.registerProperty("Maximum", element.setMaximumPoints, element.getMaximumPoints);
+		controller.registerProperty("ConnectionType", element.setConnectionType, element.getConnectionType);		
+		controller.registerProperty("Connected", element.setConnected, element.isConnected);		
+		controller.registerProperty("Points", element.setPoints, element.getPoints);		
+		controller.registerProperty("LastPoint", element.addPoint, element.getLastPoint);
+		controller.registerProperty("Input", element.addPoints);
+		controller.registerProperty("InputX", element.addXPoints);				
+		controller.registerProperty("InputY", element.addYPoints);
+		controller.registerProperty("InputZ", element.addZPoints);
+
+      	controller.registerProperty("LineColor",  element.setLineColor, element.getLineColor);
+      	controller.registerProperty("LineWidth",  element.setLineWidth, element.getLineWidth);		
+	}
+
+};
+
+/**
+ * Creates a 3D Trail
+ * Trail implements dataCollected(), which makes it a Collector of data 
+ * @method trail
+ */
+EJSS_DRAWING3D.trail = function (name) {
+  var self = EJSS_DRAWING3D.element(name);
+
+    // Configuration variables
+	var mActive = true;
+	var mNoRepeat = false;
+	var mClearAtInput = false;
+	var mSkip = 0;
+	var mInputLabels = ["x", "y", "z"];	  
+	var mMaximum = 0;
+	var mConnectionType = EJSS_DRAWING3D.Trail.LINE_CONNECTION;
+	
+  	// Implementation variables
+  	var mCounter = 0;
+  	var mIsEmpty = true;
+	//  private int firstPoint = 0; // the first point of the current path 
+  	var mLastPoint = 0;	
+  	var mFlushPoint = 0; // This is the last point which was not added because of the skip parameter  	
+  	var mCurrentList = []; 	// The current list of points  	
+  	var mSegmentList = []; // The list of past Segments, if any  	
+	var mTmpList = []; // The temporal list of new points
+	var mTmpLastXAdded = 0;
+	var mTmpLastYAdded = 0;
+	var mTmpLastZAdded = 0;
+	 
+    var mLineWidth = 0.01;
+	 
+	self.getClass = function() {
+		return "ElementTrail";
+	}
+
+  /**
+   * Set the line color
+   */
+  self.setLineColor = function(color) { 
+  	self.getStyle().setFillColor(color);
+  };
+    
+  /**
+   * Get the line color
+   */
+  self.getLineColor = function() { 
+    return self.getStyle().getFillColor();
+  };
+
+  /**
+   * Set the line width
+   */
+  self.setLineWidth = function(width) { 
+    if (width!=mLineWidth) {
+      mLineWidth = width; 
+  	  self.setMeshChanged(true);
+    }
+  };
+
+  /**
+   * Get the line width
+   */
+  self.getLineWidth = function() { 
+  	return mLineWidth; 
+  };
+
+  /**
+   * Set/unset the active state of the trail. 
+   * The trail does not use this state, but just keeps an internal value that
+   * programs can consult in order not to add data to the trail.
+   * In other words, a trail will always honor an addPoint() command.
+   * But programs can consult this internal value to decide whether or not
+   * to send data to a trail.
+   * Default value is true.
+   * @method setActive
+   * @param _active
+   */
+  self.setActive = function(active) {
+    if(mActive != active) {
+    	mActive = active;
+    	self.setMeshChanged(true);
+    }
+  }
+  
+  /**
+   * Whether the trail is in active mode.
+   * @method getActive
+   * @return
+   */
+  self.getActive = function() { 
+  	return mActive; 
+  }
+  
+  /** 
+   * Sets the no repeat state of the trail.
+   * When set, a trail will ignore (x,y) points which equal the last added point.
+   * @method setNoRepeat
+   * @param _noRepeat
+   */
+  self.setNoRepeat = function (noRepeat) {
+    if(mNoRepeat != noRepeat) {
+    	mNoRepeat = noRepeat;
+    	self.setMeshChanged(true);
+    }
+  }
+  
+  /**
+   * Whether the trail is in no repeat mode. Default value is false.
+   * @method getNoRepeat
+   * @return
+   */
+  self.getNoRepeat = function() { 
+  	return mNoRepeat; 
+  }
+
+  /**
+   * Sets the trail to clear existing points when receiving 
+   * a new point or array of points.
+   * @method setClearAtInput
+   * @param _clear
+   */
+  self.setClearAtInput = function(clear) {
+    if(mClearAtInput != clear) {
+    	mClearAtInput = clear;
+    	self.setMeshChanged(true);
+    }
+  }
+  
+  /**
+   * Whether the trail is in clear at input mode.
+   * @method getClearAtInput
+   * @return
+   */
+  self.getClearAtInput = function() { 
+  	return mClearAtInput; 
+  }
+
+  /**
+   * Sets the skip parameter. When the skip parameter is larger than zero,
+   * the trail only considers one of every 'skip' points. That is, if skip is 3, 
+   * the trail will consider only every third point sent to it. 
+   * The default is zero, meaning all points must be considered.
+   * @method setSkip
+   * @param _skip
+   */
+  self.setSkip = function (skip) {
+    if (mSkip != skip) {
+      mSkip = skip;
+      mCounter = 0;
+      self.setMeshChanged(true);
+    }
+  }
+  
+  /**
+   * Returns the skip parameter of the trail.
+   * @method getSkip
+   * @return
+   */
+  self.getSkip = function () { 
+  	return mSkip; 
+  }
+
+  /**
+   * Sets the labels of the X,Y,Z coordinates when the data is displayed in a table
+   * @method setInputLabels
+   * @param _label
+   */
+  self.setInputLabels = function (label) {
+  	if((mInputLabels[0] != label[0]) || (mInputLabels[1] != label[1]) || (mInputLabels[2] != label[2])) { 
+  		mInputLabels[0] = label[0]; 
+  		mInputLabels[1] = label[1];
+  		mInputLabels[2] = label[2]; 
+  		self.setMeshChanged(true);
+  	}
+  }
+
+  /**
+   * Returns the labels of the X,Y,Z coordinates
+   * @method getInputLabels
+   * @return labels
+   */
+  self.getInputLabels = function () { 
+  	return mInputLabels; 
+  }
+  
+  /**
+   * Sets the maximum number of points for the trail.
+   * Once the maximum is reached, adding a new point will cause
+   * remotion of the first one. This is useful to keep trails
+   * down to a reasonable size, since very long trails can slow
+   * down the rendering (in certain implementations).
+   * If the value is 0 (the default) the trail grows forever
+   * without discarding old points.
+   * @method setMaximumPoints
+   * @param maximum int
+   */
+  self.setMaximumPoints = function(maximum) {
+  	var max = Math.max(maximum, 2);
+  	if(mMaximum != max) {
+    	mMaximum = max;
+    	self.setMeshChanged(true);
+    }
+  }
+
+  /**
+   * Returns the maximum number of points allowed for the trail
+   * @method getMaximumPoints
+   * @return int
+   */
+  self.getMaximumPoints = function() {
+    return mMaximum;
+  }
+
+  /**
+   * Sets the type of connection for the next point.
+   * @method setConnectionType
+   * @param type int
+   */
+  self.setConnected = function (connected) {
+   if (connected) self.setConnectionType(EJSS_DRAWING3D.Trail.LINE_CONNECTION);
+   else self.setConnectionType(EJSS_DRAWING3D.Trail.NO_CONNECTION);
+  }
+
+  /**
+   * Gets the connection type.
+   * @method getConnectionType
+   * @see #setConnectionType(int)
+   */
+  self.isConnected = function() {
+    return mConnectionType===EJSS_DRAWING3D.Trail.LINE_CONNECTION;
+  }
+
+  /**
+   * Sets the type of connection for the next point.
+   * @method setConnectionType
+   * @param type int
+   */
+  self.setConnectionType = function (type) {
+    if (typeof type == "string") type = EJSS_DRAWING3D.Trail[type.toUpperCase()];      	
+    if(mConnectionType != type) {
+    	mConnectionType = type;
+    	self.setMeshChanged(true);
+    }
+  }
+
+  /**
+   * Gets the connection type.
+   * @method getConnectionType
+   * @see #setConnectionType(int)
+   */
+  self.getConnectionType = function() {
+    return mConnectionType;
+  }
+
+  /**
+   * Adds a new point to the trail.
+   * @method addPoint
+   * @param x double The X coordinate of the point 
+   * 		or point double[] The double[2] array with the coordinates of the point.
+   * @param y double The Y coordinate of the point.
+   * @param z double The Z coordinate of the point.
+   * @param style
+   */
+  self.addPoint = function (x, y, z, style) {
+  	if (mClearAtInput) self.initialize();
+    if(x instanceof Array)    	
+    	addPoint(x[0], x[1], x[2], style);
+    else 
+    	addPoint (x,y,z,style);
+    self.setMeshChanged(true);
+  }
+
+
+  /**
+   * Adds an array of points to the trail.
+   * @method addPoints
+   * @param xInput double The double[] array with the X coordinates of the points.
+   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
+   * @param yInput double The double[] array with the Y coordinates of the points.
+   * @param zInput double The double[] array with the Z coordinates of the points.
+   * @param style
+   */
+  self.addPoints  = function(x, y, z) {
+  	if (mClearAtInput) self.initialize();
+  	if(x[0] instanceof Array) {    
+    	for (var i=0,n=x.length; i<n; i++) addPoint (x[i][0],x[i][1],x[i][2],mConnectionType);  		
+  	}
+    else if(x && y && z) {    	
+    	var n = Math.min(x.length,y.length,z.length);
+    	for (var i=0; i<n; i++) addPoint (x[i],y[i],z[i],mConnectionType);
+    }
+    self.setMeshChanged(true);
+  }
+
+  /**
+   * Adds an array of X points to the trail.
+   * @method addXPoints
+   */
+  self.addXPoints  = function(x) {
+  	var i = 0;
+  	if(x instanceof Array) {
+  		// fill points with the values  		
+    	for (var n=x.length; i<n; i++) {
+    		if(mTmpList[i]) mTmpList[i] = [x[i],mTmpList[i][1],mTmpList[i][2],mTmpList[i][3]];
+    		else mTmpList[i] = [x[i],mTmpLastYAdded,mTmpLastZAdded,mConnectionType];
+    	}  		
+    	mTmpLastXAdded = x[i];
+  	}
+    else { // only one value
+    	if(mTmpList[i]) mTmpList[i] = [x,mTmpList[i][1],mTmpList[i][2],mTmpList[i][3]];
+    	else mTmpList[i] = [x,mTmpLastYAdded,mTmpLastZAdded,mConnectionType];
+    	i++;
+    	mTmpLastXAdded = x;    	
+    }
+
+	// fill points with the last value
+	while (mTmpList[i]) {
+		mTmpList[i] = [mTmpLastXAdded,mTmpList[i][1],mTmpList[i][2],mTmpList[i][3]];
+		i++;
+	}    	
+
+    //self.setMeshChanged(true);
+  }
+
+  /**
+   * Adds an array of Y points to the trail.
+   * @method addYPoints
+   */
+  self.addYPoints  = function(y) {
+  	var i = 0;
+  	if(y instanceof Array) {
+  		// fill points with the values  		
+    	for (var n=y.length; i<n; i++) {
+    		if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y[i],mTmpList[i][2],mTmpList[i][3]];
+    		else mTmpList[i] = [mTmpLastXAdded,y[i],mTmpLastZAdded,mConnectionType];
+    	}  		
+    	mTmpLastYAdded = y[i];
+  	}
+    else { // only one value
+    	if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y,mTmpList[i][2],mTmpList[i][3]];
+    	else mTmpList[i] = [mTmpLastXAdded,y,mTmpLastZAdded,mConnectionType];
+    	i++;
+    	mTmpLastYAdded = y;    	
+    }
+
+	// fill points with the last value
+	while (mTmpList[i]) {
+		mTmpList[i] = [mTmpList[i][0],mTmpLastYAdded,mTmpList[i][2],mTmpList[i][3]];
+		i++;
+	}    	
+
+    //self.setMeshChanged(true);
+  }
+
+  /**
+   * Adds an array of Z points to the trail.
+   * @method addZPoints
+   */
+  self.addZPoints  = function(z) {
+  	var i = 0;
+  	if(z instanceof Array) {
+  		// fill points with the values  		
+    	for (var n=z.length; i<n; i++) {
+    		if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],mTmpList[i][1],z[i],mTmpList[i][3]];
+    		else mTmpList[i] = [mTmpLastXAdded,mTmpLastYAdded,z[i],mConnectionType];
+    	}  		
+    	mTmpLastZAdded = z[i];
+  	}
+    else { // only one value
+    	if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],mTmpList[i][1],z,mTmpList[i][3]];
+    	else mTmpList[i] = [mTmpLastXAdded,mTmpLastYAdded,z,mConnectionType];
+    	i++;
+    	mTmpLastZAdded = z;    	
+    }
+
+	// fill points with the last value
+	while (mTmpList[i]) {
+		mTmpList[i] = [mTmpList[i][0],mTmpList[i][1],mTmpLastZAdded,mTmpList[i][3]];
+		i++;
+	}    	
+
+    // self.setMeshChanged(true);
+  }
+
+  /**
+   * Adds the temporal array of point to the trail.
+   * @method dataCollected
+   */
+  self.dataCollected  = function() {
+  	if (mTmpList.length > 0) {
+  	  self.addPoints(mTmpList);
+      mTmpList = [];
+  	  self.setMeshChanged(true);
+  	}
+  }   
+
+  /**
+   * Sets an array of points to the trail.
+   * @method setPoints
+   * @param xInput double The double[] array with the X coordinates of the points.
+   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
+   * @param yInput double The double[] array with the Y coordinates of the points.
+   * @param zInput double The double[] array with the Z coordinates of the points.
+   * @param style
+   */
+  self.setPoints  = function(x, y, z, style) {
+  	self.clear();
+  	self.addPoints(x,y,z,style);
+  	self.setMeshChanged(true);
+  }
+    
+  /**
+   * Moves to the new point without drawing.
+   * (Equivalent to setting the connection type
+   * to NO_CONNECTION and adding one single point, then setting the 
+   * type back to its previous value.)
+   * @method moveToPoint
+   * @param x double The X coordinate of the point.
+   * 	or point double[] The double[2] array with the coordinates of the point.
+   * @param y double The Y coordinate of the point.
+   * @param z double The Z coordinate of the point.
+   */
+  self.moveToPoint = function(x, y, z) { 
+  	if (mClearAtInput) self.initialize();
+  	if(x instanceof Array) 
+    	addPoint(x[0], x[1], x[2], EJSS_DRAWING3D.Trail.NO_CONNECTION);    
+    else	
+    	addPoint(x, y, z, EJSS_DRAWING3D.Trail.NO_CONNECTION);
+    self.setMeshChanged(true);
+  }
+
+  /**
+   * Returns all points.
+   * @method getPoints
+   * @return points
+   */
+  self.getPoints = function () {
+    var points = [];
+    var size = mSegmentList.length;          	
+	for(var i=0; i<size; i++ )
+		points = points.concat(mSegmentList[i]);
+	points = points.concat(mCurrentList);
+
+    return points; 
+  }
+
+  /**
+   * Gets last point.
+   * @method getLastPoint
+   * @return point
+   */
+  self.getLastPoint = function () {
+    return mLastPoint;
+  }
+
+  /**
+   * Same as clear
+   * @method reset
+   */
+  self.reset = function() {
+    self.clear();
+  }
+
+  /**
+   * Clears all points from all segments of the trail.
+   * @method clear
+   */
+  self.clear = function() {
+    mSegmentList = [];
+    mCurrentSegment = 0;    
+    self.initialize();
+  }
+
+  /**
+   * Clears all points from the last segment of the trail, 
+   * respecting previous segments.
+   * @method initialize
+   */
+  self.initialize  = function() {
+	  mCurrentList = [];	  
+	  mFlushPoint = 0;
+	  mIsEmpty = true;
+	  mCounter = 0;
+	  mLastPoint = 0;
+	  self.setMeshChanged(true);
+  }
+
+  /**
+   * Creates a new segment of the trail.
+   * @method newSegment
+   */
+  self.newSegment = function() {
+    if (mFlushPoint != 0) {
+    	var size = mCurrentList.length;
+    	mCurrentList[size] = self.formatPoint(mFlushPoint);
+    }
+    var size = mSegmentList.length;
+    mSegmentList[size] = mCurrentList;
+
+	self.initialize();
+  }  
+  
+  function addPoint(_x, _y, _z, _type) {
+    //if (!mActive) return;
+    if (isNaN(_x) || isNaN(_y)) { 
+    	mIsEmpty = true; 
+    	return; 
+    }
+    if (mNoRepeat && mLastPoint[0]==_x && mLastPoint[1]==_y && mLastPoint[2]==_z) 
+    	return;
+	if ((typeof _type == "undefined") || (_type === null))
+		_type = mConnectionType;
+
+    mFlushPoint = 0;
+    mLastPoint = self.formatPoint([_x,_y,_z,_type]);
+    
+    if (mSkip > 0) { // Only if the counter is 0      
+      if(mCounter > 0) mFlushPoint = self.formatPoint([_x, _y, _z, _type]);      
+      if(++mCounter >= mSkip) mCounter = 0;	        
+    }
+    
+    if (mFlushPoint == 0) {
+	    if (mMaximum > 2 && mCurrentList.length >= mMaximum) {
+	    	mCurrentList.splice(0,1) // remove the firstPoint
+	    }
+	    
+	    mCurrentList[mCurrentList.length] = self.formatPoint([_x, _y, _z, _type]);
+	    mIsEmpty = false;
+	}
+  }
+
+	// override for subclases (for example Trace)
+   self.formatPoint = function(src) {
+   		return src;   		
+   }
+
+	self.registerProperties = function(controller) {
+		EJSS_DRAWING3D.Trail.registerProperties(self, controller);
+	};
+	 
+  	self.copyTo = function(element) {
+    	EJSS_DRAWING2D.Trail.copyTo(self,element);
+  	};
+  	 
+	// ----------------------------------------------------
+	// Final start-up
+	// ----------------------------------------------------
+
+	self.setSize([1,1,1]);
+    self.getStyle().setDrawFill(true);
+    self.getStyle().setDrawLines(false);
+  	self.setResolution([24,2]);
+
+	return self;
+}/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+//---------------------------------
+//TrailSet
+//---------------------------------
+
+/**
+ * Framework for 3D drawing.
+ * @module 3Ddrawing 
+ */
+
+/**
+ * TrailSet
+ * @class TrailSet 
+ * @constructor  
+ */
+EJSS_DRAWING3D.TrailSet = {
+
+    /**
+     * static registerProperties method
+     */
+    registerProperties : function(set,controller) {
+      var ElementSet = EJSS_DRAWING3D.ElementSet;
+      ElementSet.registerProperties(set,controller);
+		       
+      controller.registerProperty("Active", 
+          function(v) { set.setToEach(function(element,value) { element.setActive(value); }, v); }
+      );    
+      controller.registerProperty("NoRepeat", 
+          function(v) { set.setToEach(function(element,value) { element.setNoRepeat(value); }, v); }
+      );    
+      controller.registerProperty("ClearAtInput", 
+          function(v) { set.setToEach(function(element,value) { element.setClearAtInput(value); }, v); }
+      );    
+      controller.registerProperty("Skip", 
+          function(v) { set.setToEach(function(element,value) { element.setSkip(value); }, v); }
+      );    
+      controller.registerProperty("ColumnNames", 
+          function(v) { set.setToEach(function(element,value) { element.setInputLabels(value); }, v); }
+      );    
+      controller.registerProperty("Maximum", 
+          function(v) { set.setToEach(function(element,value) { element.setMaximumPoints(value); }, v); }
+      );    
+      controller.registerProperty("ConnectionType", 
+          function(v) { set.setToEach(function(element,value) { element.setConnectionType(value); }, v); }
+      );    
+      controller.registerProperty("Connected", 
+          function(v) { set.setToEach(function(element,value) { element.setConnected(value); }, v); }
+      );    
+      controller.registerProperty("Points", 
+          function(v) { set.setToEach(function(element,value) { element.setPoints(value); }, v); }
+      );    
+      controller.registerProperty("LastPoint", 
+          function(v) { set.setToEach(function(element,value) { element.addPoint(value); }, v); }
+      );           
+      controller.registerProperty("Input", 
+          function(v) { set.setToEach(function(element,value) { element.addPoints(value); }, v); }
+      );           
+      controller.registerProperty("InputX", 
+          function(v) { set.setToEach(function(element,value) { element.addXPoints(value); }, v); }
+      );           
+      controller.registerProperty("InputY", 
+          function(v) { set.setToEach(function(element,value) { element.addYPoints(value); }, v); }
+      );      
+      controller.registerProperty("InputZ", 
+          function(v) { set.setToEach(function(element,value) { element.addZPoints(value); }, v); }
+      );      
+      controller.registerProperty("LineWidth", 
+          function(v) { set.setToEach(function(element,value) { element.setLineWidth(value); }, v); }
+      );
+      controller.registerProperty("LineColor", 
+          function(v) { set.setToEach(function(element,value) { element.setLineColor(value); }, v); }
+      );                  
+    }
+
+};
+
+
+/**
+ * Creates a set of trails
+ * @method trailSet
+ * @param mView
+ * @param mName
+ */
+EJSS_DRAWING3D.trailSet = function (mName) {
+  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.trail,mName);
+
+  // Static references
+  var TrailSet = EJSS_DRAWING3D.TrailSet;		// reference for TrailSet
+  
+  self.registerProperties = function(controller) {
+    TrailSet.registerProperties(self,controller);
+  };
+
+  return self;
+};
 /**
  * Deployment for 3D SVG drawing.
  * @module WebGLGraphics 
@@ -33824,192 +34963,354 @@ function addMatrixStack() {
 var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
 
 /**
- * Plane
- * @class Plane 
- * @constructor  
+ * Constructor for Interaction
+ * @param drawing panel
+ * @returns An interaction
  */
-EJSS_DRAWING3D.Plane = {
+EJSS_DRAWING3D.panelInteraction = function(mPanel) {
+  var self = {};	// reference returned 
 
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
+  var mEnabled = false;			// whether interaction is enable 
+  var mLastLocation = [0,0];	// last position on panel trying interaction 
+  var mDeltaX = 0;
+  var mDeltaY = 0;
+  var mMouseIsDown = false;		// last event is mouse down
+  var mUpLastTime = 0;			// last timestamp for mouse up  
+  var mZoomLastTime = 0;		// last timestamp for pinching  
+  var mZoomDelta = 0;
+  var mLastZoom = 0;
+  var mPinching = false;
+  var mPinchInitDistance = [0,0];
 
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
-  	
-		dest.setDirectionA(source.getDirectionA());
-		dest.setDirectionB(source.getDirectionB());
-		dest.setSizeA(source.getSizeA());
-		dest.setSizeB(source.getSizeB());
-  	},
+  /**
+   * Return panel
+   * @return drawing panel 
+   */
+  self.getPanel = function() {  	
+    return mPanel;
+  };  
 
+  self.getEnabled = function() {
+  	return mEnabled;
+  } 
 
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Element.registerProperties(element, controller);
-		// super class
+  self.setEnabled = function(enabled) {
+  	if(mEnabled != enabled) {
+	  	mEnabled = enabled;
+	  	
+	  	if(mEnabled) {
+		  self.setHandler("move",self.handleMouseMoveEvent);
+		  self.setHandler("down",self.handleMouseDownEvent);
+		  self.setHandler("up",self.handleMouseUpEvent);     		
+		  self.setHandler("mousewheel",self.handleMouseWheelEvent);
+		  // self.setHandler("pinch",self.handlePinchGesture)
+	  	} else { 
+		  self.setHandler("move",(function() {}));
+		  self.setHandler("down",(function() {}));
+		  self.setHandler("up",(function() {}));    			  		
+		  self.setHandler("mousewheel",(function() {}));
+		  // self.setHandler("pinch",(function() {}));
+	  	}
+  	}
+  } 
 
-		controller.registerProperty("DirectionA", element.setDirectionA);
-		controller.registerProperty("DirectionB", element.setDirectionB);
+  /**
+   * Return the last interaction point
+   * @method getInteractionPoint
+   * @return double[]
+   */
+  self.getInteractionPoint = function() {
+    // mLastPoint = mPanel.toPanelPosition([location[0],location[1]]);
+    return mLastLocation;
+  };
 
-		controller.registerProperty("SizeA", element.setSizeA);
-		controller.registerProperty("SizeB", element.setSizeB);
+  /**
+   * Return the last interaction point deltas
+   * @method getInteractionDeltas
+   * @return double[]
+   */
+  self.getInteractionDeltas = function() {
+    return [mDeltaX, mDeltaY];
+  };
+
+  /**
+   * Return the last interaction zoom delta
+   * @method getInteractionZoomDelta
+   * @return double
+   */
+  self.getInteractionZoomDelta = function() {
+    return mZoomDelta;
+  };
+
+  /**
+   * Handler for mouse wheel event
+   * @method handleMouseWheelEvent
+   * @param event
+   */
+  self.handleMouseWheelEvent = function(event) {
+	// number of fingers over screen	
+	var nFingers = (typeof event.touches != "undefined")? event.touches.length:0;
+	
+	if(nFingers == 0) {  	
+        // Prevent the browser from doing its default thing (scroll, zoom)
+	    event.preventDefault(); 
+
+		mZoomDelta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));	
+        mPanel.getController().invokeAction("OnZoom");
+        
+	    // all interactions are reported to View
+	    mPanel.getController().reportInteractions();
+	}
+  };
+
+  /**
+   * Handler for pinch gesture (only supported by safari and iOS)
+   * @method handlePinchGesture
+   * @param event
+   */
+  self.handlePinchGesture = function(event) {  	
+	if(event.timeStamp - mZoomLastTime > 100) { 
+		// Prevent the browser from doing its default thing (scroll, zoom)
+		event.preventDefault();
+				
+		if (event.scale < mLastZoom) {
+		    // User moved fingers closer together
+		    mZoomDelta = 1;                
+		} else if (event.scale >= mLastZoom) {
+		    // User moved fingers further apart
+		    mZoomDelta = -1;
+		}
+		mLastZoom = event.scale;
 		
+		mPanel.getController().invokeAction("OnZoom");
+		
+		// all interactions are reported to View
+		mPanel.getController().reportInteractions();
+		
+		mZoomLastTime = event.timeStamp;
+	} 
+	
+  };
+  
+  /**
+   * Handler for mouse move event
+   * @method handleMouseMoveEvent
+   * @param event
+   * @param location
+   */
+  self.handleMouseMoveEvent = function(event) {
+	// number of fingers over screen	
+	var nFingers = (typeof event.touches != "undefined")? event.touches.length:1;
+	
+	if(nFingers == 1) {  	
+	  	var currentX = mLastLocation[0];
+	  	var currentY = mLastLocation[1];  	
+	    mLastLocation = getEventLocation(event); 
+	    
+	    mDeltaX = mLastLocation[0] - currentX;
+	    mDeltaY = mLastLocation[1] - currentY; 
+	    
+	    if (mMouseIsDown) { // Mouse is down
+      	  mPanel.getController().invokeAction("OnDrag");
+	      event.target.style.cursor = 'move';
+	    }
+	    else { // Mouse is up
+	      event.target.style.cursor = 'default';
+	    }
+	
+	}
+	
+	if (nFingers == 2) {
+		if (event.timeStamp - mZoomLastTime > 25) { // time filter
+			// Prevent the browser from doing its default thing (scroll, zoom)
+			event.preventDefault();
+			
+			var e0 = event.touches[0]; var e1 = event.touches[1];
+			var e0x = (e0.clientX || e0.x); var e0y = (e0.clientY || e0.y);
+			var e1x = (e1.clientX || e1.x); var e1y = (e1.clientY || e1.y);
+			if(mPinching) {
+	    		var newDistance = [Math.abs(e0x-e1x),Math.abs(e0y-e1y)];
+	    		var delta = newDistance[0]-mPinchInitDistance[0]; 
+	    		if (delta<3 && delta>-3) { // minimum filter
+	    			mZoomDelta = 0;
+	    		} else {
+	    			mZoomDelta = delta;
+	    			mPinchInitDistance = newDistance;								
+	    		}
+				mPanel.getController().invokeAction("OnZoom");
+			} else {
+				mPinching = true;
+	    		mPinchInitDistance = [Math.abs(e0x-e1x),Math.abs(e0y-e1y)];
+	    		mZoomDelta = 0;
+			}					
+			mZoomLastTime = event.timeStamp;
+		}
+	} else {
+		mPinching = false;
+		mPinchInitDistance = [0,0];
+	}		
+	
+    // all interactions are reported to View
+    mPanel.getController().reportInteractions();
+  };
+
+  /**
+   * Handler for mouse down event
+   * @method handleMouseDownEvent
+   * @param event
+   * @param location
+   */
+  self.handleMouseDownEvent = function(event) {
+	// number of fingers over screen	
+	var nFingers = (typeof event.touches != "undefined")? event.touches.length:1;
+	
+	if(nFingers == 1) {  	
+	  	mMouseIsDown = true;
+	  	
+	  	mLastLocation = getEventLocation(event);   		
+    	mPanel.getController().invokeAction("OnPress");
+	    self.pick(mLastLocation[0],mLastLocation[1]);
+	    
+	    // Prevent the browser from doing its default thing (scroll, zoom)
+	    event.preventDefault(); 
+	    
+	    // all interactions are reported to View
+	    mPanel.getController().reportInteractions();
+	}    
+	
+	mPinching = false;
+  };
+
+  /**
+   * Handler for mouse up event
+   * @method handleMouseUpEvent
+   * @param event
+   * @param location
+   */
+  self.handleMouseUpEvent = function(event) {
+	// number of fingers over screen	
+	var nFingers = (typeof event.touches != "undefined")? event.touches.length:1;
+	
+	if(nFingers == 1) {  	  	
+	    mMouseIsDown = false; 
+	
+	  	mLastLocation = getEventLocation(event);
+	
+      	mPanel.getController().invokeAction("OnRelease");       
+	    event.target.style.cursor = 'default';
+	
+		if(event.timeStamp - mUpLastTime < 500) { // < 500 ms is dblclick
+			mPanel.getController().invokeAction("OnDoubleClick");
+		}
+		mUpLastTime = event.timeStamp; 
+	    
+	    // all interactions are reported to View
+	    mPanel.getController().reportInteractions();
+	} 
+	
+	mPinching = false;   
+  };  
+
+  /**
+   * Get location for the touch event 
+   * @method getEventLocation 
+   * @param {Object} e
+   */
+  function getEventLocation(e) {
+  	var x, y;
+	var box = mPanel.getGraphics().getBox();
+	var oleft = box.left; // offset left in pixels
+	var otop = box.top; // offset top in pixels
+  	
+    if ((typeof e.changedTouches != "undefined") && (e.changedTouches.length === 1)) {    	
+      	x = e.changedTouches[0].pageX;
+      	y = e.changedTouches[0].pageY;      
+	} else {
+	    x = e.x || e.clientX;
+	    y = e.y || e.clientY;
+	}  	  	
+
+  	return [x-oleft, y-otop];
+  }
+ 
+  self.setHandler = function(type, handler) {
+	  var graphics = mPanel.getGraphics();
+	  var context = graphics.getEventContext();
+	  switch (type) {
+	    case "move" : 
+		  context.addEventListener( 'mousemove', handler, false );
+		  context.addEventListener( 'touchmove', handler, false );
+	      break;
+	    default : 
+	    case "down" :
+	      context.addEventListener( 'mousedown', handler, false );
+	      context.addEventListener( 'touchstart', handler, false );
+	      break;
+	    case "up" :
+	      context.addEventListener( 'mouseup', handler, false );
+	      context.addEventListener( 'touchend', handler, false );
+	      break;
+	    case "mousewheel" :
+	      context.addEventListener( 'mousewheel', handler, false );
+		  break;	      
+	    case "pinch" :
+	      context.addEventListener( 'gesturestart', function(event) { mLastZoom = 1; }, false );
+	      context.addEventListener( 'gesturechange', handler, false );
+	      break;
+	  }
+	  return false;
 	}
 
-};
+  /**
+   * Picking in webgl
+   */   
+  self.pick = function (mousex, mousey) {
+    // we want to read the pixel at x, y -- so we really need a rectangle from x-1,y-1 with witdth and height equal to 1
+    var x = mousex - 1;
+    var y = mousey - 1;
+    var w = 1;
+    var h = 1;
+    
+    var gl = mPanel.getGraphics().getContext();
+    if(!gl) return;
+        
+    var data = new Uint8Array(w*h*4); // w * h * 4
+    gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    if(data.data) data=data.data;
 
-/**
- * Creates a 3D Plane
- * @method plane
- */
-EJSS_DRAWING3D.plane = function (name) {
-  var self = EJSS_DRAWING3D.element(name);
+// http://stackoverflow.com/questions/7156971/webgl-readpixels-is-always-returning-0-0-0-0
+// http://webgldemos.thoughtsincomputation.com/engine_tests/picking
 
-  // Implementation variables
-  var mDirectionA = [1,0,0];
-  var mDirectionB = [0,1,0];
-  var mSizeA = 1;
-  var mSizeB = 1;
-
-  self.getClass = function() {
-  	return "ElementPlane";
-  }
-
-  self.setDirectionA = function(direction) {
-    if (!EJSS_TOOLS.compareArrays(mDirectionA,direction)) {
-        mDirectionA = direction.slice(); 
-  	    self.setMeshChanged(true);      
-    }  	
-  }
-
-  self.getDirectionA = function() {
-  	return mDirectionA;
-  }
-
-  self.setDirectionB = function(direction) {
-    if (!EJSS_TOOLS.compareArrays(mDirectionB,direction)) {
-        mDirectionB = direction.slice(); 
-  	    self.setMeshChanged(true);      
-    }  	
-  }
-
-  self.getDirectionB = function() {
-  	return mDirectionB;
-  }
-
-  self.setSizeA = function(size) {
-  	if(mSizeA != size) {
-  		mSizeA = size;
-  		self.setMeshChanged(true);
-  	}
-  }
-
-  self.getSizeA = function() {
-  	return mSizeA;
-  }
-
-  self.setSizeB = function(size) {
-  	if(mSizeB != size) {
-  		mSizeB = size;
-  		self.setMeshChanged(true);
-  	}
-  }
-
-  self.getSizeB = function() {
-  	return mSizeB;
-  }
-
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING3D.Plane.registerProperties(self, controller);
-  };
-
-  self.copyTo = function(element) {
-	EJSS_DRAWING3D.Plane.copyTo(self,element);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1,1]);
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//PlaneSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * PlaneSet
- * @class PlaneSet 
- * @constructor  
- */
-EJSS_DRAWING3D.PlaneSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      ElementSet.registerProperties(set,controller);
-       
-      controller.registerProperty("DirectionA", 
-          function(v) { set.setToEach(function(element,value) { element.setDirectionA(value); }, v); }
-      );    
-      controller.registerProperty("DirectionB", 
-          function(v) { set.setToEach(function(element,value) { element.setDirectionB(value); }, v); }
-      );    
-
-      controller.registerProperty("SizeA", 
-          function(v) { set.setToEach(function(element,value) { element.setSizeA(value); }, v); }
-      );    
-      controller.registerProperty("SizeB", 
-          function(v) { set.setToEach(function(element,value) { element.setSizeB(value); }, v); }
-      );    
+/*    
+    var indices = null, index, i;
+    for (i = 2; i < data.length; i += 4) {
+      if (data[i] > 0) // check the 'blue' key (2)
+      {
+        index = decodeFromColor(data[i-2], data[i-1], data[i], data[i+1]);
+        if (index)
+        {
+          if (!indices) indices = {};
+          indices[index] = index;
+        }
+      }
     }
+    self.context.bindFramebuffer(GL_FRAMEBUFFER, null);
+    self.context.viewport(0,0,self.context.gl.viewportWidth,self.context.gl.viewportHeight);
 
-};
-
-
-/**
- * Creates a set of planes
- * @method planeSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING3D.planeSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.plane,mName);
-
-  // Static references
-  var PlaneSet = EJSS_DRAWING3D.PlaneSet;		// reference for PlaneSet
-  
-  self.registerProperties = function(controller) {
-    PlaneSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
+    self.context.enable(GL_BLEND);
+        
+    if (indices) {
+      var ind = [];
+      for (i in indices) ind.push(indices[i]);
+      
+      if (ind[0]) return this.objects[ind];
+    }
+      
+    return null;  	
+*/  }
+    
+  return self;          
+}  
 /*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
@@ -34025,1209 +35326,445 @@ EJSS_DRAWING3D.planeSet = function (mName) {
 var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
 
 /**
- * Segment
- * @class Segment 
+ * Style object for 3D drawing
+ * @class Style 
  * @constructor  
  */
-EJSS_DRAWING3D.Segment = {
+EJSS_DRAWING3D.Style = {
+    
+  // ----------------------------------------------------
+  // Static methods
+  // ----------------------------------------------------
 
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
-
-        dest.setLineColor(source.getLineColor());
-        dest.setLineWidth(source.getLineWidth());
-
-  	},
-
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Element.registerProperties(element, controller);
-		// super class
-
-      	controller.registerProperty("LineColor",  element.setLineColor, element.getLineColor);
-      	controller.registerProperty("LineWidth",  element.setLineWidth, element.getLineWidth);
-
-	}
-
+  /**
+   * Copies one element into another
+   */
+  copyTo : function(source, dest) {
+    dest.setClosedTop(source.getClosedTop());
+    dest.setClosedBottom(source.getClosedBottom());
+    dest.setClosedLeft(source.getClosedLeft());
+    dest.setClosedRight(source.getClosedRight());
+    dest.setDrawLines(source.getDrawLines());
+    dest.setLineColor(source.getLineColor());
+    dest.setLineWidth(source.getLineWidth());
+    dest.setDrawFill(source.getDrawFill());
+    dest.setTransparency(source.getTransparency());
+    
+	dest.setAmbientColor(source.getAmbientColor());
+	dest.setFillColor(source.getFillColor());
+	dest.setSpecularColor(source.getSpecularColor());
+	dest.setAmbientReflection(source.getAmbientReflection());
+	dest.setColorReflection(source.getColorReflection());
+	dest.setSpecularReflection(source.getSpecularReflection());
+	dest.setShininessVal(source.getShininessVal());
+	
+	dest.setPaletteFloor(source.getPaletteFloor());
+	dest.setPaletteCeil(source.getPaletteCeil());
+	dest.setPaletteFloorColor(source.getPaletteFloorColor());
+	dest.setPaletteCeilColor(source.getPaletteCeilColor());	    
+  },
+  
 };
 
 /**
- * Creates a 3D Segment
- * @method segment
+ * Creates a Style object for 3D drawing
  */
-EJSS_DRAWING3D.segment = function (name) {
-  var self = EJSS_DRAWING3D.element(name);
+EJSS_DRAWING3D.style = function (mName) {
+  var self = {};
+  
+  var mClosedTop = true;
+  var mClosedBottom = true;
+  var mClosedLeft = true;
+  var mClosedRight = true;
+  var mLineColor = [0,0,0];
+  var mLineWidth = 0.5;     
+  
+  // type of material
+  var mAmbientColor = [0.0,0.0,0.0];
+  var mFillColor = [0.0,0.0,0.0];
+  var mSpecularColor = [1.0,1.0,1.0];
+  var mAmbientReflection = 1.0;
+  var mColorReflection = 1.0;
+  var mSpecularReflection = 1.0;
+  var mShininessVal = 10;
 
-  // Implementation variables
-  var mX = 0;
-  var mY = 0;
-  var mZ = 0;
-  var mSizeX = 1;				
-  var mSizeY = 1;					
-  var mSizeZ = 1;		
-  var mLineWidth = 0.01;
+  // color palette of material
+  var mPaletteFloor; // e.g. [0.0,0.0,-5.0];
+  var mPaletteCeil;  // e.g. [0.0,0.0,5.0];
+  var mPaletteFloorColor = [1.0,0.0,-1.0];
+  var mPaletteCeilColor = [-1.0,0.0,1.0];
 
-  // Implementation variables
-  self.getClass = function() {
-  	return "ElementSegment";
-  }
-
-  self.setX = function(x) { 
-    if (mX!=x) { 
-      mX = x; 
-      self.setMeshChanged(true); 
-    } 
-  };
-
-  self.getX = function() { 
-    return mX; 
-  };
-
-  self.setY = function(y) {  
-    if (mY!=y) { 
-      mY = y; 
-      self.setMeshChanged(true);
-    } 
-  };
-
-  self.getY = function() { 
-    return mY; 
-  };
-
-  self.setZ = function(z) {  
-    if (mZ!=z) { 
-      mZ = z; 
-      self.setMeshChanged(true);
-    } 
-  };
-
-  self.getZ = function() { 
-    return mZ; 
-  };
-
-  self.setPosition = function(position) {
-    self.setX(position[0]);
-    self.setY(position[1]);
-    self.setZ(position[2]);
-  };
-
-  self.getPosition = function() { 
-    return [mX, mY, mZ]; 
-  };
-
-  self.setSizeX = function(sizeX) { 
-    if (mSizeX!=sizeX) { 
-      mSizeX = sizeX; 
-      self.setMeshChanged(true);
-    } 
-  };
-
-  self.setSizeY = function(sizeY) { 
-    if (mSizeY!=sizeY) { 
-      mSizeY = sizeY; 
-      self.setMeshChanged(true);
-    }
-  };
-
-  self.setSizeZ = function(sizeZ) { 
-    if (mSizeZ!=sizeZ) { 
-      mSizeZ = sizeZ; 
-      self.setMeshChanged(true);
-    }
-  };
-
-  self.getSizeX = function() { 
-    return mSizeX; 
-  };
-
-  self.getSizeY = function() { 
-    return mSizeY; 
-  };
-
-  self.getSizeZ = function() { 
-    return mSizeZ; 
-  };
-
-  self.setSize = function(size) {
-    self.setSizeX(size[0]);
-    self.setSizeY(size[1]);
-    self.setSizeZ(size[2]);
-  };
-
-  self.getSize = function() {
-    return [self.getSizeX(), self.getSizeY(), self.getSizeZ()];
-  };
+  var mDrawLines = false;
+  var mDrawFill = true;
+  var mTransparency = 0.0;  
+  var mProjChangeListener;       
+  var mMeshChangeListener;       
 
   /**
-   * Set the line color
+   * Set a listener that will be called whenever there are style changes.
+   * I.e. a call to listener("change"); will be issued
+   */
+  self.setProjChangeListener = function(listener) {
+    mProjChangeListener = listener;
+  };
+
+  self.setMeshChangeListener = function(listener) {
+    mMeshChangeListener = listener;
+  };
+
+  //---------------------------------
+  // Closed
+  //---------------------------------
+
+  self.setClosedTop = function(closed) {
+    if (closed!=mClosedTop) {
+      mClosedTop = closed;
+      if (mMeshChangeListener) mMeshChangeListener("closedtop");
+    }
+  };
+  
+  self.getClosedTop = function() { 
+    return mClosedTop; 
+  };
+
+  self.setClosedBottom = function(closed) {
+    if (closed!=mClosedBottom) {
+      mClosedBottom = closed;
+      if (mMeshChangeListener) mMeshChangeListener("closedbottom");
+    }
+  };
+  
+  self.getClosedBottom = function() { 
+    return mClosedBottom; 
+  };
+  
+  self.setClosedLeft = function(closed) {
+    if (closed!=mClosedLeft) {
+      mClosedLeft = closed;
+      if (mMeshChangeListener) mMeshChangeListener("closedleft");
+    }
+  };
+  
+  self.getClosedLeft = function() { 
+    return mClosedLeft; 
+  };
+  
+  self.setClosedRight = function(closed) {
+    if (closed!=mClosedRight) {
+      mClosedRight = closed;
+      if (mMeshChangeListener) mMeshChangeListener("closedright");
+    }
+  };
+  
+  self.getClosedRight = function() { 
+    return mClosedRight; 
+  };
+  
+  //---------------------------------
+  // lines
+  //---------------------------------
+
+  /**
+   * Whether to draw the lines of the element
+   */
+  self.setDrawLines = function(draw) {
+    if (draw!=mDrawLines) {
+      mDrawLines = draw;
+      if (mProjChangeListener) mProjChangeListener("drawlines");
+    }
+  };
+  
+  /**
+   * Get the draw lines flag
+   */
+  self.getDrawLines = function() { 
+    return mDrawLines; 
+  };
+  
+  /**
+   * Set the line color of the element
+   * @param color a stroke style
    */
   self.setLineColor = function(color) { 
-  	self.getStyle().setFillColor(color);
-  };
-    
-  /**
-   * Get the line color
-   */
-  self.getLineColor = function() { 
-    return self.getStyle().getFillColor();
-  };
-
-  /**
-   * Set the line width
-   */
-  self.setLineWidth = function(width) { 
-    if (width!=mLineWidth) {
-      mLineWidth = width; 
-  	  self.setMeshChanged(true);
-    }
-  };
-
-  /**
-   * Get the line width
-   */
-  self.getLineWidth = function() { 
-  	return mLineWidth; 
-  };
-
-
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING3D.Segment.registerProperties(self, controller);
-  };
-
-  self.copyTo = function(element) {
-	EJSS_DRAWING3D.Segment.copyTo(self,element);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1,1]);
-  self.getStyle().setDrawFill(true);
-  self.getStyle().setDrawLines(false);
-  self.setResolution([24,2]);
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//SegmentSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * SegmentSet
- * @class SegmentSet 
- * @constructor  
- */
-EJSS_DRAWING3D.SegmentSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      ElementSet.registerProperties(set,controller);
-
-      controller.registerProperty("LineWidth", 
-          function(v) { set.setToEach(function(element,value) { element.setLineWidth(value); }, v); }
-      );      
-      controller.registerProperty("LineColor", 
-          function(v) { set.setToEach(function(element,value) { element.setLineColor(value); }, v); }
-      );      
-       
-    }
-
-};
-
-
-/**
- * Creates a set of segments
- * @method segmentSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING3D.segmentSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.segment,mName);
-
-  // Static references
-  var SegmentSet = EJSS_DRAWING3D.SegmentSet;		// reference for SegmentSet
-  
-  self.registerProperties = function(controller) {
-    SegmentSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
-
-/***
- * Sphere
- * @class EJSS_DRAWING3D.Sphere 
- * @constructor  
- */
-EJSS_DRAWING3D.Sphere = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
-  		EJSS_DRAWING3D.Ellipsoid.copyTo(source,dest);
-  	
-		dest.setRadius(source.getRadius());
-  	},
-
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Ellipsoid.registerProperties(element, controller);
-		// super class
-
-	 /*** 
-	  * Radius
-	  * @property Radius 
-	  * @type number
-	  * @default 0.5
-	  */ 
-      controller.registerProperty("Radius", element.setRadius);
-		
-	}
-
-};
-
-/**
- * Creates a 3D Sphere
- * @method sphere
- */
-EJSS_DRAWING3D.sphere = function (name) {
-  var self = EJSS_DRAWING3D.ellipsoid(name);
-  var mRadius = 0.5;
-  
-  // Implementation variables
-  self.getClass = function() {
-  	return "ElementSphere";
-  }
-
-  self.setRadius = function(radius) {
-  	mRadius = radius;
-  	self.setSize([2*radius,2*radius,2*radius]);
-  }
-
-  self.getRadius = function() {
-  	return mRadius;
-  }
-    
-  self.copyTo = function(element) {
-	EJSS_DRAWING3D.Sphere.copyTo(self,element);
-  };
-      
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING3D.Sphere.registerProperties(self, controller);
-  };
-	    
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1,1]);
-  self.setResolution([30,20]);
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//SphereSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * SphereSet
- * @class SphereSet 
- * @constructor  
- */
-EJSS_DRAWING3D.SphereSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      ElementSet.registerProperties(set,controller); 
-
-      controller.registerProperty("Radius", 
-          function(v) { set.setToEach(function(element,value) { element.setRadius(value); }, v); }
-      );    
-
-    }
-
-};
-
-
-/**
- * Creates a set of spheres
- * @method sphereSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING3D.sphereSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.sphere,mName);
-
-  // Static references
-  var SphereSet = EJSS_DRAWING3D.SphereSet;		// reference for SphereSet
-  
-  self.registerProperties = function(controller) {
-    SphereSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
-/*
-* Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
-* This code is part of the Easy Javascript Simulations authoring and simulation tool
-*
-* This code is Open Source and is provided "as is".
-*/
-
-var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
-
-/**
- * Spring
- * @class Spring 
- * @constructor  
- */
-EJSS_DRAWING3D.Spring = {
-  DEF_RADIUS : 1,
-  DEF_LOOPS : 8,
-  DEF_PPL : 50,
-
-	// ----------------------------------------------------
-	// Static methods
-	// ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
-  	
-		dest.setRadius(source.getRadius());
-		dest.setSolenoid(source.getSolenoid());
-		dest.setThinExtremes(source.getThinExtremes());
-		dest.setLoops(source.getLoops());
-		dest.setPointsPerLoop(source.getPointsPerLoop());		
-  	},
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Element.registerProperties(element, controller);
-		// super class	
-		controller.registerProperty("Radius", element.setRadius, element.getRadius);
-		controller.registerProperty("ThinExtremes", element.setThinExtremes, element.getThinExtremes);
-
-		controller.registerProperty("Solenoid", element.setSolenoid, element.getSolenoid);
-		controller.registerProperty("Loops", element.setLoops, element.getLoops);
-		controller.registerProperty("PointsPerLoop", element.setPointsPerLoop, element.getPointsPerLoop);
-		
-	},
-};
-
-/**
- * Creates a 2D Spring
- * @method spring
- */
-EJSS_DRAWING3D.spring = function(name) {
-	var self = EJSS_DRAWING3D.element(name);
- 
-	  // Configuration variables
-	var mRadius = EJSS_DRAWING3D.Spring.DEF_RADIUS;
-	var mSolenoid = 0.0;
-	var mThinExtremes = true;
-	var mLoops;
-	var mPointsPerLoop;
-  var mX = 0;
-  var mY = 0;
-  var mZ = 0;
-  var mSizeX = 1;				
-  var mSizeY = 1;					
-  var mSizeZ = 1;	
-  
-	self.getClass = function() {
-		return "ElementSpring";
-	}
-
-	self.setRadius = function(radius) {
-		if(mRadius != radius) {
-			mRadius = radius;
-			self.setMeshChanged(true);
-		}		
-	}
-
-	self.getRadius = function() {
-		return mRadius;
-	}
-
-	self.setSolenoid = function(solenoid) {
-		if(mSolenoid != solenoid) {
-			mSolenoid = solenoid;
-			self.setMeshChanged(true);
-		}
-	}
-
-	self.getSolenoid = function() {
-		return mSolenoid;
-	}
-
-	self.setThinExtremes = function(thinExtremes) {
-		if(mThinExtremes != thinExtremes) {
-			mThinExtremes = thinExtremes;
-			self.setMeshChanged(true);
-		}
-	}
-
-	self.getThinExtremes = function() {
-		return mThinExtremes;
-	}
-
-	self.setLoops = function(loops) {
-		if(mLoops != loops) {
-			mLoops = loops;
-			self.setMeshChanged(true);
-		}
-	}
-
-	self.getLoops = function() {
-		return mLoops;
-	}
-
-	self.setPointsPerLoop = function(pointsPerLoop) {
-		if(mPointsPerLoop != pointsPerLoop) {
-			mPointsPerLoop = pointsPerLoop;
-			self.setMeshChanged(true);
-		}
-	}
-
-	self.getPointsPerLoop = function() {
-		return mPointsPerLoop;
-	}
-
-  self.setX = function(x) { 
-    if (mX!=x) { 
-      mX = x; 
-      self.setMeshChanged(true); 
-    } 
-  };
-
-  self.getX = function() { 
-    return mX; 
-  };
-
-  self.setY = function(y) {  
-    if (mY!=y) { 
-      mY = y; 
-      self.setMeshChanged(true);
-    } 
-  };
-
-  self.getY = function() { 
-    return mY; 
-  };
-
-  self.setZ = function(z) {  
-    if (mZ!=z) { 
-      mZ = z; 
-      self.setMeshChanged(true);
-    } 
-  };
-
-  self.getZ = function() { 
-    return mZ; 
-  };
-
-  self.setPosition = function(position) {
-    self.setX(position[0]);
-    self.setY(position[1]);
-    self.setZ(position[2]);
-  };
-
-  self.getPosition = function() { 
-    return [mX, mY, mZ]; 
-  };
-
-  self.setSizeX = function(sizeX) { 
-    if (mSizeX!=sizeX) { 
-      mSizeX = sizeX; 
-      self.setMeshChanged(true);
-    } 
-  };
-
-  self.setSizeY = function(sizeY) { 
-    if (mSizeY!=sizeY) { 
-      mSizeY = sizeY; 
-      self.setMeshChanged(true);
-    }
-  };
-
-  self.setSizeZ = function(sizeZ) { 
-    if (mSizeZ!=sizeZ) { 
-      mSizeZ = sizeZ; 
-      self.setMeshChanged(true);
-    }
-  };
-
-  self.getSizeX = function() { 
-    return mSizeX; 
-  };
-
-  self.getSizeY = function() { 
-    return mSizeY; 
-  };
-
-  self.getSizeZ = function() { 
-    return mSizeZ; 
-  };
-
-  self.setSize = function(size) {
-    self.setSizeX(size[0]);
-    self.setSizeY(size[1]);
-    self.setSizeZ(size[2]);
-  };
-
-  self.getSize = function() {
-    return [self.getSizeX(), self.getSizeY(), self.getSizeZ()];
-  };
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING3D.Spring.registerProperties(self, controller);
-	};
-
-  	self.copyTo = function(element) {
-    	EJSS_DRAWING3D.Spring.copyTo(self,element);
-  	};
-
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-  	self.setSize([1,1,1]);
-    self.getStyle().setDrawFill(true);
-    self.getStyle().setDrawLines(true);
-    	
-  	self.setLoops(EJSS_DRAWING2D.Spring.DEF_LOOPS);
-  	self.setPointsPerLoop(EJSS_DRAWING2D.Spring.DEF_PPL);
-	
-	return self;
-};
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//SpringSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * SpringSet
- * @class SpringSet 
- * @constructor  
- */
-EJSS_DRAWING3D.SpringSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      controller.registerProperty("Radius", 
-          function(v) { set.setToEach(function(element,value) { element.setRadius(value); }, v); }
-      );
-      controller.registerProperty("ThinExtremes", 
-          function(v) { set.setToEach(function(element,value) { element.setThinExtremes(value); }, v); }
-      );
-      controller.registerProperty("Solenoid", 
-          function(v) { set.setToEach(function(element,value) { element.setSolenoid(value); }, v); }
-      );           
-      controller.registerProperty("Loops", 
-          function(v) { set.setToEach(function(element,value) { element.setLoops(value); }, v); }
-      );           
-      controller.registerProperty("PointsPerLoop", 
-          function(v) { set.setToEach(function(element,value) { element.setPointsPerLoop(value); }, v); }
-      );           
-    }        
-};
-
-
-/**
- * Creates a set of springs
- * @method springSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING3D.springSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.spring,mName);
-
-  // Static references
-  var SpringSet = EJSS_DRAWING3D.SpringSet;		// reference for SpringSet
-  
-  self.registerProperties = function(controller) {
-    SpringSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
-
-/**
- * Surface
- * @class Surface 
- * @constructor  
- */
-EJSS_DRAWING3D.Surface = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
-  	
-		dest.setData(source.getData());
-  	},
-
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Element.registerProperties(element, controller);
-		// super class
-
-		controller.registerProperty("Data", element.setData);
-		
-	}
-
-};
-
-/**
- * Creates a 3D Surface
- * @method surface
- */
-EJSS_DRAWING3D.surface = function (name) {
-  var self = EJSS_DRAWING3D.element(name);
-
-  // Implementation variables
-  var mData = [];
-
-  self.getClass = function() {
-  	return "ElementSurface";
-  }
-
-  self.setData = function(data) {
-    if (!EJSS_TOOLS.compareArrays(mData,data)) {
-        mData = data.slice(); 
-  	    self.setMeshChanged(true);      
-    }  	
-  }
-
-  self.getData = function() {
-  	return mData;
-  }
-
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING3D.Surface.registerProperties(self, controller);
-  };
-
-  self.copyTo = function(element) {
-	EJSS_DRAWING3D.Surface.copyTo(self,element);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1,1]);
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//SurfaceSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * SurfaceSet
- * @class SurfaceSet 
- * @constructor  
- */
-EJSS_DRAWING3D.SurfaceSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      ElementSet.registerProperties(set,controller);
-       
-      controller.registerProperty("Data", 
-          function(v) { set.setToEach(function(element,value) { element.setData(value); }, v); }
-      );    
-    }
-
-};
-
-
-/**
- * Creates a set of surfaces
- * @method surfaceSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING3D.surfaceSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.surface,mName);
-
-  // Static references
-  var SurfaceSet = EJSS_DRAWING3D.SurfaceSet;		// reference for SurfaceSet
-  
-  self.registerProperties = function(controller) {
-    SurfaceSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
-
-/**
- * Tetrahedron
- * @class Tetrahedron 
- * @constructor  
- */
-EJSS_DRAWING3D.Tetrahedron = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
-  		EJSS_DRAWING3D.Cylinder.copyTo(source,dest);
-  	
-  	},
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Cylinder.registerProperties(element, controller);
-		// super class
-		
-	}
-};
-
-/**
- * Creates a 3D Tetrahedron
- * @method tetrahedron
- */
-EJSS_DRAWING3D.tetrahedron = function (name) {
-  var self = EJSS_DRAWING3D.cylinder(name);
-
-  // Implementation variables
-  self.getClass = function() {
-  	return "ElementTetrahedron";
-  }
-
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING3D.Tetrahedron.registerProperties(self, controller);
-  };
-
-  self.copyTo = function(element) {
-	EJSS_DRAWING3D.Tetrahedron.copyTo(self,element);
-  };
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1,1]);
-  self.setTopRadius(0);
-  self.setResolutionU(4);
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//TetrahedronSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * TetrahedronSet
- * @class TetrahedronSet 
- * @constructor  
- */
-EJSS_DRAWING3D.TetrahedronSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      ElementSet.registerProperties(set,controller); 
-      
-    }
-
-};
-
-
-/**
- * Creates a set of tetrahedrons
- * @method tetrahedronSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING3D.tetrahedronSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.tetrahedron,mName);
-
-  // Static references
-  var TetrahedronSet = EJSS_DRAWING3D.TetrahedronSet;		// reference for TetrahedronSet
-  
-  self.registerProperties = function(controller) {
-    TetrahedronSet.registerProperties(self,controller);
-  };
-
-  return self;
-};
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
-
-/**
- * Text
- * @class Text 
- * @constructor  
- */
-EJSS_DRAWING3D.Text = {
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING3D.Element.copyTo(source,dest); // super class copy
-  		EJSS_DRAWING2D.Font.copyTo(source.getFont(),dest.getFont());
-
-		dest.setText(source.getText());
-		dest.setBackground(source.getBackground());
-  	},
-
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Element.registerProperties(element, controller);
-		// super class
-
-		controller.registerProperty("Text", element.setText);
-		controller.registerProperty("Background", element.setBackground);
-		controller.registerProperty("FitText", element.setFitText);
-				
-		controller.registerProperty("Font", element.getFont().setFont);
-		controller.registerProperty("FontFamily", element.getFont().setFontFamily);
-		controller.registerProperty("FontSize", element.getFont().setFontSize);
-		controller.registerProperty("FontColor", element.getFont().setFillColor);
-		controller.registerProperty("FontStyle", element.getFont().setFontStyle);		
-	}
-
-};
-
-/**
- * Creates a 3D Text
- * @method text
- */
-EJSS_DRAWING3D.text = function (name) {
-  var self = EJSS_DRAWING3D.element(name);
-  
-  // Implementation variables
-  var mFont = EJSS_DRAWING2D.font(name);	// font for text
-
-  var mText = "";
-  var mBackground = "rgba(255,255,255,0)";
-  var mFitText = false;
-
-  self.getClass = function() {
-  	return "ElementText";
-  }
-
-  self.setBackground = function(color) { 
-    if (typeof color !== "string") color = EJSS_TOOLS.DisplayColors.getLineColor(color);
-    if (color != mBackground) {
-      mBackground = color; 
-  	  self.setMeshChanged(true);
+    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
+    if (!EJSS_TOOLS.compareArrays(color,mLineColor)) {
+      mLineColor = color.slice(); 
+      if (mProjChangeListener) mProjChangeListener("linecolor");
     }
     return self;
   };
-
-  self.getBackground = function() {
-  	return mBackground;
-  }
-
-  self.setText = function(text) {
-  	if(mText != text) {
-  	  mText = text;
-  	  self.setMeshChanged(true);
-    }
-  }
-
-  self.getText = function() {
-  	return mText;
-  }
-
-  self.setFitText = function(fit) {
-  	if(mFitText != fit) {
-  	  mFitText = fit;
-  	  self.setMeshChanged(true);
-    }
-  }
-
-  self.getFitText = function() {
-  	return mFitText;
-  }
-
-  self.getFont = function() {
-	return mFont;
-  }
-
-  self.registerProperties = function(controller) {
-	EJSS_DRAWING3D.Text.registerProperties(self, controller);
+    
+  /**
+   * Get the line color
+   */
+  self.getLineColor = function() { 
+    return mLineColor; 
   };
 
-  self.copyTo = function(element) {
-	EJSS_DRAWING3D.Text.copyTo(self,element);
+  /**
+   * Set the line width of the element
+   * @param width a stroke width (may be double, such as 0.5, the default)
+   */
+  self.setLineWidth = function(width) { 
+    if (width!=mLineWidth) {
+      mLineWidth = width; 
+      if (mProjChangeListener) mProjChangeListener("linewidth");
+    }
   };
 
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-
-  self.setSize([1,1,1]);
-  self.getStyle().setTransparency(255);
-
-  return self;
-};
-
-
-
-/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//TextSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * TextSet
- * @class TextSet 
- * @constructor  
- */
-EJSS_DRAWING3D.TextSet = {
-
-    /**
-     * static registerProperties method
-     */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      
-      ElementSet.registerProperties(set,controller);
-      controller.registerProperty("Text", 
-          function(v) { set.setToEach(function(element,value) { element.setText(value); }, v); }
-      );
-      controller.registerProperty("Background", 
-          function(v) { set.setToEach(function(element,value) { element.setBackground(value); }, v); }
-      );
-      controller.registerProperty("Font", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFont(value); }, v); }
-      );           
-      controller.registerProperty("FontFamily", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFontFamily(value); }, v); }
-      );           
-      controller.registerProperty("FontSize", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFontSize(value); }, v); }
-      );           
-      controller.registerProperty("FontColor", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFillColor(value); }, v); }
-      );           
-      controller.registerProperty("FontStyle", 
-          function(v) { set.setToEach(function(element,value) { element.getFont().setFontStyle(value); }, v); }
-      );           
-    }        
-
-};
-
-
-/**
- * Creates a set of texts
- * @method textSet
- * @param mView
- * @param mName
- */
-EJSS_DRAWING3D.textSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.text,mName);
-
-  // Static references
-  var TextSet = EJSS_DRAWING3D.TextSet;		// reference for TextSet
+  /**
+   * Get the line width
+   */
+  self.getLineWidth = function() { return mLineWidth; };
   
-  self.registerProperties = function(controller) {
-    TextSet.registerProperties(self,controller);
+  //---------------------------------
+  // interior fill
+  //---------------------------------
+
+  /**
+   * Whether to fill the interior of the element
+   */
+  self.setDrawFill = function(draw) {
+    if (draw!=mDrawFill) {
+      mDrawFill = draw;
+      if (mProjChangeListener) mProjChangeListener("drawfill");
+    }
+  };
+  
+  /**
+   * Get the draw fill flag
+   */
+  self.getDrawFill = function() { 
+    return mDrawFill; 
   };
 
+  /**
+   * Set the fill color of the element
+   * @param color a fill style
+   */
+  self.setFillColor = function(color) {
+    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
+    if (!EJSS_TOOLS.compareArrays(color,mFillColor)) {
+      mFillColor = color.slice(); 
+      if (mProjChangeListener) mProjChangeListener("fillcolor");
+    }
+  };
+
+  /**
+   * Get the fill color
+   */
+  self.getFillColor = function() { 
+    return mFillColor; 
+  };
+  
+  /**
+   * Set the Ambient color of the element
+   * @param color ambient color
+   */
+  self.setAmbientColor = function(color) {
+    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
+    if (!EJSS_TOOLS.compareArrays(color,mAmbientColor)) {
+      mAmbientColor = color.slice(); 
+      if (mProjChangeListener) mProjChangeListener("ambientcolor");
+    }
+  };
+  
+  /**
+   * Get the Ambient color
+   */
+  self.getAmbientColor = function() { 
+    return mAmbientColor; 
+  };
+
+  /**
+   * Set the Specular color of the element
+   * @param color specular color
+   */
+  self.setSpecularColor = function(color) {
+    if (typeof color === "string") color = EJSS_TOOLS.DisplayColors.getArrayColor(color);
+    if (!EJSS_TOOLS.compareArrays(color,mSpecularColor)) {
+      mSpecularColor = color.slice(); 
+      if (mProjChangeListener) mProjChangeListener("specularcolor");
+    }
+  };
+  
+  /**
+   * Get the Specular color
+   */
+  self.getSpecularColor = function() { 
+    return mSpecularColor; 
+  };
+
+  /**
+   * Set the Ambient Reflection of the element
+   * @param k coefficient
+   */
+  self.setAmbientReflection = function(k) {
+    if (mAmbientReflection != k) {
+      mAmbientReflection = k; 
+      if (mProjChangeListener) mProjChangeListener("ambientreflection");
+    }
+  };
+  
+  /**
+   * Get the Ambient reflection
+   */
+  self.getAmbientReflection = function() { 
+    return mAmbientReflection; 
+  };
+
+  /**
+   * Set the Color Reflection of the element
+   * @param k coefficient
+   */
+  self.setColorReflection = function(k) {
+    if (mColorReflection != k) {
+      mColorReflection = k; 
+      if (mProjChangeListener) mProjChangeListener("colorreflection");
+    }
+  };
+  
+  /**
+   * Get the Color reflection
+   */
+  self.getColorReflection = function() { 
+    return mColorReflection; 
+  };
+
+  /**
+   * Set the Specular Reflection of the element
+   * @param k coefficient
+   */
+  self.setSpecularReflection = function(k) {
+    if (mSpecularReflection != k) {
+      mSpecularReflection = k; 
+      if (mProjChangeListener) mProjChangeListener("specularreflection");
+    }
+  };
+  
+  /**
+   * Get the Specular reflection
+   */
+  self.getSpecularReflection = function() { 
+    return mSpecularReflection; 
+  };
+
+  /**
+   * Set the shininess of the element
+   * @param shininess coefficient
+   */
+  self.setShininessVal = function(shininess) {
+    if (mShininessVal != shininess) {
+      mShininessVal = shininess; 
+      if (mProjChangeListener) mProjChangeListener("shininess");
+    }
+  };
+  
+  /**
+   * Get the shininess 
+   */
+  self.getShininessVal = function() { 
+    return mShininessVal; 
+  };
+
+  /**
+   * Set transparency
+   * @param transparency
+   */
+  self.setTransparency = function(transparency) {
+    if (transparency!=mTransparency) {
+      mTransparency = transparency; 
+      if (mProjChangeListener) mProjChangeListener("transparency");
+    }
+  };
+  
+  /**
+   * Get transparency
+   */
+  self.getTransparency = function() { 
+    return mTransparency; 
+  };
+
+  /**
+   * Set the palette floor of the element
+   * @param floor palette floor
+   */
+  self.setPaletteFloor = function(floor) {
+    if (floor && !EJSS_TOOLS.compareArrays(floor,mPaletteFloor)) {
+      mPaletteFloor = floor.slice(); 
+      if (mProjChangeListener) mProjChangeListener("palettefloor");
+    }
+  };
+
+  /**
+   * Get the palette floor
+   */
+  self.getPaletteFloor = function() { 
+    return mPaletteFloor; 
+  };
+
+  /**
+   * Set the palette ceil of the element
+   * @param ceil palette ceil
+   */
+  self.setPaletteCeil = function(ceil) {
+    if (ceil && !EJSS_TOOLS.compareArrays(ceil,mPaletteCeil)) {
+      mPaletteCeil = ceil.slice(); 
+      if (mProjChangeListener) mProjChangeListener("paletteceil");
+    }
+  };
+
+  /**
+   * Get the palette ceil
+   */
+  self.getPaletteCeil = function() { 
+    return mPaletteCeil; 
+  };
+
+  /**
+   * Set the palette floor color of the element
+   * @param color palette floor color
+   */
+  self.setPaletteFloorColor = function(color) {
+    if (!EJSS_TOOLS.compareArrays(color,mPaletteFloorColor)) {
+      mPaletteFloorColor = color.slice(); 
+      if (mProjChangeListener) mProjChangeListener("palettefloorcolor");
+    }
+  };
+
+  /**
+   * Get the palette floor color
+   */
+  self.getPaletteFloorColor = function() { 
+    return mPaletteFloorColor; 
+  };
+
+  /**
+   * Set the palette ceil color of the element
+   * @param color palette ceil color
+   */
+  self.setPaletteCeilColor = function(color) {
+    if (!EJSS_TOOLS.compareArrays(color,mPaletteCeilColor)) {
+      mPaletteCeilColor = color.slice(); 
+      if (mProjChangeListener) mProjChangeListener("paletteceilcolor");
+    }
+  };
+
+  /**
+   * Get the palette ceil color
+   */
+  self.getPaletteCeilColor = function() { 
+    return mPaletteCeilColor; 
+  };
+
+
+  //---------------------------------
+  // final initialization
+  //---------------------------------
+  
   return self;
 };
+
 /*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
@@ -35243,721 +35780,183 @@ EJSS_DRAWING3D.textSet = function (mName) {
 var EJSS_DRAWING3D = EJSS_DRAWING3D || {};
 
 /**
- * Trail
- * @class Trail 
+ * Transformation object for 3D elements.
+ * A transformation is an array of 7 numbers indicating
+ *  [ rotation angle (in degrees), 
+ *    x,y,z coordinates of the rotation axis, 
+ *    x,y,z coordinates of the origin of the rotation ] 
+ * @class Transformation 
  * @constructor  
  */
-EJSS_DRAWING3D.Trail = {
-  NO_CONNECTION : 0, 	// The next point will not be connected to the previous one
-  LINE_CONNECTION : 1,	// The next point will be connected to the previous one by a segment
-
-    // ----------------------------------------------------
-    // Static methods
-    // ----------------------------------------------------
-
-  	/**
-   	* Copies one element into another
-   	*/
-  	copyTo : function(source, dest) {
-      	EJSS_DRAWING2D.Element.copyTo(source,dest); // super class copy  	
-  		
-		dest.setActive(source.getActive());
-		dest.setNoRepeat(source.getNoRepeat());
-		dest.setClearAtInput(source.getClearAtInput());
-		dest.setSkip(source.getSkip());
-		dest.setInputLabels(source.getInputLabels());
-		dest.setMaximumPoints(source.getMaximumPoints());
-		dest.setConnectionType(source.getConnectionType());
-		dest.setPoints(source.getPoints());
-
-		dest.setLineColor(source.getLineColor());
-		dest.setLineWidth(source.getLineWidth());
-  	},
-
-	/**
-	 * static registerProperties method
-	 */
-	registerProperties : function(element, controller) {
-		EJSS_DRAWING3D.Element.registerProperties(element, controller);
-		// super class
-
-		controller.registerProperty("Active", element.setActive, element.getActive);
-		controller.registerProperty("NoRepeat", element.setNoRepeat, element.getNoRepeat);
-		controller.registerProperty("ClearAtInput", element.setClearAtInput, element.getClearAtInput);
-		controller.registerProperty("Skip", element.setSkip, element.getSkip);
-		controller.registerProperty("ColumnNames", element.setInputLabels, element.getInputLabels);
-		controller.registerProperty("Maximum", element.setMaximumPoints, element.getMaximumPoints);
-		controller.registerProperty("ConnectionType", element.setConnectionType, element.getConnectionType);		
-		controller.registerProperty("Connected", element.setConnected, element.isConnected);		
-		controller.registerProperty("Points", element.setPoints, element.getPoints);		
-		controller.registerProperty("LastPoint", element.addPoint, element.getLastPoint);
-		controller.registerProperty("Input", element.addPoints);
-		controller.registerProperty("InputX", element.addXPoints);				
-		controller.registerProperty("InputY", element.addYPoints);
-		controller.registerProperty("InputZ", element.addZPoints);
-
-      	controller.registerProperty("LineColor",  element.setLineColor, element.getLineColor);
-      	controller.registerProperty("LineWidth",  element.setLineWidth, element.getLineWidth);		
-	}
-
-};
-
-/**
- * Creates a 3D Trail
- * Trail implements dataCollected(), which makes it a Collector of data 
- * @method trail
- */
-EJSS_DRAWING3D.trail = function (name) {
-  var self = EJSS_DRAWING3D.element(name);
-
-    // Configuration variables
-	var mActive = true;
-	var mNoRepeat = false;
-	var mClearAtInput = false;
-	var mSkip = 0;
-	var mInputLabels = ["x", "y", "z"];	  
-	var mMaximum = 0;
-	var mConnectionType = EJSS_DRAWING3D.Trail.LINE_CONNECTION;
-	
-  	// Implementation variables
-  	var mCounter = 0;
-  	var mIsEmpty = true;
-	//  private int firstPoint = 0; // the first point of the current path 
-  	var mLastPoint = 0;	
-  	var mFlushPoint = 0; // This is the last point which was not added because of the skip parameter  	
-  	var mCurrentList = []; 	// The current list of points  	
-  	var mSegmentList = []; // The list of past Segments, if any  	
-	var mTmpList = []; // The temporal list of new points
-	var mTmpLastXAdded = 0;
-	var mTmpLastYAdded = 0;
-	var mTmpLastZAdded = 0;
-	 
-    var mLineWidth = 0.01;
-	 
-	self.getClass = function() {
-		return "ElementTrail";
-	}
-
-  /**
-   * Set the line color
-   */
-  self.setLineColor = function(color) { 
-  	self.getStyle().setFillColor(color);
-  };
-    
-  /**
-   * Get the line color
-   */
-  self.getLineColor = function() { 
-    return self.getStyle().getFillColor();
-  };
-
-  /**
-   * Set the line width
-   */
-  self.setLineWidth = function(width) { 
-    if (width!=mLineWidth) {
-      mLineWidth = width; 
-  	  self.setMeshChanged(true);
-    }
-  };
-
-  /**
-   * Get the line width
-   */
-  self.getLineWidth = function() { 
-  	return mLineWidth; 
-  };
-
-  /**
-   * Set/unset the active state of the trail. 
-   * The trail does not use this state, but just keeps an internal value that
-   * programs can consult in order not to add data to the trail.
-   * In other words, a trail will always honor an addPoint() command.
-   * But programs can consult this internal value to decide whether or not
-   * to send data to a trail.
-   * Default value is true.
-   * @method setActive
-   * @param _active
-   */
-  self.setActive = function(active) {
-    if(mActive != active) {
-    	mActive = active;
-    	self.setMeshChanged(true);
-    }
-  }
-  
-  /**
-   * Whether the trail is in active mode.
-   * @method getActive
-   * @return
-   */
-  self.getActive = function() { 
-  	return mActive; 
-  }
-  
-  /** 
-   * Sets the no repeat state of the trail.
-   * When set, a trail will ignore (x,y) points which equal the last added point.
-   * @method setNoRepeat
-   * @param _noRepeat
-   */
-  self.setNoRepeat = function (noRepeat) {
-    if(mNoRepeat != noRepeat) {
-    	mNoRepeat = noRepeat;
-    	self.setMeshChanged(true);
-    }
-  }
-  
-  /**
-   * Whether the trail is in no repeat mode. Default value is false.
-   * @method getNoRepeat
-   * @return
-   */
-  self.getNoRepeat = function() { 
-  	return mNoRepeat; 
-  }
-
-  /**
-   * Sets the trail to clear existing points when receiving 
-   * a new point or array of points.
-   * @method setClearAtInput
-   * @param _clear
-   */
-  self.setClearAtInput = function(clear) {
-    if(mClearAtInput != clear) {
-    	mClearAtInput = clear;
-    	self.setMeshChanged(true);
-    }
-  }
-  
-  /**
-   * Whether the trail is in clear at input mode.
-   * @method getClearAtInput
-   * @return
-   */
-  self.getClearAtInput = function() { 
-  	return mClearAtInput; 
-  }
-
-  /**
-   * Sets the skip parameter. When the skip parameter is larger than zero,
-   * the trail only considers one of every 'skip' points. That is, if skip is 3, 
-   * the trail will consider only every third point sent to it. 
-   * The default is zero, meaning all points must be considered.
-   * @method setSkip
-   * @param _skip
-   */
-  self.setSkip = function (skip) {
-    if (mSkip != skip) {
-      mSkip = skip;
-      mCounter = 0;
-      self.setMeshChanged(true);
-    }
-  }
-  
-  /**
-   * Returns the skip parameter of the trail.
-   * @method getSkip
-   * @return
-   */
-  self.getSkip = function () { 
-  	return mSkip; 
-  }
-
-  /**
-   * Sets the labels of the X,Y,Z coordinates when the data is displayed in a table
-   * @method setInputLabels
-   * @param _label
-   */
-  self.setInputLabels = function (label) {
-  	if((mInputLabels[0] != label[0]) || (mInputLabels[1] != label[1]) || (mInputLabels[2] != label[2])) { 
-  		mInputLabels[0] = label[0]; 
-  		mInputLabels[1] = label[1];
-  		mInputLabels[2] = label[2]; 
-  		self.setMeshChanged(true);
-  	}
-  }
-
-  /**
-   * Returns the labels of the X,Y,Z coordinates
-   * @method getInputLabels
-   * @return labels
-   */
-  self.getInputLabels = function () { 
-  	return mInputLabels; 
-  }
-  
-  /**
-   * Sets the maximum number of points for the trail.
-   * Once the maximum is reached, adding a new point will cause
-   * remotion of the first one. This is useful to keep trails
-   * down to a reasonable size, since very long trails can slow
-   * down the rendering (in certain implementations).
-   * If the value is 0 (the default) the trail grows forever
-   * without discarding old points.
-   * @method setMaximumPoints
-   * @param maximum int
-   */
-  self.setMaximumPoints = function(maximum) {
-  	var max = Math.max(maximum, 2);
-  	if(mMaximum != max) {
-    	mMaximum = max;
-    	self.setMeshChanged(true);
-    }
-  }
-
-  /**
-   * Returns the maximum number of points allowed for the trail
-   * @method getMaximumPoints
-   * @return int
-   */
-  self.getMaximumPoints = function() {
-    return mMaximum;
-  }
-
-  /**
-   * Sets the type of connection for the next point.
-   * @method setConnectionType
-   * @param type int
-   */
-  self.setConnected = function (connected) {
-   if (connected) self.setConnectionType(EJSS_DRAWING3D.Trail.LINE_CONNECTION);
-   else self.setConnectionType(EJSS_DRAWING3D.Trail.NO_CONNECTION);
-  }
-
-  /**
-   * Gets the connection type.
-   * @method getConnectionType
-   * @see #setConnectionType(int)
-   */
-  self.isConnected = function() {
-    return mConnectionType===EJSS_DRAWING3D.Trail.LINE_CONNECTION;
-  }
-
-  /**
-   * Sets the type of connection for the next point.
-   * @method setConnectionType
-   * @param type int
-   */
-  self.setConnectionType = function (type) {
-    if (typeof type == "string") type = EJSS_DRAWING3D.Trail[type.toUpperCase()];      	
-    if(mConnectionType != type) {
-    	mConnectionType = type;
-    	self.setMeshChanged(true);
-    }
-  }
-
-  /**
-   * Gets the connection type.
-   * @method getConnectionType
-   * @see #setConnectionType(int)
-   */
-  self.getConnectionType = function() {
-    return mConnectionType;
-  }
-
-  /**
-   * Adds a new point to the trail.
-   * @method addPoint
-   * @param x double The X coordinate of the point 
-   * 		or point double[] The double[2] array with the coordinates of the point.
-   * @param y double The Y coordinate of the point.
-   * @param z double The Z coordinate of the point.
-   * @param style
-   */
-  self.addPoint = function (x, y, z, style) {
-  	if (mClearAtInput) self.initialize();
-    if(x instanceof Array)    	
-    	addPoint(x[0], x[1], x[2], style);
-    else 
-    	addPoint (x,y,z,style);
-    self.setMeshChanged(true);
-  }
-
-
-  /**
-   * Adds an array of points to the trail.
-   * @method addPoints
-   * @param xInput double The double[] array with the X coordinates of the points.
-   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
-   * @param yInput double The double[] array with the Y coordinates of the points.
-   * @param zInput double The double[] array with the Z coordinates of the points.
-   * @param style
-   */
-  self.addPoints  = function(x, y, z) {
-  	if (mClearAtInput) self.initialize();
-  	if(x[0] instanceof Array) {    
-    	for (var i=0,n=x.length; i<n; i++) addPoint (x[i][0],x[i][1],x[i][2],mConnectionType);  		
-  	}
-    else if(x && y && z) {    	
-    	var n = Math.min(x.length,y.length,z.length);
-    	for (var i=0; i<n; i++) addPoint (x[i],y[i],z[i],mConnectionType);
-    }
-    self.setMeshChanged(true);
-  }
-
-  /**
-   * Adds an array of X points to the trail.
-   * @method addXPoints
-   */
-  self.addXPoints  = function(x) {
-  	var i = 0;
-  	if(x instanceof Array) {
-  		// fill points with the values  		
-    	for (var n=x.length; i<n; i++) {
-    		if(mTmpList[i]) mTmpList[i] = [x[i],mTmpList[i][1],mTmpList[i][2],mTmpList[i][3]];
-    		else mTmpList[i] = [x[i],mTmpLastYAdded,mTmpLastZAdded,mConnectionType];
-    	}  		
-    	mTmpLastXAdded = x[i];
-  	}
-    else { // only one value
-    	if(mTmpList[i]) mTmpList[i] = [x,mTmpList[i][1],mTmpList[i][2],mTmpList[i][3]];
-    	else mTmpList[i] = [x,mTmpLastYAdded,mTmpLastZAdded,mConnectionType];
-    	i++;
-    	mTmpLastXAdded = x;    	
-    }
-
-	// fill points with the last value
-	while (mTmpList[i]) {
-		mTmpList[i] = [mTmpLastXAdded,mTmpList[i][1],mTmpList[i][2],mTmpList[i][3]];
-		i++;
-	}    	
-
-    //self.setMeshChanged(true);
-  }
-
-  /**
-   * Adds an array of Y points to the trail.
-   * @method addYPoints
-   */
-  self.addYPoints  = function(y) {
-  	var i = 0;
-  	if(y instanceof Array) {
-  		// fill points with the values  		
-    	for (var n=y.length; i<n; i++) {
-    		if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y[i],mTmpList[i][2],mTmpList[i][3]];
-    		else mTmpList[i] = [mTmpLastXAdded,y[i],mTmpLastZAdded,mConnectionType];
-    	}  		
-    	mTmpLastYAdded = y[i];
-  	}
-    else { // only one value
-    	if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],y,mTmpList[i][2],mTmpList[i][3]];
-    	else mTmpList[i] = [mTmpLastXAdded,y,mTmpLastZAdded,mConnectionType];
-    	i++;
-    	mTmpLastYAdded = y;    	
-    }
-
-	// fill points with the last value
-	while (mTmpList[i]) {
-		mTmpList[i] = [mTmpList[i][0],mTmpLastYAdded,mTmpList[i][2],mTmpList[i][3]];
-		i++;
-	}    	
-
-    //self.setMeshChanged(true);
-  }
-
-  /**
-   * Adds an array of Z points to the trail.
-   * @method addZPoints
-   */
-  self.addZPoints  = function(z) {
-  	var i = 0;
-  	if(z instanceof Array) {
-  		// fill points with the values  		
-    	for (var n=z.length; i<n; i++) {
-    		if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],mTmpList[i][1],z[i],mTmpList[i][3]];
-    		else mTmpList[i] = [mTmpLastXAdded,mTmpLastYAdded,z[i],mConnectionType];
-    	}  		
-    	mTmpLastZAdded = z[i];
-  	}
-    else { // only one value
-    	if(mTmpList[i]) mTmpList[i] = [mTmpList[i][0],mTmpList[i][1],z,mTmpList[i][3]];
-    	else mTmpList[i] = [mTmpLastXAdded,mTmpLastYAdded,z,mConnectionType];
-    	i++;
-    	mTmpLastZAdded = z;    	
-    }
-
-	// fill points with the last value
-	while (mTmpList[i]) {
-		mTmpList[i] = [mTmpList[i][0],mTmpList[i][1],mTmpLastZAdded,mTmpList[i][3]];
-		i++;
-	}    	
-
-    // self.setMeshChanged(true);
-  }
-
-  /**
-   * Adds the temporal array of point to the trail.
-   * @method dataCollected
-   */
-  self.dataCollected  = function() {
-  	if (mTmpList.length > 0) {
-  	  self.addPoints(mTmpList);
-      mTmpList = [];
-  	  self.setMeshChanged(true);
-  	}
-  }   
-
-  /**
-   * Sets an array of points to the trail.
-   * @method setPoints
-   * @param xInput double The double[] array with the X coordinates of the points.
-   * 	or  point double[][] The double[nPoints][2] array with the coordinates of the points.
-   * @param yInput double The double[] array with the Y coordinates of the points.
-   * @param zInput double The double[] array with the Z coordinates of the points.
-   * @param style
-   */
-  self.setPoints  = function(x, y, z, style) {
-  	self.clear();
-  	self.addPoints(x,y,z,style);
-  	self.setMeshChanged(true);
-  }
-    
-  /**
-   * Moves to the new point without drawing.
-   * (Equivalent to setting the connection type
-   * to NO_CONNECTION and adding one single point, then setting the 
-   * type back to its previous value.)
-   * @method moveToPoint
-   * @param x double The X coordinate of the point.
-   * 	or point double[] The double[2] array with the coordinates of the point.
-   * @param y double The Y coordinate of the point.
-   * @param z double The Z coordinate of the point.
-   */
-  self.moveToPoint = function(x, y, z) { 
-  	if (mClearAtInput) self.initialize();
-  	if(x instanceof Array) 
-    	addPoint(x[0], x[1], x[2], EJSS_DRAWING3D.Trail.NO_CONNECTION);    
-    else	
-    	addPoint(x, y, z, EJSS_DRAWING3D.Trail.NO_CONNECTION);
-    self.setMeshChanged(true);
-  }
-
-  /**
-   * Returns all points.
-   * @method getPoints
-   * @return points
-   */
-  self.getPoints = function () {
-    var points = [];
-    var size = mSegmentList.length;          	
-	for(var i=0; i<size; i++ )
-		points = points.concat(mSegmentList[i]);
-	points = points.concat(mCurrentList);
-
-    return points; 
-  }
-
-  /**
-   * Gets last point.
-   * @method getLastPoint
-   * @return point
-   */
-  self.getLastPoint = function () {
-    return mLastPoint;
-  }
-
-  /**
-   * Same as clear
-   * @method reset
-   */
-  self.reset = function() {
-    self.clear();
-  }
-
-  /**
-   * Clears all points from all segments of the trail.
-   * @method clear
-   */
-  self.clear = function() {
-    mSegmentList = [];
-    mCurrentSegment = 0;    
-    self.initialize();
-  }
-
-  /**
-   * Clears all points from the last segment of the trail, 
-   * respecting previous segments.
-   * @method initialize
-   */
-  self.initialize  = function() {
-	  mCurrentList = [];	  
-	  mFlushPoint = 0;
-	  mIsEmpty = true;
-	  mCounter = 0;
-	  mLastPoint = 0;
-	  self.setMeshChanged(true);
-  }
-
-  /**
-   * Creates a new segment of the trail.
-   * @method newSegment
-   */
-  self.newSegment = function() {
-    if (mFlushPoint != 0) {
-    	var size = mCurrentList.length;
-    	mCurrentList[size] = self.formatPoint(mFlushPoint);
-    }
-    var size = mSegmentList.length;
-    mSegmentList[size] = mCurrentList;
-
-	self.initialize();
-  }  
-  
-  function addPoint(_x, _y, _z, _type) {
-    //if (!mActive) return;
-    if (isNaN(_x) || isNaN(_y)) { 
-    	mIsEmpty = true; 
-    	return; 
-    }
-    if (mNoRepeat && mLastPoint[0]==_x && mLastPoint[1]==_y && mLastPoint[2]==_z) 
-    	return;
-	if ((typeof _type == "undefined") || (_type === null))
-		_type = mConnectionType;
-
-    mFlushPoint = 0;
-    mLastPoint = self.formatPoint([_x,_y,_z,_type]);
-    
-    if (mSkip > 0) { // Only if the counter is 0      
-      if(mCounter > 0) mFlushPoint = self.formatPoint([_x, _y, _z, _type]);      
-      if(++mCounter >= mSkip) mCounter = 0;	        
-    }
-    
-    if (mFlushPoint == 0) {
-	    if (mMaximum > 2 && mCurrentList.length >= mMaximum) {
-	    	mCurrentList.splice(0,1) // remove the firstPoint
-	    }
-	    
-	    mCurrentList[mCurrentList.length] = self.formatPoint([_x, _y, _z, _type]);
-	    mIsEmpty = false;
-	}
-  }
-
-	// override for subclases (for example Trace)
-   self.formatPoint = function(src) {
-   		return src;   		
-   }
-
-	self.registerProperties = function(controller) {
-		EJSS_DRAWING3D.Trail.registerProperties(self, controller);
-	};
-	 
-  	self.copyTo = function(element) {
-    	EJSS_DRAWING2D.Trail.copyTo(self,element);
-  	};
-  	 
-	// ----------------------------------------------------
-	// Final start-up
-	// ----------------------------------------------------
-
-	self.setSize([1,1,1]);
-    self.getStyle().setDrawFill(true);
-    self.getStyle().setDrawLines(false);
-  	self.setResolution([24,2]);
-
-	return self;
-}/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-//---------------------------------
-//TrailSet
-//---------------------------------
-
-/**
- * Framework for 3D drawing.
- * @module 3Ddrawing 
- */
-
-/**
- * TrailSet
- * @class TrailSet 
- * @constructor  
- */
-EJSS_DRAWING3D.TrailSet = {
-
+EJSS_DRAWING3D.Transformation = {
     /**
-     * static registerProperties method
+     * Registers properties in a ControlElement
+     * @method registerProperties
+     * @param element The element with the properties
+     * @param controller A ControlElement that becomes the element controller
      */
-    registerProperties : function(set,controller) {
-      var ElementSet = EJSS_DRAWING3D.ElementSet;
-      ElementSet.registerProperties(set,controller);
-		       
-      controller.registerProperty("Active", 
-          function(v) { set.setToEach(function(element,value) { element.setActive(value); }, v); }
-      );    
-      controller.registerProperty("NoRepeat", 
-          function(v) { set.setToEach(function(element,value) { element.setNoRepeat(value); }, v); }
-      );    
-      controller.registerProperty("ClearAtInput", 
-          function(v) { set.setToEach(function(element,value) { element.setClearAtInput(value); }, v); }
-      );    
-      controller.registerProperty("Skip", 
-          function(v) { set.setToEach(function(element,value) { element.setSkip(value); }, v); }
-      );    
-      controller.registerProperty("ColumnNames", 
-          function(v) { set.setToEach(function(element,value) { element.setInputLabels(value); }, v); }
-      );    
-      controller.registerProperty("Maximum", 
-          function(v) { set.setToEach(function(element,value) { element.setMaximumPoints(value); }, v); }
-      );    
-      controller.registerProperty("ConnectionType", 
-          function(v) { set.setToEach(function(element,value) { element.setConnectionType(value); }, v); }
-      );    
-      controller.registerProperty("Connected", 
-          function(v) { set.setToEach(function(element,value) { element.setConnected(value); }, v); }
-      );    
-      controller.registerProperty("Points", 
-          function(v) { set.setToEach(function(element,value) { element.setPoints(value); }, v); }
-      );    
-      controller.registerProperty("LastPoint", 
-          function(v) { set.setToEach(function(element,value) { element.addPoint(value); }, v); }
-      );           
-      controller.registerProperty("Input", 
-          function(v) { set.setToEach(function(element,value) { element.addPoints(value); }, v); }
-      );           
-      controller.registerProperty("InputX", 
-          function(v) { set.setToEach(function(element,value) { element.addXPoints(value); }, v); }
-      );           
-      controller.registerProperty("InputY", 
-          function(v) { set.setToEach(function(element,value) { element.addYPoints(value); }, v); }
-      );      
-      controller.registerProperty("InputZ", 
-          function(v) { set.setToEach(function(element,value) { element.addZPoints(value); }, v); }
-      );      
-      controller.registerProperty("LineWidth", 
-          function(v) { set.setToEach(function(element,value) { element.setLineWidth(value); }, v); }
-      );
-      controller.registerProperty("LineColor", 
-          function(v) { set.setToEach(function(element,value) { element.setLineColor(value); }, v); }
-      );                  
+    registerProperties : function(element,controller) {
+      element.setController(controller);
+      controller.registerProperty("Parent", element.setParent, element.getParent); 
+      controller.registerProperty("Axis", element.setAxis, element.getAxis); 
+      controller.registerProperty("Angle", element.setAngle, element.getAngle); 
+      controller.registerProperty("Origin", element.setOrigin, element.getOrigin); 
     }
-
 };
 
+/**
+ * Creates a Rotation around the X axis
+ */
+EJSS_DRAWING3D.rotationX = function (mName) {
+  var self = EJSS_DRAWING3D.transformation();
+  self.setAxis([1,0,0]);
+  return self;  
+}
+  
+/**
+ * Creates a Rotation around the Y axis
+ */
+EJSS_DRAWING3D.rotationY = function (mName) {
+  var self = EJSS_DRAWING3D.transformation();
+  self.setAxis([0,1,0]);
+  return self;  
+}
 
 /**
- * Creates a set of trails
- * @method trailSet
- * @param mView
- * @param mName
+ * Creates a Rotation around the Z axis
  */
-EJSS_DRAWING3D.trailSet = function (mName) {
-  var self = EJSS_DRAWING3D.elementSet(EJSS_DRAWING3D.trail,mName);
+EJSS_DRAWING3D.rotationZ = function (mName) {
+  var self = EJSS_DRAWING3D.transformation();
+  self.setAxis([0,0,1]);
+  return self;  
+}
 
-  // Static references
-  var TrailSet = EJSS_DRAWING3D.TrailSet;		// reference for TrailSet
+/**
+ * Creates a Transformation object for 3D element
+ */
+EJSS_DRAWING3D.transformation = function (mName) {
+  var self = {};
   
-  self.registerProperties = function(controller) {
-    TrailSet.registerProperties(self,controller);
+  var mParent = null;
+  var mArray = [0,0,0,1,0,0,0];
+
+  var mController = { 				// dummy controller object
+      propertiesChanged : function() {},
+      invokeAction : function() {}
+  };
+  
+  self.getArray = function() {
+    return mArray;
+  };
+  
+  self.setChanged = function(changed) {
+    if (changed) mParent.setProjChanged(true);
   };
 
+  /**
+   * Set the parent
+   * @method setParent
+   * @param parent Element
+   */
+  self.setParent = function(parent) {
+    if (mParent) {
+      mParent.removeExtraTransformation(self);
+    }
+    mParent = parent;
+    if (mParent) {
+      mParent.addExtraTransformation(self);
+    }
+  };
+
+  self.getParent = function() {
+    return mParent;
+  };
+  
+  //---------------------------------
+  // Customization
+  //---------------------------------
+
+  /**
+   * Set the rotation angle
+   * @method setAngle
+   * @param angle int the angle in degrees
+   */
+  self.setAngle = function(angle) {
+    mArray[0] = angle;
+  };
+
+  self.getAngle = function() {
+    return mArray[0];
+  };
+
+  /**
+   * Set the rotation axis
+   * @method setAxis
+   * @param axis double[3] the coordinates of the axis
+   */
+  self.setAxis = function(axis) {
+    mArray[1] = axis[0];
+    mArray[2] = axis[1];
+    mArray[3] = axis[2];
+  };
+
+  self.getAxis = function() {
+    return mArray.slice(1,4);
+  };
+  
+  /**
+   * Set the rotation origin
+   * @method setOrigin
+   * @param origin double[3] the coordinates of the origin
+   */
+  self.setOrigin = function(origin) {
+    mArray[4] = origin[0];
+    mArray[5] = origin[1];
+    mArray[6] = origin[2];
+  };
+
+  self.getOrigin = function() {
+    return mArray.slice(5);
+  };
+  
+  // ----------------------------------------------------
+  // Properties
+  // ----------------------------------------------------
+
+  /**
+   * Returns the controller object
+   * @method getController
+   * @return Controller
+   */
+  self.getController = function () {
+    return mController;
+  };
+
+  /**
+   * Set the controller
+   * @method setController
+   * @param Controller
+   */
+  self.setController = function (controller) {
+    mController = controller;
+  };
+  
+  /**
+   * Registers properties in a ControlElement
+   * @method registerProperties
+   * @param controller A ControlElement that becomes the element controller
+   */
+  self.registerProperties = function(controller) {
+    EJSS_DRAWING3D.Transformation.registerProperties(self,controller);
+  };
+  
+  //---------------------------------
+  // final initialization
+  //---------------------------------
+  
   return self;
 };
+
 /*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
@@ -47466,6 +47465,647 @@ var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
 
 /**
  * Abstract object to be used as base for ode solver which discretize the time 
+ * @author Francisco Esquembre
+ * @version 1.0 Jan 2014
+ */
+EJSS_ODE_SOLVERS.SolverEngineDiscreteTime = {
+
+};
+
+/**
+ * Constructor for SolverEngineDiscreteTime
+ * @returns An abstract SolverEngineDiscreteTime
+ */
+EJSS_ODE_SOLVERS.solverEngineDiscreteTime = function() {
+  var self = {};							// reference returned 
+
+  // ODE variables
+  var mErrorCode=EJSS_ODE_SOLVERS.ERROR.NO_ERROR; //InterpolatorEventSolver.NO_ERROR;
+  var mDimension; // The length of the state array
+  var mTimeIndex; // The index of the independent variable (usually the time)
+  var mAccumulatedEvaluations = 0; // Number of evaluations so far
+  var mStepSize = 0.1; // the preferred step size
+  var mMaximumStepSize = Number.POSITIVE_INFINITY;
+  var mInitialTime=0; // The time before the step is taken
+  var mFinalTime=0;   // The time after the step is taken
+  var mInitialState;  // The state array before the step is taken
+  var mInitialRate;   // The rate array before the step is taken
+  var mFinalState;    // The state array after the step is taken
+  var mFinalRate;     // The rate array after the step is taken
+  var mODE;
+  var mEventSolver;
+
+  // Memory
+  var mStateHistory;
+    
+  // --------------------------------------------
+  // Functions to be defined by subclasses
+  // --------------------------------------------
+
+  /**
+   * The number of function evaluations per step
+   * @return int
+   */
+  self.getNumberOfEvaluations = function() { return 0; };
+
+  /**
+   * Allocates other arrays needed for the method
+   */
+  self.allocateOtherArrays = function() {}; // do nothing
+
+  /**
+   * Computes one intermediate step not caring about precision
+   * @param step double the length of the step
+   * @param state double[] the target array
+   * @return same as state
+   */
+  self.computeIntermediateStep = function(step, state) { return null; }
+
+  /**
+   * Computes one intermediate step not caring about precision but taking care of possible discontinuities
+   * @param _step the length of the step
+   * @param _state the target array
+   * @return one of the flags in the checkDiscontinuity(double[]) method of ODEInterpolatorEventSolver
+   * @see ODEInterpolatorEventSolver#checkDiscontinuity(double[])
+   */
+  self.computeCarefulIntermediateStep = function(solver, step, state) { return EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP; }
+
+  /**
+   * Computes the final rate and creates a new IntervalData for interpolation
+   */
+  self.computeFinalRateAndCreateIntervalData = function() { return null; };
+  
+  // --------------------------------------------
+  // Protected setters and getters
+  // --------------------------------------------
+  
+    self.getODE = function() { return mODE; }
+
+    self.getEventSolver = function() { return mEventSolver; }
+
+    self.getDimension = function() { return mDimension; }
+
+    self.getTimeIndex = function() { return mTimeIndex; }
+     
+    self.getInitialTime = function() { return mInitialTime; }
+
+    self.getInitialState = function() { return mInitialState; }
+  
+    self.getInitialRate = function() { return mInitialRate; }
+
+    self.getFinalState = function() { return mFinalState; }
+
+    self.getFinalRate = function() { return mFinalRate; }
+  
+    self.setFinalTime = function(time) { mFinalTime = time; }
+
+    self.getFinalTime = function() { return mFinalTime; }
+    
+    self.setErrorCode = function(code) { mErrorCode = code; }
+    
+    self.addToEvaluations = function(evals) { mAccumulatedEvaluations += evals; }
+
+
+  // --------------------------------------------
+  // Initialization
+  // --------------------------------------------
+
+  self.setODE = function(eventSolver, ode) { 
+    mEventSolver = eventSolver;
+    mODE = ode;
+    var state = mODE.getState();
+    mDimension = state.length;
+    mTimeIndex = mDimension-1;
+    mStateHistory = EJSS_ODE_INTERPOLATION.stateHistory(ode);
+    if (mODE.getMaximumDelay) {
+      mStateHistory.setMinimumLength(mODE.getMaximumDelay());
+    }
+  } 
+  
+  // ------------------------------------------------
+  // Implementation of SolverEngine
+  //------------------------------------------------
+  
+  self.initialize = function(stepSize) {
+    mStepSize = stepSize;
+    var state = mODE.getState();
+    if (mInitialState==null || mInitialState.length!=state.length) {
+      mDimension = state.length;
+      mTimeIndex = mDimension-1;
+      mInitialState = new Array(mDimension);
+      mInitialRate  = new Array(mDimension);
+      mFinalState   = new Array(mDimension);
+      mFinalRate    = new Array(mDimension);
+      self.allocateOtherArrays();
+    }
+    mAccumulatedEvaluations = 0;
+    mStateHistory.clearAll();
+    if (mODE.getMaximumDelay) {
+      mStateHistory.setMinimumLength(Math.max(Math.abs(mODE.getMaximumDelay()),Math.abs(stepSize))); // Make sure we have enough memory for delays and events
+    }
+    else mStateHistory.setMinimumLength(stepSize); // Make sure we have enough memory for events
+    self.reinitialize(state);
+  }
+
+  self.reinitialize = function(state) {
+    mInitialTime = state[mTimeIndex];
+    for (var i=0; i<mDimension; i++) mInitialState[i] = state[i];
+    mODE.getRate(mInitialState, mInitialRate);
+    mFinalTime = Number.NaN;
+    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
+  }
+
+  self.getCurrentRate = function() { return mInitialRate; }
+
+  self.setStepSize = function(stepSize) { 
+    mStepSize = stepSize; 
+    if (mODE.getMaximumDelay) {
+      mStateHistory.setMinimumLength(Math.max(Math.abs(mODE.getMaximumDelay()),Math.abs(stepSize))); // Make sure we have enough memory for delays and events
+    }
+    else mStateHistory.setMinimumLength(stepSize); // Make sure we have enough memory for events
+  }
+
+  self.setMaximumStepSize = function(stepSize) { mMaximumStepSize = Math.abs(stepSize); }
+
+  self.getMaximumStepSize = function() { return mMaximumStepSize; }
+
+  self.getStepSize = function() { return mStepSize; }
+  
+  self.getInternalStepSize = function() { return mFinalTime-mInitialTime; }
+  
+  self.setEstimateFirstStep = function(estimate) {}
+  
+  self.setTolerances = function(absTol, relTol) {}
+
+  self.getMaximumTime = function(withDiscontinuities) {
+    if (mErrorCode!=EJSS_ODE_SOLVERS.ERROR.NO_ERROR) return Number.NaN;
+    if (isNaN(mFinalTime)) {
+      self.computeOneStep(withDiscontinuities);
+    }
+    return mFinalTime; 
+  }
+
+  self.internalStep = function(withDiscontinuities) {
+    var i;
+    mInitialTime = mFinalTime;
+    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
+    for (i=0; i<mDimension; i++) mInitialState[i] = mFinalState[i];
+    for (i=0; i<mDimension; i++) mInitialRate[i]  = mFinalRate[i];
+    self.computeOneStep(withDiscontinuities);
+    return mFinalTime;  // the final time that was computed
+  }
+
+  self.getCounter = function()  { return mAccumulatedEvaluations; }
+  
+  self.getStateHistory = function() { return mStateHistory; }
+
+  self.interpolate = function(time, state) {
+    return mStateHistory.interpolateState(time, state);
+  }
+
+  /*
+   * Provides 'brute-force' interpolation by re-stepping from the initial time every time
+   */
+  self.bestInterpolate = function(time, state) {
+    var i;
+    if (isNaN(mFinalTime)) return null;
+    if (time==mFinalTime) {
+      for (i=0; i<mDimension; i++) state[i] = mFinalState[i];
+      return state;
+    }
+    if (time==mInitialTime) {
+      for (i=0; i<mDimension; i++) state[i] = mInitialState[i];
+      return state;
+    }
+    self.computeIntermediateStep(time-mInitialTime, state);
+    return state;
+  }
+
+  /**
+   * Returns the actual step size to take. Adaptive solvers override this method
+   * @return
+   */
+  self.getActualStepSize = function() { return mStepSize; }
+    
+  self.findTheDiscontinuity = function(step) {
+    var counter = 0;
+    var left = 0;
+    var right = step;
+    var lastValid = 0;
+    var maxAttempts = mEventSolver.getDDEIterations();
+//    System.err.println ("Finding the discontinuity in "+mInitialState[mTimeIndex]+", "+(mInitialState[mTimeIndex]+step)+" ------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+    var EPSILON = mEventSolver.getEPSILON();
+    while (counter<maxAttempts) {
+      if (Math.abs(left-right)<EPSILON) { // 1.0e-15) { // Too close
+//        System.err.println("Left and right are equal!: "+counter+" / "+maxAttempts);
+        break;
+      }
+      var testPoint = (left+right)/2;
+//      System.err.println ("\nTest point = "+(mInitialState[mTimeIndex]+testPoint));
+      switch (self.computeCarefulIntermediateStep(mEventSolver, testPoint, mFinalState)) {
+        default : 
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR : return Number.NaN; 
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP  :  
+          lastValid = mFinalState[mTimeIndex];
+          left = testPoint; // and keep on searching
+          break; 
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : 
+//          System.err.println ("Found at point = "+mFinalState[mTimeIndex]+" ------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+          return mFinalState[mTimeIndex] ; // discontinuity just at the end of the step
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED :
+          right = right - (right-left)/4; // and keep on searching but closer to the right end
+          break;
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP : // Iterate until finding the precise point of the discontinuity
+          right = testPoint; // and keep on searching
+          break;
+      }
+      counter++; // try again
+    }
+//    System.err.println("Not found. taking last valid point = "+lastValid+" ------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+    self.computeCarefulIntermediateStep(mEventSolver, lastValid, mFinalState);
+    return lastValid; // not found, so take the last valid point
+  }
+  
+  /**
+   * Computes mFinalState[] and mFinalTime out of the current mInitialState[] and mInitialTime,
+   * taking into account the mStepSize and the tolerance (which ever applies).
+   * Not final because Adaptive solvers make it otherwise.
+   */
+  self.computeOneStep = function(hasDiscontinuities) {
+    var step = mStepSize;
+//    System.err.println("Trying to step to "+(mInitialState[mTimeIndex]+step));
+    if (hasDiscontinuities) {
+      switch (self.computeCarefulIntermediateStep(mEventSolver, step, mFinalState)) {
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR : 
+          mFinalTime = Number.NaN; 
+          return;
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP  :  // no discontinuity in this interval
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : // discontinuity just at the end of the step
+          mFinalTime = mFinalState[mTimeIndex];
+          break; 
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED :
+        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP : // Iterate until finding the precise point of the discontinuity
+          mFinalTime = self.findTheDiscontinuity(step);
+          break;
+      }
+      if (isNaN(mFinalTime)) {
+        mErrorCode=EJSS_ODE_SOLVERS.ERROR.DISCONTINUITY_PRODUCED_ERROR;
+        return;
+      }
+    }
+    else {
+      self.computeIntermediateStep(step,mFinalState);
+      mFinalTime = mFinalState[mTimeIndex];
+    }
+//    System.err.println("Will really step to "+mFinalState[mTimeIndex]);
+    // Accumulate the counter
+    mAccumulatedEvaluations += self.getNumberOfEvaluations();
+    // Clean memory, if required
+    mStateHistory.clean(mInitialTime);
+    // Add new interval data to memory
+    mStateHistory.addIntervalData(self.computeFinalRateAndCreateIntervalData());
+  }
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  return self;
+}/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for numerics : ODE solving 
+ */
+
+var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
+
+/**
+ * Abstract object to be used as base for ode solver which discretize the time 
+ * @author Francisco Esquembre
+ * @version 1.0 Jan 2014
+ */
+EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive = {
+  FAC1 : 0.33,
+  FAC2 : 6,
+  BETA : 0,
+  SAFE : 0.9
+};
+
+/**
+ * Constructor for SolverEngineDiscreteTimeAdaptive
+ * @returns An abstract SolverEngineDiscreteTimeAdaptive
+ */
+EJSS_ODE_SOLVERS.solverEngineDiscreteTimeAdaptive = function(mMethodOrder) {
+  var self = EJSS_ODE_SOLVERS.solverEngineDiscreteTime(); // reference returned 
+
+  // step size estimation's variables
+  var mExpO1 = 1.0 / mMethodOrder - EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.BETA * 0.75;
+  var mErrOld = 1.e-4;
+  var mFactor = 0;
+
+  // variables
+  var mEstimate=false; // Whether to mEstimate the first step size
+  var mActualStepSize;
+  var mAbsoluteTolerance=Number.NaN;
+  var mRelativeTolerance=Number.NaN;
+  var mAbsTol; // array of absolute tolerances
+  var mRelTol; // array of relative tolerances
+  
+  var superReinitialize = self.reinitialize;
+  var superSetMaximumStepSize = self.setMaximumStepSize;
+
+  // --------------------------------------------
+  // Functions to be defined by subclasses
+  // --------------------------------------------
+
+  /**
+   * Computes the proposed approximation for finalState[] and
+   * returns the estimated error obtained
+   * @return the estimated error
+   */
+  self.computeApproximation = function(step) {};
+
+  // --------------------------------------------
+  // Protected getters
+  // --------------------------------------------
+  
+  self.getAbsTol = function() { return mAbsTol; }
+
+  self.getRelTol = function() { return mRelTol; }
+  
+  // --------------------------------------------
+  // Functions overriden
+  // --------------------------------------------
+
+  self.allocateOtherArrays = function() {
+    var dimension = self.getDimension();
+    mAbsTol = new Array(dimension);
+    mRelTol = new Array(dimension);
+    self.setTolerances(1.0e-6,1.0e-6);
+  }
+
+  self.reinitialize = function(state) {
+    superReinitialize(state);
+    if (mEstimate) mActualStepSize = limitStepSize(estimateFirstStepSize(self.getStepSize()));
+    else mActualStepSize = limitStepSize(self.getStepSize());
+  }
+
+  self.setEstimateFirstStep = function(estimate) {
+    mEstimate = estimate;
+  }
+
+  self.setMaximumStepSize = function(stepSize) {
+    superSetMaximumStepSize(stepSize);
+    mActualStepSize = limitStepSize(mActualStepSize);
+  }
+  
+  self.setTolerances = function(absTol, relTol) {
+    var i;
+    var dimension = self.getDimension();
+    if (absTol instanceof Array) {
+      mAbsoluteTolerance = mRelativeTolerance = Number.NaN;
+      for (i=0; i<dimension; i++) {
+        mAbsTol[i] = absTol[i];
+        mRelTol[i] = relTol[i];
+      }
+    }
+    else {
+      if (mAbsoluteTolerance==absTol && mRelativeTolerance==relTol) return;
+      mAbsoluteTolerance = absTol;
+      mRelativeTolerance = relTol;
+      for (i=0; i<dimension; i++) {
+        mAbsTol[i] = absTol;
+        mRelTol[i] = relTol;
+      }
+    }
+    mFinalTime = Number.NaN;
+    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
+    if (mEstimate) mActualStepSize = limitStepSize(estimateFirstStepSize(self.getStepSize()));
+    else mActualStepSize = limitStepSize(self.getStepSize());
+  }
+  
+  self.computeOneStep = function(hasDiscontinuities) {
+    var eventSolver = self.getEventSolver();
+    var finalState = self.getFinalState();
+    
+    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
+    for (var iterations=0; iterations<500; iterations++) { // maximum number of attempts
+      if (hasDiscontinuities) {
+        switch (self.computeCarefulIntermediateStep(eventSolver, mActualStepSize, finalState)) {
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR : 
+            self.setFinalTime(Number.NaN); 
+            return;
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP  :  // no discontinuity in this interval
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : // discontinuity just at the end of the step
+            self.setFinalTime(finalState[self.getTimeIndex()]);
+            break; 
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED :
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP : // Iterate until finding the precise point of the discontinuity
+            var finalTime = self.findTheDiscontinuity(mActualStepSize);
+            self.setFinalTime(finalTime);
+            mActualStepSize = finalTime - self.getInitialTime();
+            break;
+        }
+        if (isNaN(self.getFinalTime())) {
+          self.setErrorCode(EJSS_ODE_SOLVERS.ERROR.DISCONTINUITY_PRODUCED_ERROR);
+          return;
+        }
+      }
+      else {
+        self.computeIntermediateStep(mActualStepSize,finalState);
+        self.setFinalTime(finalState[self.getTimeIndex()]);
+      }
+      var err = self.computeApproximation(mActualStepSize);
+      self.addToEvaluations(self.getNumberOfEvaluations());
+      if (err<=1.0) {  // It has converged
+        // Clean memory, if required
+        self.getStateHistory().clean(self.getInitialTime());
+        // Add new interval data to memory
+        self.getStateHistory().addIntervalData(self.computeFinalRateAndCreateIntervalData());
+
+        // adjust the step for next time
+        if (iterations>0) mActualStepSize = limitStepSize(mActualStepSize>0 ? Math.min(mActualStepSize, estimatedStepSize(err)) : Math.max(mActualStepSize, estimatedStepSize(err)));
+        else mActualStepSize = limitStepSize(estimatedStepSize(err)); // Can grow only if converged at first attempt
+        return;
+      }
+      mActualStepSize = limitStepSize(mActualStepSize>0 ? Math.min(mActualStepSize, estimatedStepSize(err)) : Math.max(mActualStepSize, estimatedStepSize(err)));
+    }
+    // It did not converge
+    self.setFinalTime(Number.NaN);
+    self.setErrorCode(EJSS_ODE_SOLVERS.ERROR.DID_NOT_CONVERGE);
+  }
+  
+  self.getActualStepSize = function() { return mActualStepSize; }
+
+  // --------------------------------------------
+  // Private or protected functions
+  // --------------------------------------------
+
+  /**
+   * Based on code by Andrei Goussev and Yuri B. Senichenkov 
+   * Adapted by Francisco Esquembre
+   * @param compState the state to compare to
+   * @return
+   */
+  self.computeError = function(state) {
+    var error = 0;
+    var dimension = self.getDimension();
+    var initialState = self.getInitialState();
+    var finalState = self.getFinalState();
+    for(var i = 0; i < dimension; i++) {
+      var sk = mAbsTol[i] + mRelTol[i] * Math.max(Math.abs(finalState[i]), Math.abs(initialState[i]));
+      var errorI = (finalState[i]-state[i])/sk;
+      error += errorI*errorI;
+    }
+    return Math.sqrt(error/dimension);
+  }
+
+  /**
+   * Based on code by Andrei Goussev and Yuri B. Senichenkov 
+   * Adapted by Francisco Esquembre
+   * @param err
+   * @return
+   */
+  function estimatedStepSize(err){
+    var fac11 = 0;
+    // taking decision for HNEW/H value
+    if (err != 0) {
+      fac11 = Math.pow(err,mExpO1);
+      mFactor = fac11 / Math.exp(EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.BETA * Math.log(mErrOld)); // stabilization
+      mFactor = Math.max (1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC2, 
+                  Math.min(1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC1, 
+                           mFactor/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.SAFE)); // we require FAC1 <= HNEW/H <= FAC2
+    }
+    else {
+      fac11 = 1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC1;
+      mFactor = 1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC2;
+    }
+    if (err<=1.0) { // step accepted
+      mErrOld = Math.max(err, 1.0e-4);
+      return mActualStepSize / mFactor;
+    }
+    return mActualStepSize/Math.min(1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC1, fac11/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.SAFE); // step rejected
+  }
+
+  /**
+   * Makes sure the intended step does not exceed the maximum step
+   * @param intendedStep
+   * @return
+   */
+  function limitStepSize(intendedStep) {
+    var ode = self.getODE();
+    var delays;
+    var i, length;
+	if (intendedStep>=0) {
+      if (ode.getDelays) { // Don't step more than half the minimum delay
+	    delays = ode.getDelays(self.getInitialState());
+	    length = delays.length;
+	    for (i=0; i<length; i++) intendedStep = Math.min(intendedStep, delays[i]/2);
+      }
+	  return Math.min(intendedStep, self.getMaximumStepSize());
+	}
+    if (ode.getDelays) { // Don't step more than half the minimum delay
+      delays = ode.getDelays(self.getInitialState());
+      length = delays.length;
+	  for (i=0; i<length; i++) intendedStep = Math.max(intendedStep, delays[i]/2);
+	}
+    return Math.max(intendedStep, -self.getMaximumStepSize()); 
+  }
+  
+  /**
+   * Based on code by Andrei Goussev and Yuri B. Senichenkov 
+   * Adapted by Francisco Esquembre
+   * @param hMax
+   * @return
+   */
+  function estimateFirstStepSize(hMax){
+    var i;
+    var dimension = self.getDimension();
+    var initialState = self.getInitialState();
+    var initialRate = self.getInitialRate();
+    var ode = self.getODE();
+    
+    var posneg =(hMax<0)?-1:1;
+    hMax = Math.abs(hMax);
+    var normF = 0.0, normX = 0.0 ;
+    for(i = 0; i < dimension; i++) {
+      var sk = mAbsTol[i] + mRelTol[i]*Math.abs(initialState[i]);
+      var aux = initialRate[i]/sk;
+      normF += aux*aux;
+      aux = initialState[i]/sk;
+      normX += aux*aux;
+    }
+    var h;
+    if ((normF <= 1.e-10) || (normX <= 1.e-10)) h = 1.0e-6;
+    else h = Math.sqrt(normX / normF) * 0.01;
+    h = posneg*Math.min(h, hMax);
+    // perform an Euler step and estimate the rate, reusing finalState (it is SAFE to do so)
+    if (ode.getDelays) {
+      var eventSolver = self.getEventSolver(); 
+      eventSolver.resetDiscontinuities(initialState);
+      var counter = 0;
+      var done = false;
+      while (!done) {
+        for (i = 0; i < dimension; i++) finalState[i] = initialState[i] + h * initialRate[i];
+        switch (eventSolver.checkDiscontinuity(finalState, false)) {
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR  : return Number.NaN; 
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED     :
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP      : h = h/2; break;
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : done = true; break;  
+          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP   : done = true; break; 
+        }
+        if ((++counter)>100) return Number.NaN;
+      }
+    }
+    else {
+      for (i = 0; i < dimension; i++) 
+        finalState[i] = initialState[i] + h * initialRate[i];
+    }
+    ode.getRate(finalState, finalRate);
+    var der2 = 0.0;
+    for (i = 0; i < dimension; i++) {
+      var sk = mAbsTol[i] + mRelTol[i] * Math.abs(initialState[i]);
+      var aux = (finalRate[i] - initialRate[i]) / sk;
+      der2 += aux*aux;
+    }
+    der2 = Math.sqrt(der2) / h;
+    //step size is computed as follows
+    //h^order * max ( norm (initialRate), norm (der2)) = 0.01
+    var der12 = Math.max(Math.abs(der2), Math.sqrt(normF));
+    var h1;
+    if (der12 <= 1.0e-15) h1 = Math.max(1.0e-6, Math.abs(h) * 1.0e-3);
+    else h1 = Math.exp((1.0 / mMethodOrder) * Math.log(0.01 / der12));
+    h = posneg*Math.min(100*h, h1);
+    if (hMax != 0) h = posneg*Math.min(Math.abs(h),hMax);
+    return h;
+  }
+  
+  
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  return self;
+}/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for numerics : ODE solving 
+ */
+
+var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
+
+/**
+ * Abstract object to be used as base for ode solver which discretize the time 
  */
 EJSS_ODE_SOLVERS.BogackiShampine23 = {
   B3_1 : 2.0/9.0,  B3_2 : 1.0/3.0, B3_3 : 4.0/9.0,
@@ -49254,647 +49894,6 @@ var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
 
 /**
  * Abstract object to be used as base for ode solver which discretize the time 
- * @author Francisco Esquembre
- * @version 1.0 Jan 2014
- */
-EJSS_ODE_SOLVERS.SolverEngineDiscreteTime = {
-
-};
-
-/**
- * Constructor for SolverEngineDiscreteTime
- * @returns An abstract SolverEngineDiscreteTime
- */
-EJSS_ODE_SOLVERS.solverEngineDiscreteTime = function() {
-  var self = {};							// reference returned 
-
-  // ODE variables
-  var mErrorCode=EJSS_ODE_SOLVERS.ERROR.NO_ERROR; //InterpolatorEventSolver.NO_ERROR;
-  var mDimension; // The length of the state array
-  var mTimeIndex; // The index of the independent variable (usually the time)
-  var mAccumulatedEvaluations = 0; // Number of evaluations so far
-  var mStepSize = 0.1; // the preferred step size
-  var mMaximumStepSize = Number.POSITIVE_INFINITY;
-  var mInitialTime=0; // The time before the step is taken
-  var mFinalTime=0;   // The time after the step is taken
-  var mInitialState;  // The state array before the step is taken
-  var mInitialRate;   // The rate array before the step is taken
-  var mFinalState;    // The state array after the step is taken
-  var mFinalRate;     // The rate array after the step is taken
-  var mODE;
-  var mEventSolver;
-
-  // Memory
-  var mStateHistory;
-    
-  // --------------------------------------------
-  // Functions to be defined by subclasses
-  // --------------------------------------------
-
-  /**
-   * The number of function evaluations per step
-   * @return int
-   */
-  self.getNumberOfEvaluations = function() { return 0; };
-
-  /**
-   * Allocates other arrays needed for the method
-   */
-  self.allocateOtherArrays = function() {}; // do nothing
-
-  /**
-   * Computes one intermediate step not caring about precision
-   * @param step double the length of the step
-   * @param state double[] the target array
-   * @return same as state
-   */
-  self.computeIntermediateStep = function(step, state) { return null; }
-
-  /**
-   * Computes one intermediate step not caring about precision but taking care of possible discontinuities
-   * @param _step the length of the step
-   * @param _state the target array
-   * @return one of the flags in the checkDiscontinuity(double[]) method of ODEInterpolatorEventSolver
-   * @see ODEInterpolatorEventSolver#checkDiscontinuity(double[])
-   */
-  self.computeCarefulIntermediateStep = function(solver, step, state) { return EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP; }
-
-  /**
-   * Computes the final rate and creates a new IntervalData for interpolation
-   */
-  self.computeFinalRateAndCreateIntervalData = function() { return null; };
-  
-  // --------------------------------------------
-  // Protected setters and getters
-  // --------------------------------------------
-  
-    self.getODE = function() { return mODE; }
-
-    self.getEventSolver = function() { return mEventSolver; }
-
-    self.getDimension = function() { return mDimension; }
-
-    self.getTimeIndex = function() { return mTimeIndex; }
-     
-    self.getInitialTime = function() { return mInitialTime; }
-
-    self.getInitialState = function() { return mInitialState; }
-  
-    self.getInitialRate = function() { return mInitialRate; }
-
-    self.getFinalState = function() { return mFinalState; }
-
-    self.getFinalRate = function() { return mFinalRate; }
-  
-    self.setFinalTime = function(time) { mFinalTime = time; }
-
-    self.getFinalTime = function() { return mFinalTime; }
-    
-    self.setErrorCode = function(code) { mErrorCode = code; }
-    
-    self.addToEvaluations = function(evals) { mAccumulatedEvaluations += evals; }
-
-
-  // --------------------------------------------
-  // Initialization
-  // --------------------------------------------
-
-  self.setODE = function(eventSolver, ode) { 
-    mEventSolver = eventSolver;
-    mODE = ode;
-    var state = mODE.getState();
-    mDimension = state.length;
-    mTimeIndex = mDimension-1;
-    mStateHistory = EJSS_ODE_INTERPOLATION.stateHistory(ode);
-    if (mODE.getMaximumDelay) {
-      mStateHistory.setMinimumLength(mODE.getMaximumDelay());
-    }
-  } 
-  
-  // ------------------------------------------------
-  // Implementation of SolverEngine
-  //------------------------------------------------
-  
-  self.initialize = function(stepSize) {
-    mStepSize = stepSize;
-    var state = mODE.getState();
-    if (mInitialState==null || mInitialState.length!=state.length) {
-      mDimension = state.length;
-      mTimeIndex = mDimension-1;
-      mInitialState = new Array(mDimension);
-      mInitialRate  = new Array(mDimension);
-      mFinalState   = new Array(mDimension);
-      mFinalRate    = new Array(mDimension);
-      self.allocateOtherArrays();
-    }
-    mAccumulatedEvaluations = 0;
-    mStateHistory.clearAll();
-    if (mODE.getMaximumDelay) {
-      mStateHistory.setMinimumLength(Math.max(Math.abs(mODE.getMaximumDelay()),Math.abs(stepSize))); // Make sure we have enough memory for delays and events
-    }
-    else mStateHistory.setMinimumLength(stepSize); // Make sure we have enough memory for events
-    self.reinitialize(state);
-  }
-
-  self.reinitialize = function(state) {
-    mInitialTime = state[mTimeIndex];
-    for (var i=0; i<mDimension; i++) mInitialState[i] = state[i];
-    mODE.getRate(mInitialState, mInitialRate);
-    mFinalTime = Number.NaN;
-    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
-  }
-
-  self.getCurrentRate = function() { return mInitialRate; }
-
-  self.setStepSize = function(stepSize) { 
-    mStepSize = stepSize; 
-    if (mODE.getMaximumDelay) {
-      mStateHistory.setMinimumLength(Math.max(Math.abs(mODE.getMaximumDelay()),Math.abs(stepSize))); // Make sure we have enough memory for delays and events
-    }
-    else mStateHistory.setMinimumLength(stepSize); // Make sure we have enough memory for events
-  }
-
-  self.setMaximumStepSize = function(stepSize) { mMaximumStepSize = Math.abs(stepSize); }
-
-  self.getMaximumStepSize = function() { return mMaximumStepSize; }
-
-  self.getStepSize = function() { return mStepSize; }
-  
-  self.getInternalStepSize = function() { return mFinalTime-mInitialTime; }
-  
-  self.setEstimateFirstStep = function(estimate) {}
-  
-  self.setTolerances = function(absTol, relTol) {}
-
-  self.getMaximumTime = function(withDiscontinuities) {
-    if (mErrorCode!=EJSS_ODE_SOLVERS.ERROR.NO_ERROR) return Number.NaN;
-    if (isNaN(mFinalTime)) {
-      self.computeOneStep(withDiscontinuities);
-    }
-    return mFinalTime; 
-  }
-
-  self.internalStep = function(withDiscontinuities) {
-    var i;
-    mInitialTime = mFinalTime;
-    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
-    for (i=0; i<mDimension; i++) mInitialState[i] = mFinalState[i];
-    for (i=0; i<mDimension; i++) mInitialRate[i]  = mFinalRate[i];
-    self.computeOneStep(withDiscontinuities);
-    return mFinalTime;  // the final time that was computed
-  }
-
-  self.getCounter = function()  { return mAccumulatedEvaluations; }
-  
-  self.getStateHistory = function() { return mStateHistory; }
-
-  self.interpolate = function(time, state) {
-    return mStateHistory.interpolateState(time, state);
-  }
-
-  /*
-   * Provides 'brute-force' interpolation by re-stepping from the initial time every time
-   */
-  self.bestInterpolate = function(time, state) {
-    var i;
-    if (isNaN(mFinalTime)) return null;
-    if (time==mFinalTime) {
-      for (i=0; i<mDimension; i++) state[i] = mFinalState[i];
-      return state;
-    }
-    if (time==mInitialTime) {
-      for (i=0; i<mDimension; i++) state[i] = mInitialState[i];
-      return state;
-    }
-    self.computeIntermediateStep(time-mInitialTime, state);
-    return state;
-  }
-
-  /**
-   * Returns the actual step size to take. Adaptive solvers override this method
-   * @return
-   */
-  self.getActualStepSize = function() { return mStepSize; }
-    
-  self.findTheDiscontinuity = function(step) {
-    var counter = 0;
-    var left = 0;
-    var right = step;
-    var lastValid = 0;
-    var maxAttempts = mEventSolver.getDDEIterations();
-//    System.err.println ("Finding the discontinuity in "+mInitialState[mTimeIndex]+", "+(mInitialState[mTimeIndex]+step)+" ------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-    var EPSILON = mEventSolver.getEPSILON();
-    while (counter<maxAttempts) {
-      if (Math.abs(left-right)<EPSILON) { // 1.0e-15) { // Too close
-//        System.err.println("Left and right are equal!: "+counter+" / "+maxAttempts);
-        break;
-      }
-      var testPoint = (left+right)/2;
-//      System.err.println ("\nTest point = "+(mInitialState[mTimeIndex]+testPoint));
-      switch (self.computeCarefulIntermediateStep(mEventSolver, testPoint, mFinalState)) {
-        default : 
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR : return Number.NaN; 
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP  :  
-          lastValid = mFinalState[mTimeIndex];
-          left = testPoint; // and keep on searching
-          break; 
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : 
-//          System.err.println ("Found at point = "+mFinalState[mTimeIndex]+" ------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-          return mFinalState[mTimeIndex] ; // discontinuity just at the end of the step
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED :
-          right = right - (right-left)/4; // and keep on searching but closer to the right end
-          break;
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP : // Iterate until finding the precise point of the discontinuity
-          right = testPoint; // and keep on searching
-          break;
-      }
-      counter++; // try again
-    }
-//    System.err.println("Not found. taking last valid point = "+lastValid+" ------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-    self.computeCarefulIntermediateStep(mEventSolver, lastValid, mFinalState);
-    return lastValid; // not found, so take the last valid point
-  }
-  
-  /**
-   * Computes mFinalState[] and mFinalTime out of the current mInitialState[] and mInitialTime,
-   * taking into account the mStepSize and the tolerance (which ever applies).
-   * Not final because Adaptive solvers make it otherwise.
-   */
-  self.computeOneStep = function(hasDiscontinuities) {
-    var step = mStepSize;
-//    System.err.println("Trying to step to "+(mInitialState[mTimeIndex]+step));
-    if (hasDiscontinuities) {
-      switch (self.computeCarefulIntermediateStep(mEventSolver, step, mFinalState)) {
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR : 
-          mFinalTime = Number.NaN; 
-          return;
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP  :  // no discontinuity in this interval
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : // discontinuity just at the end of the step
-          mFinalTime = mFinalState[mTimeIndex];
-          break; 
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED :
-        case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP : // Iterate until finding the precise point of the discontinuity
-          mFinalTime = self.findTheDiscontinuity(step);
-          break;
-      }
-      if (isNaN(mFinalTime)) {
-        mErrorCode=EJSS_ODE_SOLVERS.ERROR.DISCONTINUITY_PRODUCED_ERROR;
-        return;
-      }
-    }
-    else {
-      self.computeIntermediateStep(step,mFinalState);
-      mFinalTime = mFinalState[mTimeIndex];
-    }
-//    System.err.println("Will really step to "+mFinalState[mTimeIndex]);
-    // Accumulate the counter
-    mAccumulatedEvaluations += self.getNumberOfEvaluations();
-    // Clean memory, if required
-    mStateHistory.clean(mInitialTime);
-    // Add new interval data to memory
-    mStateHistory.addIntervalData(self.computeFinalRateAndCreateIntervalData());
-  }
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  return self;
-}/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for numerics : ODE solving 
- */
-
-var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
-
-/**
- * Abstract object to be used as base for ode solver which discretize the time 
- * @author Francisco Esquembre
- * @version 1.0 Jan 2014
- */
-EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive = {
-  FAC1 : 0.33,
-  FAC2 : 6,
-  BETA : 0,
-  SAFE : 0.9
-};
-
-/**
- * Constructor for SolverEngineDiscreteTimeAdaptive
- * @returns An abstract SolverEngineDiscreteTimeAdaptive
- */
-EJSS_ODE_SOLVERS.solverEngineDiscreteTimeAdaptive = function(mMethodOrder) {
-  var self = EJSS_ODE_SOLVERS.solverEngineDiscreteTime(); // reference returned 
-
-  // step size estimation's variables
-  var mExpO1 = 1.0 / mMethodOrder - EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.BETA * 0.75;
-  var mErrOld = 1.e-4;
-  var mFactor = 0;
-
-  // variables
-  var mEstimate=false; // Whether to mEstimate the first step size
-  var mActualStepSize;
-  var mAbsoluteTolerance=Number.NaN;
-  var mRelativeTolerance=Number.NaN;
-  var mAbsTol; // array of absolute tolerances
-  var mRelTol; // array of relative tolerances
-  
-  var superReinitialize = self.reinitialize;
-  var superSetMaximumStepSize = self.setMaximumStepSize;
-
-  // --------------------------------------------
-  // Functions to be defined by subclasses
-  // --------------------------------------------
-
-  /**
-   * Computes the proposed approximation for finalState[] and
-   * returns the estimated error obtained
-   * @return the estimated error
-   */
-  self.computeApproximation = function(step) {};
-
-  // --------------------------------------------
-  // Protected getters
-  // --------------------------------------------
-  
-  self.getAbsTol = function() { return mAbsTol; }
-
-  self.getRelTol = function() { return mRelTol; }
-  
-  // --------------------------------------------
-  // Functions overriden
-  // --------------------------------------------
-
-  self.allocateOtherArrays = function() {
-    var dimension = self.getDimension();
-    mAbsTol = new Array(dimension);
-    mRelTol = new Array(dimension);
-    self.setTolerances(1.0e-6,1.0e-6);
-  }
-
-  self.reinitialize = function(state) {
-    superReinitialize(state);
-    if (mEstimate) mActualStepSize = limitStepSize(estimateFirstStepSize(self.getStepSize()));
-    else mActualStepSize = limitStepSize(self.getStepSize());
-  }
-
-  self.setEstimateFirstStep = function(estimate) {
-    mEstimate = estimate;
-  }
-
-  self.setMaximumStepSize = function(stepSize) {
-    superSetMaximumStepSize(stepSize);
-    mActualStepSize = limitStepSize(mActualStepSize);
-  }
-  
-  self.setTolerances = function(absTol, relTol) {
-    var i;
-    var dimension = self.getDimension();
-    if (absTol instanceof Array) {
-      mAbsoluteTolerance = mRelativeTolerance = Number.NaN;
-      for (i=0; i<dimension; i++) {
-        mAbsTol[i] = absTol[i];
-        mRelTol[i] = relTol[i];
-      }
-    }
-    else {
-      if (mAbsoluteTolerance==absTol && mRelativeTolerance==relTol) return;
-      mAbsoluteTolerance = absTol;
-      mRelativeTolerance = relTol;
-      for (i=0; i<dimension; i++) {
-        mAbsTol[i] = absTol;
-        mRelTol[i] = relTol;
-      }
-    }
-    mFinalTime = Number.NaN;
-    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
-    if (mEstimate) mActualStepSize = limitStepSize(estimateFirstStepSize(self.getStepSize()));
-    else mActualStepSize = limitStepSize(self.getStepSize());
-  }
-  
-  self.computeOneStep = function(hasDiscontinuities) {
-    var eventSolver = self.getEventSolver();
-    var finalState = self.getFinalState();
-    
-    mErrorCode = EJSS_ODE_SOLVERS.ERROR.NO_ERROR;
-    for (var iterations=0; iterations<500; iterations++) { // maximum number of attempts
-      if (hasDiscontinuities) {
-        switch (self.computeCarefulIntermediateStep(eventSolver, mActualStepSize, finalState)) {
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR : 
-            self.setFinalTime(Number.NaN); 
-            return;
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP  :  // no discontinuity in this interval
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : // discontinuity just at the end of the step
-            self.setFinalTime(finalState[self.getTimeIndex()]);
-            break; 
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED :
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP : // Iterate until finding the precise point of the discontinuity
-            var finalTime = self.findTheDiscontinuity(mActualStepSize);
-            self.setFinalTime(finalTime);
-            mActualStepSize = finalTime - self.getInitialTime();
-            break;
-        }
-        if (isNaN(self.getFinalTime())) {
-          self.setErrorCode(EJSS_ODE_SOLVERS.ERROR.DISCONTINUITY_PRODUCED_ERROR);
-          return;
-        }
-      }
-      else {
-        self.computeIntermediateStep(mActualStepSize,finalState);
-        self.setFinalTime(finalState[self.getTimeIndex()]);
-      }
-      var err = self.computeApproximation(mActualStepSize);
-      self.addToEvaluations(self.getNumberOfEvaluations());
-      if (err<=1.0) {  // It has converged
-        // Clean memory, if required
-        self.getStateHistory().clean(self.getInitialTime());
-        // Add new interval data to memory
-        self.getStateHistory().addIntervalData(self.computeFinalRateAndCreateIntervalData());
-
-        // adjust the step for next time
-        if (iterations>0) mActualStepSize = limitStepSize(mActualStepSize>0 ? Math.min(mActualStepSize, estimatedStepSize(err)) : Math.max(mActualStepSize, estimatedStepSize(err)));
-        else mActualStepSize = limitStepSize(estimatedStepSize(err)); // Can grow only if converged at first attempt
-        return;
-      }
-      mActualStepSize = limitStepSize(mActualStepSize>0 ? Math.min(mActualStepSize, estimatedStepSize(err)) : Math.max(mActualStepSize, estimatedStepSize(err)));
-    }
-    // It did not converge
-    self.setFinalTime(Number.NaN);
-    self.setErrorCode(EJSS_ODE_SOLVERS.ERROR.DID_NOT_CONVERGE);
-  }
-  
-  self.getActualStepSize = function() { return mActualStepSize; }
-
-  // --------------------------------------------
-  // Private or protected functions
-  // --------------------------------------------
-
-  /**
-   * Based on code by Andrei Goussev and Yuri B. Senichenkov 
-   * Adapted by Francisco Esquembre
-   * @param compState the state to compare to
-   * @return
-   */
-  self.computeError = function(state) {
-    var error = 0;
-    var dimension = self.getDimension();
-    var initialState = self.getInitialState();
-    var finalState = self.getFinalState();
-    for(var i = 0; i < dimension; i++) {
-      var sk = mAbsTol[i] + mRelTol[i] * Math.max(Math.abs(finalState[i]), Math.abs(initialState[i]));
-      var errorI = (finalState[i]-state[i])/sk;
-      error += errorI*errorI;
-    }
-    return Math.sqrt(error/dimension);
-  }
-
-  /**
-   * Based on code by Andrei Goussev and Yuri B. Senichenkov 
-   * Adapted by Francisco Esquembre
-   * @param err
-   * @return
-   */
-  function estimatedStepSize(err){
-    var fac11 = 0;
-    // taking decision for HNEW/H value
-    if (err != 0) {
-      fac11 = Math.pow(err,mExpO1);
-      mFactor = fac11 / Math.exp(EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.BETA * Math.log(mErrOld)); // stabilization
-      mFactor = Math.max (1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC2, 
-                  Math.min(1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC1, 
-                           mFactor/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.SAFE)); // we require FAC1 <= HNEW/H <= FAC2
-    }
-    else {
-      fac11 = 1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC1;
-      mFactor = 1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC2;
-    }
-    if (err<=1.0) { // step accepted
-      mErrOld = Math.max(err, 1.0e-4);
-      return mActualStepSize / mFactor;
-    }
-    return mActualStepSize/Math.min(1.0/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.FAC1, fac11/EJSS_ODE_SOLVERS.SolverEngineDiscreteTimeAdaptive.SAFE); // step rejected
-  }
-
-  /**
-   * Makes sure the intended step does not exceed the maximum step
-   * @param intendedStep
-   * @return
-   */
-  function limitStepSize(intendedStep) {
-    var ode = self.getODE();
-    var delays;
-    var i, length;
-	if (intendedStep>=0) {
-      if (ode.getDelays) { // Don't step more than half the minimum delay
-	    delays = ode.getDelays(self.getInitialState());
-	    length = delays.length;
-	    for (i=0; i<length; i++) intendedStep = Math.min(intendedStep, delays[i]/2);
-      }
-	  return Math.min(intendedStep, self.getMaximumStepSize());
-	}
-    if (ode.getDelays) { // Don't step more than half the minimum delay
-      delays = ode.getDelays(self.getInitialState());
-      length = delays.length;
-	  for (i=0; i<length; i++) intendedStep = Math.max(intendedStep, delays[i]/2);
-	}
-    return Math.max(intendedStep, -self.getMaximumStepSize()); 
-  }
-  
-  /**
-   * Based on code by Andrei Goussev and Yuri B. Senichenkov 
-   * Adapted by Francisco Esquembre
-   * @param hMax
-   * @return
-   */
-  function estimateFirstStepSize(hMax){
-    var i;
-    var dimension = self.getDimension();
-    var initialState = self.getInitialState();
-    var initialRate = self.getInitialRate();
-    var ode = self.getODE();
-    
-    var posneg =(hMax<0)?-1:1;
-    hMax = Math.abs(hMax);
-    var normF = 0.0, normX = 0.0 ;
-    for(i = 0; i < dimension; i++) {
-      var sk = mAbsTol[i] + mRelTol[i]*Math.abs(initialState[i]);
-      var aux = initialRate[i]/sk;
-      normF += aux*aux;
-      aux = initialState[i]/sk;
-      normX += aux*aux;
-    }
-    var h;
-    if ((normF <= 1.e-10) || (normX <= 1.e-10)) h = 1.0e-6;
-    else h = Math.sqrt(normX / normF) * 0.01;
-    h = posneg*Math.min(h, hMax);
-    // perform an Euler step and estimate the rate, reusing finalState (it is SAFE to do so)
-    if (ode.getDelays) {
-      var eventSolver = self.getEventSolver(); 
-      eventSolver.resetDiscontinuities(initialState);
-      var counter = 0;
-      var done = false;
-      while (!done) {
-        for (i = 0; i < dimension; i++) finalState[i] = initialState[i] + h * initialRate[i];
-        switch (eventSolver.checkDiscontinuity(finalState, false)) {
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_PRODUCED_ERROR  : return Number.NaN; 
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_JUST_PASSED     :
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_ALONG_STEP      : h = h/2; break;
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.DISCONTINUITY_EXACTLY_ON_STEP : done = true; break;  
-          case EJSS_ODE_SOLVERS.DISCONTINUITY_CODE.NO_DISCONTINUITY_ALONG_STEP   : done = true; break; 
-        }
-        if ((++counter)>100) return Number.NaN;
-      }
-    }
-    else {
-      for (i = 0; i < dimension; i++) 
-        finalState[i] = initialState[i] + h * initialRate[i];
-    }
-    ode.getRate(finalState, finalRate);
-    var der2 = 0.0;
-    for (i = 0; i < dimension; i++) {
-      var sk = mAbsTol[i] + mRelTol[i] * Math.abs(initialState[i]);
-      var aux = (finalRate[i] - initialRate[i]) / sk;
-      der2 += aux*aux;
-    }
-    der2 = Math.sqrt(der2) / h;
-    //step size is computed as follows
-    //h^order * max ( norm (initialRate), norm (der2)) = 0.01
-    var der12 = Math.max(Math.abs(der2), Math.sqrt(normF));
-    var h1;
-    if (der12 <= 1.0e-15) h1 = Math.max(1.0e-6, Math.abs(h) * 1.0e-3);
-    else h1 = Math.exp((1.0 / mMethodOrder) * Math.log(0.01 / der12));
-    h = posneg*Math.min(100*h, h1);
-    if (hMax != 0) h = posneg*Math.min(Math.abs(h),hMax);
-    return h;
-  }
-  
-  
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  return self;
-}/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for numerics : ODE solving 
- */
-
-var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
-
-/**
- * Abstract object to be used as base for ode solver which discretize the time 
  */
 EJSS_ODE_SOLVERS.VelocityVerlet = {
 
@@ -50933,122 +50932,6 @@ EJSS_ODE_SOLVERS.createCashKarp45 = function(mODE) {
 var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
 
 /**
- * Constructor for SolverInterpolatorDiscreteTime
- * @returns An abstract SolverInterpolatorDiscreteTime
- */
-EJSS_ODE_SOLVERS.createEulerODESolver = function(mODE) {
-  var self = EJSS_ODE_SOLVERS.createSolverInterpolatorDiscreteTime(mODE); // reference returned 
-
-  var mRate;
-
-  var super_initialize = self.initialize;
-
-  self.initialize = function(stepSize) {
-  	super_initialize(stepSize);
-  	
-    mRate = new Array(self.getDimension());
-  };
-
-  /**
-   * Computes an intermmediate step
-   * @param step double the step to take
-   * @param state double[] the placeholder for the computed state
-   */
-  self.computeIntermediateStep = function(step, state) {  	
-  	mODE.getRate(state,mRate);
-  	for (var i=0,n=state.length; i<n; i++) {
-  		state[i] = state[i] + step * mRate[i];
-  	}
-    return state;
-  }
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  
-  return self;
-}/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for numerics : ODE solving 
- */
-
-var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
-
-/**
- * Constructor for SolverInterpolatorDiscreteTime
- * @returns An abstract SolverInterpolatorDiscreteTime
- */
-EJSS_ODE_SOLVERS.createRungeKutta4ODESolver = function(mODE) {
-  var self = EJSS_ODE_SOLVERS.createSolverInterpolatorDiscreteTime(mODE); // reference returned 
-
-  var initialState;
-  var mRate1,mRate2,mRate3,mRate4;
-
-  var super_initialize = self.initialize;
-
-  self.initialize = function(stepSize) {
-  	super_initialize(stepSize);
-  	
-    initialState = new Array(self.getDimension());
-    mRate1 = new Array(self.getDimension());
-    mRate2 = new Array(self.getDimension());
-    mRate3 = new Array(self.getDimension());
-    mRate4 = new Array(self.getDimension());
-  };
-
-  /**
-   * Computes an intermmediate step
-   * @param step double the step to take
-   * @param state double[] the placeholder for the computed state
-   */
-  self.computeIntermediateStep = function(step, state) {  	
-  	mODE.getRate(state,mRate1);
-  	for (var i=0,n=state.length; i<n; i++) {
-  		initialState[i] = state[i];
-  		state[i] = initialState[i] + step * mRate1[i]/2;
-  	}
-  	mODE.getRate(state,mRate2);
-  	for (var i=0,n=state.length; i<n; i++) {
-  		state[i] = initialState[i] + step * mRate2[i]/2;
-  	}
-  	mODE.getRate(state,mRate3);
-  	for (var i=0,n=state.length; i<n; i++) {
-  		state[i] = initialState[i] + step * mRate3[i];
-  	}
-  	mODE.getRate(state,mRate4);
-  	for (var i=0,n=state.length; i<n; i++) {
-  		state[i] = initialState[i] + step * (mRate1[i]+2*mRate2[i]+2*mRate3[i]+mRate4[i])/6;
-  	}
-    return state;
-  }
-
-  // ----------------------------------------------------
-  // Final start-up
-  // ----------------------------------------------------
-  
-  
-  return self;
-}/*
- * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
- * This code is part of the Easy Javascript Simulations authoring and simulation tool
- * 
- * This code is Open Source and is provided "as is".
- */
-
-/**
- * Framework for numerics : ODE solving 
- */
-
-var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
-
-/**
  * Abstract object to be used as base for ode solver which discretize the time 
  */
 EJSS_ODE_SOLVERS.SolverInterpolatorDiscreteTime = {
@@ -51199,6 +51082,122 @@ EJSS_ODE_SOLVERS.createSolverInterpolatorDiscreteTime = function(mODE) {
   return self;
 }
 /*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for numerics : ODE solving 
+ */
+
+var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
+
+/**
+ * Constructor for SolverInterpolatorDiscreteTime
+ * @returns An abstract SolverInterpolatorDiscreteTime
+ */
+EJSS_ODE_SOLVERS.createEulerODESolver = function(mODE) {
+  var self = EJSS_ODE_SOLVERS.createSolverInterpolatorDiscreteTime(mODE); // reference returned 
+
+  var mRate;
+
+  var super_initialize = self.initialize;
+
+  self.initialize = function(stepSize) {
+  	super_initialize(stepSize);
+  	
+    mRate = new Array(self.getDimension());
+  };
+
+  /**
+   * Computes an intermmediate step
+   * @param step double the step to take
+   * @param state double[] the placeholder for the computed state
+   */
+  self.computeIntermediateStep = function(step, state) {  	
+  	mODE.getRate(state,mRate);
+  	for (var i=0,n=state.length; i<n; i++) {
+  		state[i] = state[i] + step * mRate[i];
+  	}
+    return state;
+  }
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  
+  return self;
+}/*
+ * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
+ * This code is part of the Easy Javascript Simulations authoring and simulation tool
+ * 
+ * This code is Open Source and is provided "as is".
+ */
+
+/**
+ * Framework for numerics : ODE solving 
+ */
+
+var EJSS_ODE_SOLVERS = EJSS_ODE_SOLVERS || {};
+
+/**
+ * Constructor for SolverInterpolatorDiscreteTime
+ * @returns An abstract SolverInterpolatorDiscreteTime
+ */
+EJSS_ODE_SOLVERS.createRungeKutta4ODESolver = function(mODE) {
+  var self = EJSS_ODE_SOLVERS.createSolverInterpolatorDiscreteTime(mODE); // reference returned 
+
+  var initialState;
+  var mRate1,mRate2,mRate3,mRate4;
+
+  var super_initialize = self.initialize;
+
+  self.initialize = function(stepSize) {
+  	super_initialize(stepSize);
+  	
+    initialState = new Array(self.getDimension());
+    mRate1 = new Array(self.getDimension());
+    mRate2 = new Array(self.getDimension());
+    mRate3 = new Array(self.getDimension());
+    mRate4 = new Array(self.getDimension());
+  };
+
+  /**
+   * Computes an intermmediate step
+   * @param step double the step to take
+   * @param state double[] the placeholder for the computed state
+   */
+  self.computeIntermediateStep = function(step, state) {  	
+  	mODE.getRate(state,mRate1);
+  	for (var i=0,n=state.length; i<n; i++) {
+  		initialState[i] = state[i];
+  		state[i] = initialState[i] + step * mRate1[i]/2;
+  	}
+  	mODE.getRate(state,mRate2);
+  	for (var i=0,n=state.length; i<n; i++) {
+  		state[i] = initialState[i] + step * mRate2[i]/2;
+  	}
+  	mODE.getRate(state,mRate3);
+  	for (var i=0,n=state.length; i<n; i++) {
+  		state[i] = initialState[i] + step * mRate3[i];
+  	}
+  	mODE.getRate(state,mRate4);
+  	for (var i=0,n=state.length; i<n; i++) {
+  		state[i] = initialState[i] + step * (mRate1[i]+2*mRate2[i]+2*mRate3[i]+mRate4[i])/6;
+  	}
+    return state;
+  }
+
+  // ----------------------------------------------------
+  // Final start-up
+  // ----------------------------------------------------
+  
+  
+  return self;
+}/*
 * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia and Félix J. García 
 * This code is part of the Easy Javascript Simulations authoring and simulation tool
 */
@@ -51891,6 +51890,156 @@ EJSS_CORE.createRemoteView = function(mContainer, mLocalModelPort, mModelsURL, m
                
   return self;
 };
+function wrapper(ws,data){
+	if(ws.hasOwnProperty("ip")){
+		wsUri = "ws://"+ ws.ip + ":" + ws.port + "/";
+		this.websocket = new WebSocket(wsUri);
+	}else{
+		this.websocket = ws;
+	}
+	this.smartdevice = new _smartDevice(this.websocket,data);
+	this.smartdevice.loadApis();
+	this.smartdevice.loadModels();
+	this.smartdevice.generateMethodCall();
+	this.smartdevice.generateModelFilling();
+}
+
+wrapper.prototype = {
+	methods: {
+  	connect: 	'connect', 		// Open a new connection
+  	disconnect: 'disconnect', 	// Close the connection
+  	get: 		'get', 			// Get some variables from the server
+  	set: 		'set', 			// Set some variables in the server
+	callAction: 'callAction',	// Calls a method od the model	
+	extract:	"extract",		// Get useful info from a message
+    eval: 		'eval', 		// Send code to evaluate
+    open: 		'open', 		
+    step: 		'step', 		
+  },
+	
+  post: function(method, params) {
+	//calling some method with no prebuild method, just send message
+	if(method == undefined && !params.hasOwnProperty("method"))	return;	
+	else if (method != undefined && !params.hasOwnProperty("method"))	params["method"] = method;
+	//console.log("Wrapper calls post, method: " + method + " with: " + params);
+	websocket.send(params);
+  },
+  
+  sync: function(callback) {
+	  
+	  if(callback != undefined) {
+		callback(response);
+	  }
+  },
+
+  connect: function(callback) {
+	this.smartdevice = new _smartDevice(fullData);
+	this.smartdevice.loadApis();
+	this.smartdevice.loadModels();
+	this.smartdevice.generateMethodCall();
+  },
+
+  disconnect: function(callback) {
+
+  },
+
+  get: function(vars, eachStep, callback) {
+	//get(var) is a getSensorData method
+	//console.log("Wrapper calls get " + vars);
+	if(eachStep === undefined || eachStep == false)	this.smartdevice.getSensorData("getSensorData",vars);
+	else{
+		//console.log("ConfigItem: " + this.smartdevice.fillConfigurationItem("updateFrequency",2.0));
+		this.smartdevice.getSensorData("getSensorData",vars, [this.smartdevice.fillConfigurationItem("updateFrequency",2.0)]);
+	}
+  },
+  
+  set: function(vars, values, auth, callback) {
+	//set(var, value) is a senActuatorData method
+	//console.log("Wrapper calls set " + vars + " to: " + values);
+	if (vars.length == 1)	this.smartdevice.sendActuatorData(auth, "sendActuatorData", "modelVars", [vars], [values]);
+	else 					this.smartdevice.sendActuatorData(auth, "sendActuatorData", "modelVars", vars, values);
+  },
+
+  callAction: function(nickname, params, callback){	  
+	//console.log("Wrapper calling action " + nickname + " with params: " + params);
+	this.smartdevice.callAction("","callAction","modelMethods",nickname, params)
+  },
+  
+  extract: function(strMsg, callback){
+	//
+	var jsonMsg = JSON.parse(strMsg);
+	var vars = {};
+	if(jsonMsg.hasOwnProperty("method")){
+		var method = jsonMsg.method;
+		var extracted = {};
+		if(method == "getSensorData"){	
+			vars = ["sensorId", "responseData"];
+		}else if (method == "sendActuatorData"){
+			vars = ["lastMeasured", "accessrole", "payload", "observerMode"];	
+		}else if (method == "getSensorMetadata"){
+			vars = ["sensors"];
+		}else if (method == "getActuatorMetadata"){
+			vars = ["actuators"];
+		}else if (method == "getActionsMetadata"){
+			vars = ["sensors"];
+		}else if (method == "callAction"){
+			vars = ["method","callerName","nickName","params"];
+		}else if (method == "actionDataResponse"){
+			vars = ["method","nickName"];
+		}else{
+			console.log("The method : " + jsonMsg.method + " is not handled in this wrapper. \n" +
+			"Will be ignored.");
+			return undefined;
+		}
+	}
+	extracted = this.smartdevice.extract(vars, jsonMsg);
+	//console.log("Wrapper calls extract " + vars + " from: \n" + JSON.stringify(jsonMsg) + " With value: " + JSON.stringify(extracted));
+	return this.toEjssReadable(method,extracted);
+  },
+  
+  eval: function(code, callback) {
+
+  },
+
+  open: function(model, callback) {
+
+  },
+
+  step: function(vars, callback) {
+
+  },
+
+  toEjssReadable: function(method,dataExtracted){
+	if(method == "getSensorData"){	
+		var nameValue = {};
+		var valueNames = dataExtracted.responseData.valueNames;
+		var dataValues = dataExtracted.responseData.data;
+		for(var i = 0; i<valueNames.length;i++){
+			nameValue[valueNames[i]] = dataValues[i];
+		}
+		//console.log("Data extracted and readable: " + JSON.stringify(nameValue));
+		return nameValue;
+	}else if (method == "sendActuatorData"){
+		//It is just a confirmation, with additional data
+		return true;
+	}else if (method == "getSensorMetadata"){
+		return dataExtracted;
+	}else if (method == "getActuatorMetadata"){
+		return dataExtracted;
+	}else if (method == "getActionsMetadata"){
+		return dataExtracted;
+	}else if (method == "callAction"){
+		return dataExtracted;
+	}else if (method == "actionDataResponse"){
+		return dataExtracted;
+	}else{
+		console.log("The method : " + method + " is nor handled in this wrapper. \n" +
+		"Will be ignored.");
+		return undefined;
+	}
+  }
+	
+}
 /*
  * Copyright (C) 2014 Francisco Esquembre and Felix J. Garcia
  * This code is part of the Easy Javascript Simulations authoring and simulation tool
@@ -53676,156 +53825,6 @@ function _smartDevice(ws,data){
 	}
 	
 };
-function wrapper(ws,data){
-	if(ws.hasOwnProperty("ip")){
-		wsUri = "ws://"+ ws.ip + ":" + ws.port + "/";
-		this.websocket = new WebSocket(wsUri);
-	}else{
-		this.websocket = ws;
-	}
-	this.smartdevice = new _smartDevice(this.websocket,data);
-	this.smartdevice.loadApis();
-	this.smartdevice.loadModels();
-	this.smartdevice.generateMethodCall();
-	this.smartdevice.generateModelFilling();
-}
-
-wrapper.prototype = {
-	methods: {
-  	connect: 	'connect', 		// Open a new connection
-  	disconnect: 'disconnect', 	// Close the connection
-  	get: 		'get', 			// Get some variables from the server
-  	set: 		'set', 			// Set some variables in the server
-	callAction: 'callAction',	// Calls a method od the model	
-	extract:	"extract",		// Get useful info from a message
-    eval: 		'eval', 		// Send code to evaluate
-    open: 		'open', 		
-    step: 		'step', 		
-  },
-	
-  post: function(method, params) {
-	//calling some method with no prebuild method, just send message
-	if(method == undefined && !params.hasOwnProperty("method"))	return;	
-	else if (method != undefined && !params.hasOwnProperty("method"))	params["method"] = method;
-	//console.log("Wrapper calls post, method: " + method + " with: " + params);
-	websocket.send(params);
-  },
-  
-  sync: function(callback) {
-	  
-	  if(callback != undefined) {
-		callback(response);
-	  }
-  },
-
-  connect: function(callback) {
-	this.smartdevice = new _smartDevice(fullData);
-	this.smartdevice.loadApis();
-	this.smartdevice.loadModels();
-	this.smartdevice.generateMethodCall();
-  },
-
-  disconnect: function(callback) {
-
-  },
-
-  get: function(vars, eachStep, callback) {
-	//get(var) is a getSensorData method
-	//console.log("Wrapper calls get " + vars);
-	if(eachStep === undefined || eachStep == false)	this.smartdevice.getSensorData("getSensorData",vars);
-	else{
-		//console.log("ConfigItem: " + this.smartdevice.fillConfigurationItem("updateFrequency",2.0));
-		this.smartdevice.getSensorData("getSensorData",vars, [this.smartdevice.fillConfigurationItem("updateFrequency",2.0)]);
-	}
-  },
-  
-  set: function(vars, values, auth, callback) {
-	//set(var, value) is a senActuatorData method
-	//console.log("Wrapper calls set " + vars + " to: " + values);
-	if (vars.length == 1)	this.smartdevice.sendActuatorData(auth, "sendActuatorData", "modelVars", [vars], [values]);
-	else 					this.smartdevice.sendActuatorData(auth, "sendActuatorData", "modelVars", vars, values);
-  },
-
-  callAction: function(nickname, params, callback){	  
-	//console.log("Wrapper calling action " + nickname + " with params: " + params);
-	this.smartdevice.callAction("","callAction","modelMethods",nickname, params)
-  },
-  
-  extract: function(strMsg, callback){
-	//
-	var jsonMsg = JSON.parse(strMsg);
-	var vars = {};
-	if(jsonMsg.hasOwnProperty("method")){
-		var method = jsonMsg.method;
-		var extracted = {};
-		if(method == "getSensorData"){	
-			vars = ["sensorId", "responseData"];
-		}else if (method == "sendActuatorData"){
-			vars = ["lastMeasured", "accessrole", "payload", "observerMode"];	
-		}else if (method == "getSensorMetadata"){
-			vars = ["sensors"];
-		}else if (method == "getActuatorMetadata"){
-			vars = ["actuators"];
-		}else if (method == "getActionsMetadata"){
-			vars = ["sensors"];
-		}else if (method == "callAction"){
-			vars = ["method","callerName","nickName","params"];
-		}else if (method == "actionDataResponse"){
-			vars = ["method","nickName"];
-		}else{
-			console.log("The method : " + jsonMsg.method + " is not handled in this wrapper. \n" +
-			"Will be ignored.");
-			return undefined;
-		}
-	}
-	extracted = this.smartdevice.extract(vars, jsonMsg);
-	//console.log("Wrapper calls extract " + vars + " from: \n" + JSON.stringify(jsonMsg) + " With value: " + JSON.stringify(extracted));
-	return this.toEjssReadable(method,extracted);
-  },
-  
-  eval: function(code, callback) {
-
-  },
-
-  open: function(model, callback) {
-
-  },
-
-  step: function(vars, callback) {
-
-  },
-
-  toEjssReadable: function(method,dataExtracted){
-	if(method == "getSensorData"){	
-		var nameValue = {};
-		var valueNames = dataExtracted.responseData.valueNames;
-		var dataValues = dataExtracted.responseData.data;
-		for(var i = 0; i<valueNames.length;i++){
-			nameValue[valueNames[i]] = dataValues[i];
-		}
-		//console.log("Data extracted and readable: " + JSON.stringify(nameValue));
-		return nameValue;
-	}else if (method == "sendActuatorData"){
-		//It is just a confirmation, with additional data
-		return true;
-	}else if (method == "getSensorMetadata"){
-		return dataExtracted;
-	}else if (method == "getActuatorMetadata"){
-		return dataExtracted;
-	}else if (method == "getActionsMetadata"){
-		return dataExtracted;
-	}else if (method == "callAction"){
-		return dataExtracted;
-	}else if (method == "actionDataResponse"){
-		return dataExtracted;
-	}else{
-		console.log("The method : " + method + " is nor handled in this wrapper. \n" +
-		"Will be ignored.");
-		return undefined;
-	}
-  }
-	
-}
 /*
 * Copyright (C) 2020 Francisco Esquembre and Felix J. Garcia
 * This code is part of the Easy Javascript Simulations authoring and simulation tool
